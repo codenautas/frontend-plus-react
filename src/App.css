@@ -1,0 +1,80 @@
+/* src/app.css */
+
+/* Estilos globales para asegurar que la aplicación ocupe el 100% del viewport
+  y que el scroll sea gestionado por componentes específicos, no por la página. */
+  html, body, #root {
+  height: 100%; /* Ocupa el 100% del alto del viewport */
+  margin: 0;   /* Elimina márgenes por defecto del navegador */
+  padding: 0;  /* Elimina rellenos por defecto del navegador */
+  overflow: hidden; /* ¡CLAVE! Previene scrolls a nivel de la página (horizontal y vertical) */
+  box-sizing: border-box; /* Asegura que padding y border se incluyan en el width/height */
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* El contenedor principal de tu aplicación (si es <App />) */
+.App {
+  height: 100%; /* Asegura que la App ocupe el 100% del alto de #root */
+  display: flex; /* Utiliza flexbox para su contenido (MainLayout) */
+  flex-direction: column; /* Los hijos se apilan verticalmente */
+}
+
+/* Otros estilos que tenías en tu archivo */
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh; /* Revisa si esto es necesario o si causa desbordamiento */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Estilos base para las filas de react-data-grid */
+.rdg-row {
+  /* La transición debe ser lo suficientemente larga para ser visible */
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+/* Esta clase se aplica a la fila cuando se va a borrar */
+.deleting-row {
+  opacity: 0; /* Hace que la fila se desvanezca */
+  transform: translateX(-100%); /* Mueve la fila hacia la izquierda */
+  pointer-events: none; /* Evita interacciones mientras se desvanece */
+}

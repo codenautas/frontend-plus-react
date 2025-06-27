@@ -1,0 +1,25 @@
+{
+    "compilerOptions": {
+      "target": "ESNext",             // Compila a una versión moderna de JavaScript
+      "module": "ESNext",             // Usa módulos ES (import/export)
+      "jsx": "react-jsx",             // Soporte para JSX (React)
+      "lib": ["dom", "dom.iterable", "esnext"], // Librerías disponibles (DOM para React, ESNext para características modernas)
+      "allowJs": true,                // Permitir archivos JavaScript
+      "skipLibCheck": true,           // Saltar la comprobación de tipos de librerías (más rápido)
+      "esModuleInterop": true,        // Habilitar interoperabilidad entre módulos CommonJS y ES
+      "allowSyntheticDefaultImports": true, // Permitir importaciones predeterminadas sintéticas
+      "strict": true,                 // Habilitar todas las opciones estrictas de TypeScript
+      "forceConsistentCasingInFileNames": true, // Forzar que los nombres de archivo sigan el casing (mayúsculas/minúsculas)
+      "noFallthroughCasesInSwitch": true, // Reportar errores para casos de switch sin 'break'
+      "moduleResolution": "node",     // Cómo TypeScript resuelve los módulos
+      "resolveJsonModule": true,      // Permitir importar archivos .json
+      "isolatedModules": true,        // Cada archivo se considera un módulo separado
+      "noEmit": true,                 // Importante: TypeScript no emitirá JS, lo hará Rollup
+      "declaration": true,            // Generar archivos .d.ts (definiciones de tipos)
+      "emitDeclarationOnly": true,    // Solo emitir declaraciones (.d.ts)
+      "declarationDir": "./dist/esm/types", // Dónde guardar las declaraciones intermedias
+      "outDir": "./dist/esm"          // Directorio de salida intermedio para Rollup
+    },
+    "include": ["src"],               // Incluir solo la carpeta src para la compilación
+    "exclude": ["node_modules", "dist"] // Excluir estas carpetas
+  }

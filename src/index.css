@@ -1,0 +1,26 @@
+/* src/index.css */
+
+/* Establece el HTML y el BODY para que ocupen el 100% del viewport
+   y no generen scrolls propios. Esto es fundamental para que el
+   MainLayout pueda gestionar el layout de la aplicación completa. */
+   html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Evita scrolls a nivel de la ventana */
+    box-sizing: border-box; /* Asegura que padding y border se incluyan en el cálculo del tamaño */
+  }
+  
+  /* El elemento raíz de tu aplicación React (generalmente un div con id="root")
+     también debe ocupar el 100% de la altura y usar flexbox para permitir
+     que sus hijos (como tu componente <App />) se distribuyan correctamente. */
+  #root {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+  
+  /* Asegúrate de que no haya otros estilos globales que anulen estas propiedades
+     o que añadan márgenes/rellenos inesperados a html, body o #root. */
+  

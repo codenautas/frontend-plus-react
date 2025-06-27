@@ -1,0 +1,79 @@
+{
+  "name": "frontend-plus-react",
+  "version": "0.1.0",
+  "description": "librería React genérica para consumir backends de tipo backend-plus.",
+  "main": "./dist/index.cjs", 
+  "module": "./dist/index.js", 
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "type": "module",  
+  "exports": { 
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./dist/index.css": "./dist/index.css",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean --splitting --sourcemap",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --clean --splitting --watch --sourcemap"
+  },
+  "keywords": [
+    "react",
+    "frontend",
+    "generic",
+    "backend-plus",
+    "data-grid",
+    "component-library"
+  ],
+  "author": "Codenautas <codenautas@googlegroups.com>",
+  "contributors": [
+    {
+      "name": "Manuel De la Penna",
+      "email": "manueldelapenna@gmail.com"
+    }
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@emotion/react": ">=11.0.0",
+    "@emotion/styled": ">=11.0.0",
+    "@hookform/resolvers": ">=5.0.1",
+    "@mui/icons-material": ">=5.0.0",
+    "@mui/material": ">=5.0.0",
+    "@reduxjs/toolkit": ">=2.8.2",
+    "react": ">=17.0.0",
+    "react-data-grid": ">=7.0.0",
+    "react-dom": ">=17.0.0",
+    "react-hook-form": ">=7.56.3",
+    "react-redux": ">=7.0.0",
+    "react-router-dom": ">=6.0.0",
+    "redux": ">=4.0.0",
+    "redux-persist": ">=6.0.0",
+    "web-vitals": ">=2.1.4",
+    "zod": ">=3.24.4"
+  },
+  "devDependencies": {
+    "@types/express-useragent": "^1.0.5",
+    "@types/node": "^20.14.8",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/react-redux": "^7.1.34",
+    "@types/react-router-dom": "^5.3.3",
+    "@types/redux": "^3.6.31",
+    "@types/redux-persist": "^4.0.0",
+    "backend-plus": "^2.5.2-betha.10",
+    "kill-9": "^0.4.3",
+    "react-data-grid": "^7.0.0-beta.56",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.6.2",
+    "redux": "^5.0.1",
+    "redux-persist": "^6.0.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "tslib": "^2.8.1"
+  }
+}
