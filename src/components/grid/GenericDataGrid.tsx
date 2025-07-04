@@ -21,12 +21,7 @@ import PkCellRenderer from './PkCellRenderer';
 import {
     CellFeedback,
     FieldDefinition,
-    TableDefinition,
-    FilterRendererProps,
-    InputRendererProps,
-    ConfirmDialogProps,
-    CustomHeaderCellProps,
-    CustomCellProps
+    TableDefinition
 } from '../../types';
 
 import { ConfirmDialog } from '../ConfirmDialog';
@@ -34,18 +29,18 @@ import { ConfirmDialog } from '../ConfirmDialog';
 import FilterInputRenderer from './FilterInputRender';
 import InputRenderer from './InputRendered';
 
-import { clientSides, ClientSideProps } from './clientSides';
+import { clientSides } from './clientSides';
 import FallbackClientSideRenderer from './FallbackClientSideRenderer';
 
 interface FixedField {
     fieldName: string;
     value: any;
-    until?: any; // El atributo 'until' es opcional
+    until?: any;
 }
 
 interface GenericDataGridProps {
     tableName: string;
-    fixedFields?: FixedField[]; // Ahora es un array de FixedField
+    fixedFields?: FixedField[];
 }
 
 export const getPrimaryKeyValues = (row: Record<string, any>, primaryKey: string[]): string => {
@@ -58,7 +53,7 @@ export const getPrimaryKeyValues = (row: Record<string, any>, primaryKey: string
         .join('|');
 };
 
-export const NEW_ROW_INDICATOR = '.$new';
+export const NEW_ROW_INDICATOR = '$new';
 
 const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     tableName,
@@ -104,13 +99,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             try {
                 const definition: TableDefinition = await callApi('table_structure', { table: tableName });
                 setTableDefinition(definition);
-
-                // No transformamos fixedFields; se envía directamente como array
                 const data = await callApi('table_data', {
                     table: tableName,
-                    fixedFields: fixedFields // Envía el array fixedFields directamente a la API
+                    fixedFields: fixedFields
                 });
-
                 setTableData(data);
             } catch (err: any) {
                 setTableDefinition(null);
@@ -126,7 +118,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             if (feedbackTimerRef.current) {
                 clearTimeout(feedbackTimerRef.current);
             }
-            const timerDuration = cellFeedback.type === 'success' ? 4000 : 3000;
+            const timerDuration = 3000;
             feedbackTimerRef.current = setTimeout(() => {
                 setCellFeedback(null);
             }, timerDuration);
