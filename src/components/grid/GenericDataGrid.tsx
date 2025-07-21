@@ -1,43 +1,35 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { DataGrid, Column, DataGridHandle, SelectCellOptions, CellMouseArgs, RenderCellProps, RenderHeaderCellProps } from 'react-data-grid';
+import { DataGrid, Column, DataGridHandle, SelectCellOptions, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps} from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
 
 import { useApiCall } from '../../hooks/useApiCall';
 import {
-    CircularProgress, Typography, Box, Alert, useTheme, Button, IconButton
+    CircularProgress, Typography, Box, Alert, useTheme, Button
 } from '@mui/material';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 
-import SearchIcon from '@mui/icons-material/Search';
-import SearchOffIcon from '@mui/icons-material/SearchOff';
 import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
 
 import { useSnackbar } from '../../contexts/SnackbarContext';
-
-import PkHeaderRenderer from './PkHeaderRenderer';
-import PkCellRenderer from './PkCellRenderer';
 
 import {
     CellFeedback,
     FieldDefinition,
+    FixedField,
     TableDefinition
 } from '../../types';
 
 import { ConfirmDialog } from '../ConfirmDialog';
 
 import FilterInputRenderer from './FilterInputRender';
-import InputRenderer from './InputRendered';
+import InputRenderer from './InputRenderer';
 
 import { clientSides } from './clientSides';
 import FallbackClientSideRenderer from './FallbackClientSideRenderer';
-
-interface FixedField {
-    fieldName: string;
-    value: any;
-    until?: any;
-}
-
+import { actionsColumnHeaderCellRenderer, defaultColumnHeaderCellRenderer, detailColumnCellHeaderRenderer } from './renderers/headerCellRenderers';
+import { actionsColumnSummaryCellRenderer, defaultColumnSummaryCellRenderer, detailColumnCellSummaryRenderer } from './renderers/summaryCellRenderers';
+import { actionsColumnCellRenderer, defaultColumnCellRenderer, detailColumnCellRenderer } from './renderers/cellRenderers';
+import { defaultColumnEditCellRenderer } from './renderers/editCellRenderers';
 interface GenericDataGridProps {
     tableName: string;
     fixedFields?: FixedField[];
@@ -54,6 +46,7 @@ export const getPrimaryKeyValues = (row: Record<string, any>, primaryKey: string
 };
 
 export const NEW_ROW_INDICATOR = '$new';
+export const DETAIL_ROW_INDICATOR = '$detail';
 
 const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     tableName,
@@ -292,6 +285,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         return rows;
     }, [tableData, filters, isFilterRowVisible]);
 
+    //TODO: mejorar ingreso de datos
     const handleEnterKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, currentColumns: Column<any>[]) => {
         if (dataGridRef.current && tableDefinition) {
             const currentColumnIndex = currentColumns.findIndex((col: Column<any>) => col.key === columnKey);
@@ -339,6 +333,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         }
     }, [filteredRows, tableDefinition]);
 
+    //@ts-ignore TODO: arreglar este tipo
     const columns: Column<any>[] = useMemo(() => {
         if (!tableDefinition) return [];
 
@@ -350,200 +345,66 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             return !(fixedFieldEntry && fixedFieldEntry.until === undefined);
         });
 
-        const defaultColumns: Column<any>[] = fieldsToShow.map((field: FieldDefinition) => {
+        const defaultColumns: Column<any>[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
             // Determinar si el campo está fijo (en el array fixedFields)
-            const isFixedField = fixedFields?.some(f => f.fieldName === field.name);
-            const isFieldEditable = field.editable !== false && !isFixedField; // Un campo fijo no es editable por el usuario
+            const isFixedField = fixedFields?.some(f => f.fieldName === fieldDef.name);
+            const isFieldEditable = fieldDef.editable !== false && !isFixedField; // Un campo fijo no es editable por el usuario
 
             return {
-                key: field.name,
-                name: field.label || cambiarGuionesBajosPorEspacios(field.name),
+                key: fieldDef.name,
+                name: fieldDef.label || cambiarGuionesBajosPorEspacios(fieldDef.name),
                 resizable: true,
                 sortable: true,
                 editable: isFieldEditable, // Usar la nueva bandera de editable
                 flexGrow: 1,
                 minWidth: 60,
-                isPK: field.isPk,
-                renderHeaderCell: (props: RenderHeaderCellProps<any, any>) => <PkHeaderRenderer {...props} />,
-                renderSummaryCell: ({ column }) => {
-                    // Si el campo es fijo, no debe aparecer en los filtros
-                    const fixedFieldEntry = fixedFields?.find(f => f.fieldName === column.key);
-                    // El filtro solo se muestra si NO es un campo fijo O si es un campo fijo que sí tiene 'until'
-                    if (fixedFieldEntry && fixedFieldEntry.until === undefined) return null; // No mostrar filtro si es fixedField sin 'until'
-
-                    return isFilterRowVisible ? (
-                        <FilterInputRenderer
-                            column={column}
-                            filters={filters}
-                            setFilters={setFilters}
-                        />
-                    ) : null;
+                colSpan(args) {
+                    return args.type === 'ROW' && args.row[DETAIL_ROW_INDICATOR] ? defaultColumns.length : undefined;
                 },
-                renderCell: (props: RenderCellProps<any, any>) => {
-                    const rowId = getPrimaryKeyValues(props.row, primaryKey);
-                    const fieldDefinition = tableDefinition.fields.find(f => f.name === props.column.key);
-
-                    // Lógica para renderizado clientSide
-                    if (fieldDefinition?.clientSide) {
-                        const ClientSideComponent = clientSides[fieldDefinition.clientSide];
-                        if (ClientSideComponent) {
-                            return (
-                                <ClientSideComponent
-                                    {...props}
-                                    fieldDefinition={fieldDefinition}
-                                    tableDefinition={tableDefinition}
-                                    primaryKey={primaryKey}
-                                />
-                            );
-                        } else {
-                            return (
-                                <FallbackClientSideRenderer
-                                    {...props}
-                                    fieldDefinition={fieldDefinition}
-                                    tableDefinition={tableDefinition}
-                                    primaryKey={primaryKey}
-                                />
-                            );
-                        }
-                    }
-
-                    // Lógica para resaltar celdas con feedback o cambios locales
-                    let cellBackgroundColor = 'transparent';
-                    if (cellFeedback && cellFeedback.rowId === rowId && cellFeedback.columnKey === props.column.key) {
-                        cellBackgroundColor = cellFeedback.type === 'error' ? theme.palette.error.light : theme.palette.success.light;
-                    } else {
-                        const isNewRowLocalCheck = props.row[NEW_ROW_INDICATOR];
-                        const isMandatory = tableDefinition.primaryKey.includes(props.column.key) || (tableDefinition.fields.find(f => f.name === props.column.key)?.nullable === false);
-                        const hasValue = props.row[props.column.key] !== null && props.row[props.column.key] !== undefined && String(props.row[props.column.key]).trim() !== '';
-
-                        // Determinar si es un campo fijo para el resaltado
-                        const isFixedFieldCurrent = fixedFields?.some(f => f.fieldName === props.column.key);
-
-                        // Resalta campos fijos con un color diferente para distinguirlos
-                        if (isFixedFieldCurrent) {
-                            cellBackgroundColor = theme.palette.action.selected; // Un gris claro o similar
-                        } else if ((isNewRowLocalCheck && isMandatory && !hasValue) || (localCellChanges.has(rowId) && localCellChanges.get(rowId)?.has(props.column.key))) {
-                            cellBackgroundColor = theme.palette.info.light;
-                        }
-                    }
-
-                    return (
-                        <Box
-                            sx={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                width: '100%',
-                                height: '100%',
-                                backgroundColor: cellBackgroundColor,
-                                transition: 'background-color 0.3s ease-in-out',
-                                display: 'flex',
-                                alignItems: 'center',
-                                paddingLeft: '8px',
-                                boxSizing: 'border-box',
-                            }}
-                        >
-                            <PkCellRenderer
-                                {...props}
-                                column={{ ...props.column, isPK: !!field.isPk }}
-                            />
-                        </Box>
-                    );
-                },
+                renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
+                renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => defaultColumnSummaryCellRenderer(props, fixedFields, isFilterRowVisible, filters, setFilters),
+                renderCell: (props: RenderCellProps<any, unknown>) => defaultColumnCellRenderer(props, tableDefinition, cellFeedback, primaryKey, fixedFields, localCellChanges),
             };
         });
 
-        const filterToggleColumn: Column<any> = {
+        const actionsColumn: Column<any> = {
             key: 'filterToggle',
             name: '',
             width: 50,
             resizable: false,
             sortable: false,
             frozen: true,
-            renderHeaderCell: () => (
-                <IconButton
-                    color="inherit"
-                    onClick={toggleFilterVisibility}
-                    size="small"
-                    title={isFilterRowVisible ? 'Ocultar filtros' : 'Mostrar filtros'}
-                    sx={{ p: 0.5 }}
-                >
-                    {isFilterRowVisible ? <SearchOffIcon sx={{ fontSize: 20 }} /> : <SearchIcon sx={{ fontSize: 20 }} />}
-                </IconButton>
-            ),
-            renderSummaryCell: () => null,
+            renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => actionsColumnHeaderCellRenderer(props, isFilterRowVisible,toggleFilterVisibility),
+            renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => actionsColumnSummaryCellRenderer(props),
+            renderCell: (props: RenderCellProps<any, unknown>) => actionsColumnCellRenderer(props, tableDefinition, handleDeleteRow),
         };
 
-        const deleteActionColumn: Column<any> = {
-            key: 'deleteAction',
-            name: '',
-            width: 50,
-            resizable: false,
-            sortable: false,
-            frozen: true,
-            renderHeaderCell: () => null,
-            renderSummaryCell: () => null,
-            renderCell: ({ row }) => {
-                if (!tableDefinition.allow?.delete) {
-                    return null;
-                }
-                return (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                        <Button
-                            variant="outlined"
-                            color="error"
-                            size="small"
-                            onClick={() => handleDeleteRow(row)}
-                            title="Eliminar fila"
-                            sx={{
-                                minWidth: 35,
-                                height: 30,
-                                p: 0.5,
-                                '& .MuiButton-startIcon': { m: 0 }
-                            }}
-                        >
-                            <DeleteIcon sx={{ fontSize: 18 }} />
-                        </Button>
-                    </Box>
-                );
-            },
-        };
-
-        const allColumns = [filterToggleColumn, deleteActionColumn, ...defaultColumns];
-
-        return allColumns.map(col => {
-            if (col.editable) { // Solo si la columna es editable en primer lugar
-                const fieldDefinition = tableDefinition.fields.find(f => f.name === col.key);
-                // Busca si el campo es fijo en el array fixedFields
-                const isFixedField = fixedFields?.some(f => f.fieldName === col.key);
-                const isFieldEditableByUI = fieldDefinition?.editable !== false && !isFixedField; // No editable si es fijo
-
-                if (!isFieldEditableByUI) {
-                    // Si el campo no es editable por UI (ej. por ser fijo), no renderizamos el editor
-                    return { ...col, renderEditCell: undefined };
-                }
-
-                return {
-                    ...col,
-                    renderEditCell: (props) => {
-                        return (
-                            <InputRenderer
-                                {...props}
-                                tableDefinition={tableDefinition}
-                                setCellFeedback={setCellFeedback}
-                                onEnterPress={(rowIndex, columnKey) => handleEnterKeyPressInEditor(rowIndex, columnKey, allColumns)}
-                                setTableData={setTableData}
-                                setLocalCellChanges={setLocalCellChanges}
-                                localCellChanges={localCellChanges}
-                                primaryKey={primaryKey}
-                            />
-                        );
-                    }
-                };
-            }
-            return col;
-        });
-
+        const detailColumns: Column<any>[] = [];
+        if (tableDefinition.detailTables && tableDefinition.detailTables.length > 0) {
+            tableDefinition.detailTables.forEach(detailTable => {
+                const detailKey = `detail_${detailTable.abr}`;
+                detailColumns.push({
+                    key: detailKey,
+                    name: detailTable.label || `Detalle ${detailTable.abr}`,
+                    resizable: false,
+                    sortable: false,
+                    frozen: true,
+                    renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => detailColumnCellHeaderRenderer(props, detailTable),
+                    renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => detailColumnCellSummaryRenderer(props),
+                    renderCell: (props: RenderCellProps<any, unknown>) => detailColumnCellRenderer(props, detailTable, primaryKey, tableData, setTableData),
+                });
+            });
+        }
+        const allColumns = [
+            actionsColumn,
+            ...detailColumns,
+            ...defaultColumns,
+        ];
+       
+        return allColumns.map(col => ({
+            ...col,
+            renderEditCell: (props) => defaultColumnEditCellRenderer(props, tableDefinition, fixedFields, primaryKey, setCellFeedback, setTableData, localCellChanges, setLocalCellChanges, handleEnterKeyPressInEditor, allColumns),
+        }))
     }, [
         tableDefinition, isFilterRowVisible, filters, toggleFilterVisibility,
         cellFeedback, primaryKey, theme.palette.success.light, theme.palette.error.light,
@@ -596,16 +457,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     }
 
     return (
-        <Box sx={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, pt: 2, pb: 1 }}>
-                <Typography variant="h4" gutterBottom sx={{ m: 0 }}>
-                    {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)}
-                </Typography>
-
-            </Box>
+        <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
             {tableDefinition.allow?.insert && (
-                <Box sx={{ display: 'flex', px: 2 }}>
-
+                <Box sx={{ display: 'flex', px: 2, pb: 1 }}>
                     <Button
                         variant="contained"
                         onClick={handleAddRow}
@@ -615,14 +469,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     </Button>
                 </Box>
             )}
-            <Box sx={{ px: 2, pt: 2, pb: 1, fontSize: '0.9rem' }}>
-                {filteredRows.length === tableData.length ?
-                    <Box>mostrando {`${tableData.length} registros`}</Box>
-                    : <>
-                        <Box>mostrando {`${filteredRows.length} registros filtrados`}</Box>
-                    </>}
-            </Box>
-
             <Box
                 sx={{
                     flexGrow: showNoRowsMessage ? 0 : 1,
@@ -632,9 +478,30 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     overflowX: 'auto',
                     overflowY: 'auto',
                     px: 2,
-                    pb: 2
+                    pb: 2,
                 }}
             >
+                <Box
+                    sx={{
+                        backgroundColor: theme.palette.primary.main, // Color de fondo para el título
+                        color: theme.palette.primary.contrastText, // Color del texto
+                        padding: theme.spacing(1),
+                        textAlign: 'left',
+                        fontWeight: 'bold',
+                        borderBottom: `1px solid ${theme.palette.divider}`,
+                        // Si el contenedor tiene border-radius, la parte superior del título también debe tenerlo
+                        borderTopLeftRadius: theme.shape.borderRadius,
+                        borderTopRightRadius: theme.shape.borderRadius,
+                    }}
+                >
+                    <Typography variant="subtitle1" component="div">
+                        {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} - 
+                        mostrando {filteredRows.length === tableData.length ?`${tableData.length} registros`
+                        : `${filteredRows.length} registros filtrados`
+                        }
+                    </Typography>
+                </Box>
+            
                 <DataGrid
                     ref={dataGridRef}
                     //@ts-ignore TODO: arreglar este tipo
@@ -650,12 +517,14 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     onSelectedRowsChange={setSelectedRows}
                     onRowsChange={handleRowsChange}
                     selectedRows={selectedRows}
-                    rowHeight={(row) => exitingRowIds.has(getPrimaryKeyValues(row, primaryKey)) ? 0 : 35}
+                    rowHeight={(row) => row[DETAIL_ROW_INDICATOR]?300:35}
                     style={{ height: '100%', width: '100%', boxSizing: 'border-box' }}
                     headerRowHeight={35}
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
                     summaryRowHeight={isFilterRowVisible ? 35 : 0}
                     onCellClick={handleCellClick}
+                    //@ts-ignore
+                    //renderers={{renderCell: myCellRenderer }}
                 />
                 {showNoRowsMessage && (
                     <Box

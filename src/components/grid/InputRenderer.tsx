@@ -26,7 +26,7 @@ function InputRenderer<R extends Record<string, any>, S>({
     const { showSuccess, showError } = useSnackbar();
 
     const initialRowId = useMemo(() => getPrimaryKeyValues(row, primaryKey), [row, primaryKey]);
-    const { callApi, loading, error } = useApiCall();
+    const { callApi } = useApiCall();
     const handleCommit = useCallback(async (currentValue: any, closeEditor: boolean, focusNextCell: boolean) => {
         const processedNewValue = typeof currentValue === 'string'
             ? (currentValue.trim() === '' ? null : currentValue.trim())

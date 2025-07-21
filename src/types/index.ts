@@ -8,6 +8,11 @@ export type {FieldDefinition, TableDefinition} from "backend-plus";
 export interface GenericDataGridProps {
     // tableName: string; // Comentado según tu código original
 }
+export interface FixedField {
+    fieldName: string;
+    value: any;
+    until?: any;
+}
 
 export interface CellFeedback {
     rowId: string;
