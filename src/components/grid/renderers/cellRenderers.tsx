@@ -1,6 +1,6 @@
 import { RenderCellProps } from "react-data-grid"
-import GenericDataGrid, { DETAIL_ROW_INDICATOR, getPrimaryKeyValues, NEW_ROW_INDICATOR } from "../GenericDataGrid";
-import { CellFeedback, FixedField, TableDefinition } from "../../../types";
+import GenericDataGrid, { ActionColumn, CustomColumn, DefaultColumn, DETAIL_ROW_INDICATOR, DetailColumn, getPrimaryKeyValues, NEW_ROW_INDICATOR } from "../GenericDataGrid";
+import { CellFeedback, FixedField, GenericDataGridProps, TableDefinition } from "../../../types";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -10,16 +10,28 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { clientSides } from "../clientSides";
 import FallbackClientSideRenderer from "../FallbackClientSideRenderer";
+import { useState } from "react";
+
+export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => {
+    const column = props.column as unknown as CustomColumn<any, unknown>;
+    switch (column.customType) {
+    case 'default':
+        return defaultColumnCellRenderer(props);
+    case 'detail':
+        return detailColumnCellRenderer(props);
+    case 'action':
+        return actionsColumnCellRenderer(props);
+    default:
+        return <>{String(props.row[props.column.key])}</>;
+  }
+}
 
 export const defaultColumnCellRenderer = (
-    props: RenderCellProps<any, unknown>, 
-    tableDefinition:TableDefinition, 
-    cellFeedback:CellFeedback | null, 
-    primaryKey:string[], 
-    fixedFields:FixedField[] | undefined, 
-    localCellChanges:Map<string, Set<string>>
+    props: RenderCellProps<any, unknown>
 ) => {
     const theme = useTheme();
+    const column = props.column as unknown as DefaultColumn<any, unknown>;
+    const {tableDefinition, primaryKey, cellFeedback, fixedFields, localCellChanges} = column;
     if(props.row[DETAIL_ROW_INDICATOR]){
         let detailTable = tableDefinition.detailTables!.find((detailTable)=>detailTable.abr == props.row[DETAIL_ROW_INDICATOR])!;
         let fixedFields:FixedField[] = [];
@@ -113,8 +125,10 @@ export const defaultColumnCellRenderer = (
     );
 }
 
-export const actionsColumnCellRenderer = (props: RenderCellProps<any, unknown>, tableDefinition:TableDefinition, handleDeleteRow:Function) => {
+export const actionsColumnCellRenderer = (props: RenderCellProps<any, unknown>) => {
     let {row} = props;
+    const column = props.column as unknown as ActionColumn<any, unknown>;
+    const {tableDefinition, handleDeleteRow} = column;
     if(row[DETAIL_ROW_INDICATOR]) return undefined;
     if (!tableDefinition.allow?.delete) {
         return null;
@@ -142,11 +156,13 @@ export const actionsColumnCellRenderer = (props: RenderCellProps<any, unknown>, 
 }
 
 //TODO: terminar, revisar key duplicada
-export const detailColumnCellRenderer = (props: RenderCellProps<any, unknown>, detailTable:DetailTable, primaryKey:string[], tableData:any[], setTableData:React.Dispatch<React.SetStateAction<any[]>>) => {
+export const detailColumnCellRenderer = (props: RenderCellProps<any, unknown>) => {
     let {row, rowIdx} = props;
+    const column = props.column as unknown as DetailColumn<any, unknown>;
+    const {detailTable, primaryKey, tableData, setTableData} = column;
     if(row[DETAIL_ROW_INDICATOR])return undefined
     const rowId = getPrimaryKeyValues(row, primaryKey);
-    const isExpanded = false//expandedRows.has(rowId);
+    const [isExpanded, setIsExpanded] = useState<boolean>(false);
     return (
         <Tooltip title={detailTable.label}>
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -154,11 +170,16 @@ export const detailColumnCellRenderer = (props: RenderCellProps<any, unknown>, d
                     size="small"
                     onClick={(event) => {
                         let rows = [...tableData]
-                        rows.splice(rowIdx+1,0,{
-                            ...row,
-                            [DETAIL_ROW_INDICATOR]: detailTable.abr,
-                        });
-                        setTableData(rows)
+                        if(isExpanded){
+                            setTableData(rows.filter((row) => row[DETAIL_ROW_INDICATOR]!=detailTable.abr))
+                        }else{
+                            rows.splice(rowIdx+1,0,{
+                                ...row,
+                                [DETAIL_ROW_INDICATOR]: detailTable.abr,
+                            });
+                            setTableData(rows)
+                        }
+                        setIsExpanded((previous)=>!previous)                      
                         event.stopPropagation();
                     }}
                     title={isExpanded ? 'Contraer detalle' : 'Expandir detalle'}
