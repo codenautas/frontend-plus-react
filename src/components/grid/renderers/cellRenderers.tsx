@@ -1,193 +1,159 @@
-import { RenderCellProps } from "react-data-grid"
-import GenericDataGrid, { ActionColumn, CustomColumn, DefaultColumn, DETAIL_ROW_INDICATOR, DetailColumn, getPrimaryKeyValues, NEW_ROW_INDICATOR } from "../GenericDataGrid";
-import { CellFeedback, FixedField, GenericDataGridProps, TableDefinition } from "../../../types";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import DeleteIcon from '@mui/icons-material/Delete';
-import { IconButton, Tooltip, Typography, useTheme } from "@mui/material";
-import { DetailTable } from "backend-plus";
+// src/components/grid/renderers/cellRenderers.tsx
+import React from 'react';
+import { RenderCellProps } from 'react-data-grid';
+import { Box, Button, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { clientSides } from "../clientSides";
-import FallbackClientSideRenderer from "../FallbackClientSideRenderer";
-import { useState } from "react";
+import DeleteIcon from '@mui/icons-material/Delete';
+import GenericDataGrid, { getPrimaryKeyValues, NEW_ROW_INDICATOR, DETAIL_ROW_INDICATOR } from '../GenericDataGrid';
+import { CustomColumn, DefaultColumn, DetailColumn, ActionColumn } from '../GenericDataGrid';
+import {FixedField} from '../../../types';
+import { clientSides } from '../clientSides';
+import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
 
 export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => {
-    const column = props.column as unknown as CustomColumn<any, unknown>;
-    switch (column.customType) {
-    case 'default':
-        return defaultColumnCellRenderer(props);
-    case 'detail':
-        return detailColumnCellRenderer(props);
-    case 'action':
-        return actionsColumnCellRenderer(props);
-    default:
-        return <>{String(props.row[props.column.key])}</>;
-  }
-}
-
-export const defaultColumnCellRenderer = (
-    props: RenderCellProps<any, unknown>
-) => {
     const theme = useTheme();
-    const column = props.column as unknown as DefaultColumn<any, unknown>;
-    const {tableDefinition, primaryKey, cellFeedback, fixedFields, localCellChanges} = column;
-    if(props.row[DETAIL_ROW_INDICATOR]){
-        let detailTable = tableDefinition.detailTables!.find((detailTable)=>detailTable.abr == props.row[DETAIL_ROW_INDICATOR])!;
-        let fixedFields:FixedField[] = [];
-        detailTable.fields.forEach((field)=>{
-            if(typeof field === "string"){
-                fixedFields.push({fieldName:field, value:props.row[field]})
-            }else{
-                //@ts-ignore existe el source
-                fixedFields.push({fieldName:field.target,value:props.row[field.source]})
-            }
-        })
-        return <GenericDataGrid tableName={detailTable.table!} fixedFields={fixedFields} />
-    };
-    const rowId = getPrimaryKeyValues(props.row, primaryKey);
-    const fieldDefinition = tableDefinition.fields.find(f => f.name === props.column.key);
+    const column = props.column as CustomColumn<any, unknown>;
+    const { row, rowIdx } = props;
 
-    // Lógica para renderizado clientSide
-    if (fieldDefinition?.clientSide) {
-        const ClientSideComponent = clientSides[fieldDefinition.clientSide];
-        if (ClientSideComponent) {
+    // Lógica para la fila de detalle
+    if (row[DETAIL_ROW_INDICATOR]) {
+        const detailTableAbr = row[DETAIL_ROW_INDICATOR];
+        const detailColumn = column as DetailColumn<any, unknown>;
+        
+        // Verifica que la columna actual sea la de detalle para esa fila
+        if (column.customType === 'detail' /*&& detailColumn.detailTable.abr === detailTableAbr*/) {
+            const detailTable = detailColumn.tableDefinition.detailTables!.find((dt) => dt.abr === detailTableAbr)!;
+            
+            let fixedFields: FixedField[] = [];
+            detailTable.fields.forEach((field: any) => {
+                if (typeof field === "string") {
+                    fixedFields.push({ fieldName: field, value: row[field] });
+                } else {
+                    fixedFields.push({ fieldName: field.target, value: row[field.source] });
+                }
+            });
+
             return (
-                <ClientSideComponent
-                    {...props}
-                    fieldDefinition={fieldDefinition}
-                    tableDefinition={tableDefinition}
-                    primaryKey={primaryKey}
-                />
-            );
-        } else {
-            return (
-                <FallbackClientSideRenderer
-                    {...props}
-                    fieldDefinition={fieldDefinition}
-                    tableDefinition={tableDefinition}
-                    primaryKey={primaryKey}
-                />
-            );
-        }
-    }
-
-    // Lógica para resaltar celdas con feedback o cambios locales
-    let cellBackgroundColor = 'transparent';
-    if (cellFeedback && cellFeedback.rowId === rowId && cellFeedback.columnKey === props.column.key) {
-        cellBackgroundColor = cellFeedback.type === 'error' ? theme.palette.error.light : theme.palette.success.light;
-    } else {
-        const isNewRowLocalCheck = props.row[NEW_ROW_INDICATOR];
-        const isMandatory = tableDefinition.primaryKey.includes(props.column.key) || (tableDefinition.fields.find(f => f.name === props.column.key)?.nullable === false);
-        const hasValue = props.row[props.column.key] !== null && props.row[props.column.key] !== undefined && String(props.row[props.column.key]).trim() !== '';
-
-        // Determinar si es un campo fijo para el resaltado
-        const isFixedFieldCurrent = fixedFields?.some(f => f.fieldName === props.column.key);
-
-        // Resalta campos fijos con un color diferente para distinguirlos
-        if (isFixedFieldCurrent) {
-            cellBackgroundColor = theme.palette.action.selected; // Un gris claro o similar
-        } else if ((isNewRowLocalCheck && isMandatory && !hasValue) || (localCellChanges.has(rowId) && localCellChanges.get(rowId)?.has(props.column.key))) {
-            cellBackgroundColor = theme.palette.info.light;
-        }
-    }
-    const value = props.row[props.column.key];
-    return (
-        <Box
-            sx={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                backgroundColor: cellBackgroundColor,
-                transition: 'background-color 0.3s ease-in-out',
-                display: 'flex',
-                alignItems: 'center',
-                paddingLeft: '8px',
-                boxSizing: 'border-box',
-            }}
-        >
-            <Typography
-                variant="body2"
-                sx={{
-                    //fontWeight: isPrimaryKey ? 'bold' : 'normal',
-                    fontSize: '0.875rem', // Ajusta el tamaño si es necesario
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
+                <Box sx={{
+                    // Se eliminó el padding para que la sub-grilla se extienda por completo
+                    minHeight: '200px',
                     width: '100%',
-                }}
-            >
-                {value === null || value === undefined ? '' : String(value)}
-            </Typography>
-        </Box>
-    );
-}
-
-export const actionsColumnCellRenderer = (props: RenderCellProps<any, unknown>) => {
-    let {row} = props;
-    const column = props.column as unknown as ActionColumn<any, unknown>;
-    const {tableDefinition, handleDeleteRow} = column;
-    if(row[DETAIL_ROW_INDICATOR]) return undefined;
-    if (!tableDefinition.allow?.delete) {
-        return null;
+                    height: '100%',
+                    //display: 'flex',
+                    //flexDirection: 'column',
+                    boxSizing: 'border-box'
+                }}>
+                    <GenericDataGrid tableName={detailTable.table!} fixedFields={fixedFields} />
+                </Box>
+            );
+        }
+        
+        // Si la fila es de detalle, pero no es la columna correcta, devuelve null
+        return undefined;
     }
-    return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <Button
-                variant="outlined"
-                color="error"
-                size="small"
-                onClick={() => handleDeleteRow(row)}
-                title="Eliminar fila"
-                sx={{
-                    minWidth: 35,
-                    height: 30,
-                    p: 0.5,
-                    '& .MuiButton-startIcon': { m: 0 }
-                }}
-            >
-                <DeleteIcon sx={{ fontSize: 18 }} />
-            </Button>
-        </Box>
-    );
 
-}
+    // Lógica para renderizar una celda normal
+    switch (column.customType) {
+        case 'default': {
+            const defaultColumn = column as DefaultColumn<any, unknown>;
+            const { fieldDef, tableDefinition, primaryKey, cellFeedback, fixedFields, localCellChanges } = defaultColumn;
+            const rowId = getPrimaryKeyValues(row, primaryKey);
 
-//TODO: terminar, revisar key duplicada
-export const detailColumnCellRenderer = (props: RenderCellProps<any, unknown>) => {
-    let {row, rowIdx} = props;
-    const column = props.column as unknown as DetailColumn<any, unknown>;
-    const {detailTable, primaryKey, tableData, setTableData} = column;
-    if(row[DETAIL_ROW_INDICATOR])return undefined
-    const rowId = getPrimaryKeyValues(row, primaryKey);
-    const [isExpanded, setIsExpanded] = useState<boolean>(false);
-    return (
-        <Tooltip title={detailTable.label}>
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                <IconButton
-                    size="small"
-                    onClick={(event) => {
-                        let rows = [...tableData]
-                        if(isExpanded){
-                            setTableData(rows.filter((row) => row[DETAIL_ROW_INDICATOR]!=detailTable.abr))
-                        }else{
-                            rows.splice(rowIdx+1,0,{
-                                ...row,
-                                [DETAIL_ROW_INDICATOR]: detailTable.abr,
-                            });
-                            setTableData(rows)
-                        }
-                        setIsExpanded((previous)=>!previous)                      
-                        event.stopPropagation();
-                    }}
-                    title={isExpanded ? 'Contraer detalle' : 'Expandir detalle'}
-                    sx={{ p: 0.5 }}
-                >
-                    {isExpanded ? <KeyboardArrowUpIcon sx={{ fontSize: 20 }} /> : <KeyboardArrowDownIcon sx={{ fontSize: 20 }} />}
-                </IconButton>
-            </Box>
-        </Tooltip>
-    );
-}
+            if (fieldDef?.clientSide) {
+                const ClientSideComponent = clientSides[fieldDef.clientSide];
+                if (ClientSideComponent) {
+                    return <ClientSideComponent {...props} fieldDefinition={fieldDef} tableDefinition={tableDefinition} primaryKey={primaryKey} />;
+                }
+                return <FallbackClientSideRenderer {...props} fieldDefinition={fieldDef} tableDefinition={tableDefinition} primaryKey={primaryKey} />;
+            }
+
+            let cellBackgroundColor = 'transparent';
+            if (cellFeedback && cellFeedback.rowId === rowId && cellFeedback.columnKey === props.column.key) {
+                cellBackgroundColor = cellFeedback.type === 'error' ? theme.palette.error.light : theme.palette.success.light;
+            } else {
+                const isNewRowLocalCheck = row[NEW_ROW_INDICATOR];
+                const isMandatory = tableDefinition.primaryKey.includes(props.column.key) || (tableDefinition.fields.find(f => f.name === props.column.key)?.nullable === false);
+                const hasValue = row[props.column.key] !== null && row[props.column.key] !== undefined && String(row[props.column.key]).trim() !== '';
+                const isFixedFieldCurrent = fixedFields?.some(f => f.fieldName === props.column.key);
+
+                if (isFixedFieldCurrent) {
+                    cellBackgroundColor = theme.palette.action.selected;
+                } else if ((isNewRowLocalCheck && isMandatory && !hasValue) || (localCellChanges.has(rowId) && localCellChanges.get(rowId)?.has(props.column.key))) {
+                    cellBackgroundColor = theme.palette.info.light;
+                }
+            }
+            
+            const value = row[props.column.key];
+            return (
+                <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: cellBackgroundColor, transition: 'background-color 0.3s ease-in-out', display: 'flex', alignItems: 'center', paddingLeft: '8px', boxSizing: 'border-box' }}>
+                    <Typography variant="body2" sx={{ fontSize: '0.875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                        {value === null || value === undefined ? '' : String(value)}
+                    </Typography>
+                </Box>
+            );
+        }
+        
+        case 'detail': {
+            const detailColumn = column as DetailColumn<any, unknown>;
+            const { detailTable, primaryKey, tableData, setTableData, detailKey } = detailColumn;
+            
+            const isExpanded = tableData.some(r => 
+                r[DETAIL_ROW_INDICATOR] === detailTable.abr && 
+                getPrimaryKeyValues(r, primaryKey) === getPrimaryKeyValues({...row,[DETAIL_ROW_INDICATOR]: detailTable.abr}, primaryKey)
+            );
+
+            return (
+                <Tooltip title={detailTable.label}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                        <IconButton
+                            size="small"
+                            onClick={(event) => {
+                                
+                                let rows = [...tableData];
+                                const rowId = getPrimaryKeyValues({...row,[DETAIL_ROW_INDICATOR]: detailTable.abr}, primaryKey);
+                                
+                                if (isExpanded) {
+                                    setTableData(rows.filter((r) => 
+                                        !(r[DETAIL_ROW_INDICATOR] === detailTable.abr && 
+                                          getPrimaryKeyValues(r, primaryKey) === rowId)
+                                    ));
+                                } else {
+                                    const parentRowIndex = rowIdx;
+                                    rows.splice(parentRowIndex + 1, 0, {
+                                        ...row,
+                                        [DETAIL_ROW_INDICATOR]: detailTable.abr,
+                                    });
+                                    setTableData(rows);
+                                }
+                                event.stopPropagation();
+                            }}
+                            title={isExpanded ? 'Contraer detalle' : 'Expandir detalle'}
+                            sx={{ p: 0.5 }}
+                        >
+                            {isExpanded ? <KeyboardArrowUpIcon sx={{ fontSize: 20 }} /> : <KeyboardArrowDownIcon sx={{ fontSize: 20 }} />}
+                        </IconButton>
+                    </Box>
+                </Tooltip>
+            );
+        }
+
+        case 'action': {
+            const actionColumn = column as ActionColumn<any, unknown>;
+            const { tableDefinition, handleDeleteRow } = actionColumn;
+            
+            if (!tableDefinition.allow?.delete) return undefined;
+            
+            return (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                    <Button variant="outlined" color="error" size="small" onClick={() => handleDeleteRow(row)} title="Eliminar fila" sx={{ minWidth: 35, height: 30, p: 0.5, '& .MuiButton-startIcon': { m: 0 } }}>
+                        <DeleteIcon sx={{ fontSize: 18 }} />
+                    </Button>
+                </Box>
+            );
+        }
+
+        default:
+            return undefined;
+    }
+};
