@@ -32,6 +32,7 @@ import { actionsColumnSummaryCellRenderer, defaultColumnSummaryCellRenderer, det
 import { allColumnsCellRenderer } from './renderers/cellRenderers';
 import { defaultColumnEditCellRenderer } from './renderers/editCellRenderers';
 import { DetailTable } from 'backend-plus';
+import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
 
 interface GenericDataGridProps {
     tableName: string;
@@ -454,8 +455,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         localCellChanges, handleDeleteRow, fixedFields, tableData
     ]);
 
-    const showNoRowsMessage = filteredRows.length === 0 && !loading && !error;
-
     const handleRowsChange = useCallback((updatedRows: any[]) => {
         setTableData(updatedRows);
     }, []);
@@ -511,8 +510,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             )}
             <Box
                 sx={{
-                    flexGrow: showNoRowsMessage ? 0 : 1,
-                    height: showNoRowsMessage ? '150px' : '100%',
+                    flexGrow: 1,
                     boxSizing: 'border-box',
                     position: 'relative',
                     overflowX: 'auto',
@@ -562,30 +560,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
                     summaryRowHeight={isFilterRowVisible ? 35 : 0}
                     onCellClick={handleCellClick}
+                    renderers={{ noRowsFallback: <EmptyRowsRenderer /> }}
                 />
-                {showNoRowsMessage && (
-                    <Box
-                        sx={{
-                            position: 'absolute',
-                            top: isFilterRowVisible ? '70px' : '36px',
-                            left: theme => theme.spacing(2),
-                            right: theme => theme.spacing(2),
-                            bottom: theme => theme.spacing(2),
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                            color: theme => theme.palette.text.secondary,
-                            border: theme => `1px solid ${theme.palette.divider}`,
-                            borderRadius: '4px',
-                            zIndex: 1,
-                        }}
-                    >
-                        <Typography variant="h6">No hay filas para mostrar.</Typography>
-                    </Box>
-                )}
             </Box>
-
             <ConfirmDialog
                 open={openConfirmDialog}
                 onClose={handleConfirmDelete}
