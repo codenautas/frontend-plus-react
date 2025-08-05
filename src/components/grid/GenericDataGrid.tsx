@@ -432,10 +432,11 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         return allColumns.map(col => ({
             ...col,
             colSpan: (args: ColSpanArgs<any, unknown>) => {
-                if (args.type === 'ROW' && args.row[DETAIL_ROW_INDICATOR]) {
+                
+                if (args.type === 'ROW'){
                     const detailTableAbr = args.row[DETAIL_ROW_INDICATOR];
-                    if (col.customType == 'detail' && args.row[DETAIL_ROW_INDICATOR] == detailTableAbr) {
-                        return defaultColumns.length + detailColumns.length;
+                    if(col.key === `detail_${detailTableAbr}`) {
+                        return allColumns.length;
                     }
                 }
                 return undefined;

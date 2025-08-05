@@ -13,7 +13,7 @@ import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
 
 export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => {
     const theme = useTheme();
-    const column = props.column as CustomColumn<any, unknown>;
+    const column = props.column as unknown as CustomColumn<any, unknown>;
     const { row, rowIdx } = props;
 
     // Lógica para la fila de detalle
@@ -22,7 +22,7 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
         const detailColumn = column as DetailColumn<any, unknown>;
         
         // Verifica que la columna actual sea la de detalle para esa fila
-        if (column.customType === 'detail' /*&& detailColumn.detailTable.abr === detailTableAbr*/) {
+        if (column.customType === 'detail' && detailColumn.detailTable.abr === detailTableAbr) {
             const detailTable = detailColumn.tableDefinition.detailTables!.find((dt) => dt.abr === detailTableAbr)!;
             
             let fixedFields: FixedField[] = [];
