@@ -420,6 +420,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     name: detailTable.label || `Detalle ${detailTable.abr}`,
                     resizable: false,
                     sortable: false,
+                    width:50,
                     //frozen: true,
                     renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => detailColumnCellHeaderRenderer(props, detailTable),
                     renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => detailColumnCellSummaryRenderer(props),
