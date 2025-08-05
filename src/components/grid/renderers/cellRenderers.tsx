@@ -1,5 +1,3 @@
-// src/components/grid/renderers/cellRenderers.tsx
-import React from 'react';
 import { RenderCellProps } from 'react-data-grid';
 import { Box, Button, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -7,7 +5,7 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import DeleteIcon from '@mui/icons-material/Delete';
 import GenericDataGrid, { getPrimaryKeyValues, NEW_ROW_INDICATOR, DETAIL_ROW_INDICATOR } from '../GenericDataGrid';
 import { CustomColumn, DefaultColumn, DetailColumn, ActionColumn } from '../GenericDataGrid';
-import {FixedField} from '../../../types';
+import { FixedField } from '../../../types';
 import { clientSides } from '../clientSides';
 import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
 

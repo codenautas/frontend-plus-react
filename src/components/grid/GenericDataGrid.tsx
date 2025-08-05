@@ -107,6 +107,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const dataGridRef = useRef<DataGridHandle>(null);
     const { callApi, loading, error } = useApiCall();
 
+    const getRowCount = () => tableData.filter((row)=> !row[DETAIL_ROW_INDICATOR]).length
+    const getFilteredRowCount = () => filteredRows.filter((row)=> !row[DETAIL_ROW_INDICATOR]).length
+
     useEffect(() => {
         setFilters({});
         setIsFilterRowVisible(false);
@@ -432,7 +435,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         return allColumns.map(col => ({
             ...col,
             colSpan: (args: ColSpanArgs<any, unknown>) => {
-                
                 if (args.type === 'ROW'){
                     const detailTableAbr = args.row[DETAIL_ROW_INDICATOR];
                     if(col.key === `detail_${detailTableAbr}`) {
@@ -533,8 +535,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 >
                     <Typography variant="subtitle1" component="div">
                         {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} -
-                        mostrando {filteredRows.length === tableData.length ? `${tableData.length} registros`
-                        : `${filteredRows.length} registros filtrados`
+                        mostrando {getFilteredRowCount() === getRowCount() ? `${getRowCount()} registros`
+                        : `${getFilteredRowCount()} registros filtrados`
                         }
                     </Typography>
                 </Box>
