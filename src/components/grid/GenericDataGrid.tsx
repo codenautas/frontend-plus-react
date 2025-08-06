@@ -1,6 +1,6 @@
 // src/components/GenericDataGrid.tsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { DataGrid, Column, DataGridHandle, SelectCellOptions, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs } from 'react-data-grid';
+import { DataGrid, Column, DataGridHandle, SelectCellOptions, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs, CellKeyDownArgs, CellPasteArgs, CellSelectArgs, CellMouseEvent, CellKeyboardEvent } from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
 
 import { useApiCall } from '../../hooks/useApiCall';
@@ -84,6 +84,14 @@ export type CustomColumn<TRow, TSummaryRow = unknown> =
     | DefaultColumn<TRow, TSummaryRow>
     | DetailColumn<TRow, TSummaryRow>
     | ActionColumn<TRow, TSummaryRow>;
+
+type MyCellArgs = CellKeyDownArgs<any, {id:string}>| CellMouseArgs<any, {id:string}> | CellPasteArgs<any, {id:string}> | CellSelectArgs<any, {id:string}>
+type MyCellEvents = CellKeyboardEvent | CellMouseEvent
+const prevenirComportamientoEnFilaDetalle = (args: MyCellArgs, event:MyCellEvents) => {
+    if(args.row[DETAIL_ROW_INDICATOR]){
+        event.preventGridDefault();
+    }
+}
 
 const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     tableName,
@@ -460,7 +468,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setTableData(updatedRows);
     }, []);
 
-    const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>) => {
+    const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>, event:MyCellEvents) => {
+        if(args.row[DETAIL_ROW_INDICATOR]){
+            return
+        }
         const fieldDefinition = tableDefinition?.fields.find(f => f.name === args.column.key);
         const isFixedField = fixedFields?.some(f => f.fieldName === args.column.key);
         const isEditable = fieldDefinition?.editable !== false && !isFixedField;
@@ -563,6 +574,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     summaryRowHeight={isFilterRowVisible ? 35 : 0}
                     onCellClick={handleCellClick}
                     renderers={{ noRowsFallback: <EmptyRowsRenderer /> }}
+                    onCellMouseDown={prevenirComportamientoEnFilaDetalle}
+                    onCellDoubleClick={prevenirComportamientoEnFilaDetalle}
+                    onCellKeyDown={prevenirComportamientoEnFilaDetalle}
                 />
             </Box>
             <ConfirmDialog
