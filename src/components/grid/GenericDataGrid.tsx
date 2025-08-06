@@ -468,7 +468,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setTableData(updatedRows);
     }, []);
 
-    const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>, event:MyCellEvents) => {
+    const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>) => {
         if(args.row[DETAIL_ROW_INDICATOR]){
             return
         }
@@ -572,8 +572,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     headerRowHeight={35}
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
                     summaryRowHeight={isFilterRowVisible ? 35 : 0}
-                    onCellClick={handleCellClick}
                     renderers={{ noRowsFallback: <EmptyRowsRenderer /> }}
+                    onCellClick={handleCellClick}
                     onCellMouseDown={prevenirComportamientoEnFilaDetalle}
                     onCellDoubleClick={prevenirComportamientoEnFilaDetalle}
                     onCellKeyDown={prevenirComportamientoEnFilaDetalle}
