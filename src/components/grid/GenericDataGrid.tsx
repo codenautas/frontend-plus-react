@@ -511,6 +511,27 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             )}
             <Box
                 sx={{
+                    backgroundColor: theme.palette.primary.main,
+                    color: theme.palette.primary.contrastText,
+                    padding: theme.spacing(1),
+                    textAlign: 'left',
+                    fontWeight: 'bold',
+                    borderBottom: `1px solid ${theme.palette.divider}`,
+                    borderTopLeftRadius: theme.shape.borderRadius,
+                    borderTopRightRadius: theme.shape.borderRadius,
+                    ml: 2,
+                    mr: 2,
+                }}
+            >
+                <Typography variant="subtitle1" component="div">
+                    {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} -
+                    mostrando {getFilteredRowCount() === getRowCount() ? `${getRowCount()} registros`
+                    : `${getFilteredRowCount()} registros filtrados`
+                    }
+                </Typography>
+            </Box>
+            <Box
+                sx={{
                     flexGrow: 1,
                     boxSizing: 'border-box',
                     position: 'relative',
@@ -520,26 +541,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     pb: 2,
                 }}
             >
-                <Box
-                    sx={{
-                        backgroundColor: theme.palette.primary.main,
-                        color: theme.palette.primary.contrastText,
-                        padding: theme.spacing(1),
-                        textAlign: 'left',
-                        fontWeight: 'bold',
-                        borderBottom: `1px solid ${theme.palette.divider}`,
-                        borderTopLeftRadius: theme.shape.borderRadius,
-                        borderTopRightRadius: theme.shape.borderRadius,
-                    }}
-                >
-                    <Typography variant="subtitle1" component="div">
-                        {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} -
-                        mostrando {getFilteredRowCount() === getRowCount() ? `${getRowCount()} registros`
-                        : `${getFilteredRowCount()} registros filtrados`
-                        }
-                    </Typography>
-                </Box>
-
                 <DataGrid
                     ref={dataGridRef}
                     //@ts-ignore TODO: arreglar este tipo
