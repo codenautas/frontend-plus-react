@@ -41,9 +41,14 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                     //display: 'flex',
                     //flexDirection: 'column',
                     boxSizing: 'border-box'
-                }}>
+                }}
+                    onMouseDown={(e) => e.stopPropagation()} 
+                    onClick={(e) => e.stopPropagation()} 
+                    onKeyDown={(e) => e.stopPropagation()}
+                >
                     <GenericDataGrid tableName={detailTable.table!} fixedFields={fixedFields} />
                 </Box>
+                
             );
         }
         

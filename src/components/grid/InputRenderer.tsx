@@ -195,6 +195,7 @@ function InputRenderer<R extends Record<string, any>, S>({
     ]);
 
     const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+        console.log("entra")
         if (event.key === 'Enter') {
             handleCommit(editingValue, true, true);
             event.preventDefault();

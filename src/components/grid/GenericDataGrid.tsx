@@ -1,6 +1,6 @@
 // src/components/GenericDataGrid.tsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { DataGrid, Column, DataGridHandle, SelectCellOptions, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs, CellKeyDownArgs, CellPasteArgs, CellSelectArgs, CellMouseEvent, CellKeyboardEvent } from 'react-data-grid';
+import { DataGrid, Column, DataGridHandle, SelectCellOptions, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs, CellKeyDownArgs, CellPasteArgs, CellSelectArgs, CellMouseEvent, CellKeyboardEvent, DataGridProps } from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
 
 import { useApiCall } from '../../hooks/useApiCall';
@@ -34,7 +34,7 @@ import { defaultColumnEditCellRenderer } from './renderers/editCellRenderers';
 import { DetailTable } from 'backend-plus';
 import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
 
-interface GenericDataGridProps {
+interface GenericDataGridProps extends DataGridProps<any, unknown, any>{
     tableName: string;
     fixedFields?: FixedField[];
 }
@@ -87,11 +87,6 @@ export type CustomColumn<TRow, TSummaryRow = unknown> =
 
 type MyCellArgs = CellKeyDownArgs<any, {id:string}>| CellMouseArgs<any, {id:string}> | CellPasteArgs<any, {id:string}> | CellSelectArgs<any, {id:string}>
 type MyCellEvents = CellKeyboardEvent | CellMouseEvent
-const prevenirComportamientoEnFilaDetalle = (args: MyCellArgs, event:MyCellEvents) => {
-    if(args.row[DETAIL_ROW_INDICATOR]){
-        event.preventGridDefault();
-    }
-}
 
 const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     tableName,
@@ -102,6 +97,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const [isFilterRowVisible, setIsFilterRowVisible] = useState<boolean>(false);
     const [filters, setFilters] = useState<Record<string, string>>({});
     const [selectedRows, setSelectedRows] = useState((): ReadonlySet<string> => new Set());
+    const [selectedCell, setSelectedCell] = useState<CellSelectArgs<any, NoInfer<{id: string}>> | undefined>(undefined);
+
     const [cellFeedback, setCellFeedback] = useState<CellFeedback | null>(null);
     const [localCellChanges, setLocalCellChanges] = useState<Map<string, Set<string>>>(new Map());
     const theme = useTheme();
@@ -118,7 +115,11 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     const getRowCount = () => tableData.filter((row)=> !row[DETAIL_ROW_INDICATOR]).length
     const getFilteredRowCount = () => filteredRows.filter((row)=> !row[DETAIL_ROW_INDICATOR]).length
-
+    const prevenirComportamientoEnFilaDetalle = (args: MyCellArgs, event:MyCellEvents) => {
+        if(args.row[DETAIL_ROW_INDICATOR]){
+            event.preventGridDefault();
+        }
+    }
     useEffect(() => {
         setFilters({});
         setIsFilterRowVisible(false);
@@ -152,7 +153,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             } finally { }
         };
         fetchDataAndDefinition();
-    }, [tableName, fixedFields, showError]);
+    }, [tableName, /*fixedFields,*/ showError]);
 
     useEffect(() => {
         if (cellFeedback) {
@@ -315,7 +316,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         }, 10);
     }, [rowToDelete, tableDefinition, tableName, primaryKey, showInfo, showSuccess, showError, showWarning, setTableData, setLocalCellChanges, setSelectedRows]);
 
-
     const filteredRows = useMemo(() => {
         let rows = tableData;
         if (isFilterRowVisible) {
@@ -468,6 +468,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setTableData(updatedRows);
     }, []);
 
+     const handleSelectedCellChange = useCallback((args: CellSelectArgs<any, NoInfer<{id: string}>>|undefined) => {
+        setSelectedCell(args);
+    }, []);
+
     const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>) => {
         if(args.row[DETAIL_ROW_INDICATOR]){
             return
@@ -565,6 +569,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     enableVirtualization={true}
                     rowKeyGetter={(row: any) => getPrimaryKeyValues(row, primaryKey)}
                     onSelectedRowsChange={setSelectedRows}
+                    onSelectedCellChange={handleSelectedCellChange}
                     onRowsChange={handleRowsChange}
                     selectedRows={selectedRows}
                     rowHeight={(row) => row[DETAIL_ROW_INDICATOR] ? 400 : 35}
