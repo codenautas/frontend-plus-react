@@ -45,6 +45,7 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                     onMouseDown={(e) => e.stopPropagation()} 
                     onClick={(e) => e.stopPropagation()} 
                     onKeyDown={(e) => e.stopPropagation()}
+                    onDoubleClick={(e) => e.stopPropagation()}
                 >
                     <GenericDataGrid tableName={detailTable.table!} fixedFields={fixedFields} />
                 </Box>
@@ -112,7 +113,6 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                         <IconButton
                             size="small"
                             onClick={(event) => {
-                                
                                 let rows = [...tableData];
                                 const rowId = getPrimaryKeyValues({...row,[DETAIL_ROW_INDICATOR]: detailTable.abr}, primaryKey);
                                 

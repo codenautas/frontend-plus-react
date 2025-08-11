@@ -4,37 +4,24 @@ import { DataGrid, Column, DataGridHandle, SelectCellOptions, CellMouseArgs, Ren
 import 'react-data-grid/lib/styles.css';
 
 import { useApiCall } from '../../hooks/useApiCall';
-import {
-    CircularProgress, Typography, Box, Alert, useTheme, Button
-} from '@mui/material';
+import { CircularProgress, Typography, Box, Alert, useTheme, Button } from '@mui/material';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 
 import AddIcon from '@mui/icons-material/Add';
 
 import { useSnackbar } from '../../contexts/SnackbarContext';
 
-import {
-    CellFeedback,
-    FieldDefinition,
-    FixedField,
-    TableDefinition
-} from '../../types';
+import { CellFeedback, FieldDefinition, FixedField, TableDefinition } from '../../types';
 
 import { ConfirmDialog } from '../ConfirmDialog';
 
-import FilterInputRenderer from './FilterInputRender';
-import InputRenderer from './InputRenderer';
-
-import { clientSides } from './clientSides';
-import FallbackClientSideRenderer from './FallbackClientSideRenderer';
 import { actionsColumnHeaderCellRenderer, defaultColumnHeaderCellRenderer, detailColumnCellHeaderRenderer } from './renderers/headerCellRenderers';
 import { actionsColumnSummaryCellRenderer, defaultColumnSummaryCellRenderer, detailColumnCellSummaryRenderer } from './renderers/summaryCellRenderers';
 import { allColumnsCellRenderer } from './renderers/cellRenderers';
 import { defaultColumnEditCellRenderer } from './renderers/editCellRenderers';
 import { DetailTable } from 'backend-plus';
 import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
-
-interface GenericDataGridProps extends DataGridProps<any, unknown, any>{
+interface GenericDataGridProps{
     tableName: string;
     fixedFields?: FixedField[];
 }
@@ -53,8 +40,8 @@ export const NEW_ROW_INDICATOR = '$new';
 export const DETAIL_ROW_INDICATOR = '$detail';
 
 interface BaseCustomColumn<TRow, TSummaryRow = unknown> extends Column<TRow, TSummaryRow> {
-    customType: 'default' | 'detail' | 'action';
-    tableDefinition: TableDefinition
+    customType: 'default' | 'detail' | 'action',
+    tableDefinition: TableDefinition,
 }
 
 export interface DefaultColumn<TRow, TSummaryRow = unknown> extends BaseCustomColumn<TRow, TSummaryRow> {
@@ -85,9 +72,6 @@ export type CustomColumn<TRow, TSummaryRow = unknown> =
     | DetailColumn<TRow, TSummaryRow>
     | ActionColumn<TRow, TSummaryRow>;
 
-type MyCellArgs = CellKeyDownArgs<any, {id:string}>| CellMouseArgs<any, {id:string}> | CellPasteArgs<any, {id:string}> | CellSelectArgs<any, {id:string}>
-type MyCellEvents = CellKeyboardEvent | CellMouseEvent
-
 const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     tableName,
     fixedFields
@@ -115,11 +99,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     const getRowCount = () => tableData.filter((row)=> !row[DETAIL_ROW_INDICATOR]).length
     const getFilteredRowCount = () => filteredRows.filter((row)=> !row[DETAIL_ROW_INDICATOR]).length
-    const prevenirComportamientoEnFilaDetalle = (args: MyCellArgs, event:MyCellEvents) => {
-        if(args.row[DETAIL_ROW_INDICATOR]){
-            event.preventGridDefault();
-        }
-    }
     useEffect(() => {
         setFilters({});
         setIsFilterRowVisible(false);
@@ -191,7 +170,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             showWarning('No se puede agregar una fila sin la definición de la tabla.');
             return;
         }
-
         const newRow: Record<string, any> = {};
         tableDefinition.fields.forEach(field => {
             newRow[field.name] = null;
@@ -359,19 +337,25 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
                     const nextColumnIndex = currentColumns.findIndex(col => col.key === nextColumnKey);
 
-                    dataGridRef.current.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: false, scrollIntoView: true } as SelectCellOptions);
+                    dataGridRef.current.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: false, shouldFocusCell: true } as SelectCellOptions);
+                  
                 }
             }
         }
     }, [filteredRows, tableDefinition]);
-
+    
+    const handleSelectedCellChange = useCallback((args: CellSelectArgs<any, NoInfer<{id: string}>>|undefined) => {
+        setSelectedCell(args);
+    }, []);
+    
     const columns: CustomColumn<any>[] = useMemo(() => {
         if (!tableDefinition) return [];
-
         const fieldsToShow = tableDefinition.fields.filter((field: FieldDefinition) => {
             const fixedFieldEntry = fixedFields?.find(f => f.fieldName === field.name);
             return !(fixedFieldEntry && fixedFieldEntry.until === undefined);
         });
+
+        
 
         const defaultColumns: CustomColumn<any>[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
             const isFixedField = fixedFields?.some(f => f.fieldName === fieldDef.name);
@@ -389,10 +373,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 name: fieldDef.label || cambiarGuionesBajosPorEspacios(fieldDef.name),
                 resizable: true,
                 sortable: true,
-                //frozen: true,
                 editable: isFieldEditable,
                 flexGrow: 1,
-                minWidth: 60,
+                minWidth: 60,                
                 renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
                 renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => defaultColumnSummaryCellRenderer(props, fixedFields, isFilterRowVisible, filters, setFilters),
             };
@@ -406,8 +389,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             name: 'filterCol',
             width: 50,
             resizable: false,
-            sortable: false,
-            //frozen: true,
+            sortable: false,            
             renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => actionsColumnHeaderCellRenderer(props, isFilterRowVisible, toggleFilterVisibility),
             renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => actionsColumnSummaryCellRenderer(props),
         };
@@ -428,8 +410,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     name: detailTable.label || `Detalle ${detailTable.abr}`,
                     resizable: false,
                     sortable: false,
-                    width:50,
-                    //frozen: true,
+                    width:50,                    
                     renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => detailColumnCellHeaderRenderer(props, detailTable),
                     renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => detailColumnCellSummaryRenderer(props),
                 });
@@ -468,14 +449,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setTableData(updatedRows);
     }, []);
 
-     const handleSelectedCellChange = useCallback((args: CellSelectArgs<any, NoInfer<{id: string}>>|undefined) => {
-        setSelectedCell(args);
-    }, []);
-
     const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>) => {
-        if(args.row[DETAIL_ROW_INDICATOR]){
-            return
-        }
+        args.selectCell(true);
         const fieldDefinition = tableDefinition?.fields.find(f => f.name === args.column.key);
         const isFixedField = fixedFields?.some(f => f.fieldName === args.column.key);
         const isEditable = fieldDefinition?.editable !== false && !isFixedField;
@@ -485,7 +460,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         console.log("Is editable:", isEditable);
     }, [tableDefinition, fixedFields]);
 
-
+   
     if (loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
@@ -579,9 +554,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     summaryRowHeight={isFilterRowVisible ? 35 : 0}
                     renderers={{ noRowsFallback: <EmptyRowsRenderer /> }}
                     onCellClick={handleCellClick}
-                    onCellMouseDown={prevenirComportamientoEnFilaDetalle}
-                    onCellDoubleClick={prevenirComportamientoEnFilaDetalle}
-                    onCellKeyDown={prevenirComportamientoEnFilaDetalle}
                 />
             </Box>
             <ConfirmDialog
