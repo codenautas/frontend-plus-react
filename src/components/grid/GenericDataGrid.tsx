@@ -449,7 +449,19 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setTableData(updatedRows);
     }, []);
 
+    //TODO: mejorar esto, por ahora no encontré una forma programática
+    const deselectAllOtherGrids = (currentGridElement: HTMLDivElement|undefined|null) => {
+        const allSelectedCells = document.querySelectorAll("div[aria-selected='true']");
+        allSelectedCells.forEach(cell => {
+            const parentGrid = cell.closest('.rdg'); 
+            if (parentGrid && parentGrid !== currentGridElement) {
+                cell.setAttribute("aria-selected", "false");
+            }
+        });
+    };
+
     const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>) => {
+        deselectAllOtherGrids(dataGridRef.current?.element);
         args.selectCell(true);
         const fieldDefinition = tableDefinition?.fields.find(f => f.name === args.column.key);
         const isFixedField = fixedFields?.some(f => f.fieldName === args.column.key);
