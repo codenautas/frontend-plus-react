@@ -18,7 +18,7 @@ import { ConfirmDialog } from '../ConfirmDialog';
 import { actionsColumnHeaderCellRenderer, defaultColumnHeaderCellRenderer, detailColumnCellHeaderRenderer } from './renderers/headerCellRenderers';
 import { actionsColumnSummaryCellRenderer, defaultColumnSummaryCellRenderer, detailColumnCellSummaryRenderer } from './renderers/summaryCellRenderers';
 import { allColumnsCellRenderer } from './renderers/cellRenderers';
-import { defaultColumnEditCellRenderer } from './renderers/editCellRenderers';
+import { allColumnsEditCellRenderer } from './renderers/editCellRenderers';
 import { DetailTable } from 'backend-plus';
 import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
 interface GenericDataGridProps{
@@ -27,13 +27,14 @@ interface GenericDataGridProps{
 }
 
 export const getPrimaryKeyValues = (row: Record<string, any>, primaryKey: string[]): string => {
-    return primaryKey.concat(DETAIL_ROW_INDICATOR)
-        .map(key => {
-            return row[key] !== undefined && row[key] !== null
-                ? String(row[key])
-                : 'NULL_OR_UNDEFINED';
-        })
-        .join('|');
+    if(row[DETAIL_ROW_INDICATOR]){
+        primaryKey = primaryKey.concat(DETAIL_ROW_INDICATOR)
+    }
+    return primaryKey.map(key => {
+        return row[key] !== undefined && row[key] !== null
+            ? String(row[key])
+            : 'NULL_OR_UNDEFINED';
+    }).join('|');
 };
 
 export const NEW_ROW_INDICATOR = '$new';
@@ -48,9 +49,14 @@ export interface DefaultColumn<TRow, TSummaryRow = unknown> extends BaseCustomCo
     customType: 'default';
     fieldDef: FieldDefinition;
     cellFeedback: CellFeedback | null,
+    setCellFeedback: React.Dispatch<React.SetStateAction<CellFeedback | null>>,
+    setTableData: React.Dispatch<React.SetStateAction<any[]>>,
     primaryKey: string[],
     fixedFields: FixedField[] | undefined,
-    localCellChanges: Map<string, Set<string>>
+    localCellChanges: Map<string, Set<string>>,
+    setLocalCellChanges: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>,
+    handleEnterKeyPressInEditor: (rowIndex: number, columnKey: string, currentColumns: Column<any>[]) => void
+    
 }
 
 export interface DetailColumn<TRow, TSummaryRow = unknown> extends BaseCustomColumn<TRow, TSummaryRow> {
@@ -141,7 +147,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             }
             const timerDuration = 3000;
             feedbackTimerRef.current = setTimeout(() => {
-                setCellFeedback(null);
+                if(cellFeedback.type == 'success')
+                    setCellFeedback(null);
             }, timerDuration);
         }
         return () => {
@@ -337,8 +344,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
                     const nextColumnIndex = currentColumns.findIndex(col => col.key === nextColumnKey);
 
-                    dataGridRef.current.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: false, shouldFocusCell: true } as SelectCellOptions);
-                  
+                    dataGridRef.current.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: true, shouldFocusCell: true } as SelectCellOptions);
                 }
             }
         }
@@ -354,9 +360,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             const fixedFieldEntry = fixedFields?.find(f => f.fieldName === field.name);
             return !(fixedFieldEntry && fixedFieldEntry.until === undefined);
         });
-
-        
-
         const defaultColumns: CustomColumn<any>[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
             const isFixedField = fixedFields?.some(f => f.fieldName === fieldDef.name);
             const isFieldEditable = fieldDef.editable !== false && !isFixedField;
@@ -370,10 +373,14 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 primaryKey,
                 fixedFields,
                 localCellChanges,
+                setLocalCellChanges,
+                setTableData,
+                setCellFeedback,
                 name: fieldDef.label || cambiarGuionesBajosPorEspacios(fieldDef.name),
                 resizable: true,
                 sortable: true,
                 editable: isFieldEditable,
+                handleEnterKeyPressInEditor,
                 flexGrow: 1,
                 minWidth: 60,                
                 renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
@@ -388,6 +395,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             handleDeleteRow,
             name: 'filterCol',
             width: 50,
+            editable: false,
             resizable: false,
             sortable: false,            
             renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => actionsColumnHeaderCellRenderer(props, isFilterRowVisible, toggleFilterVisibility),
@@ -410,6 +418,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     name: detailTable.label || `Detalle ${detailTable.abr}`,
                     resizable: false,
                     sortable: false,
+                    editable: false,
                     width:50,                    
                     renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => detailColumnCellHeaderRenderer(props, detailTable),
                     renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => detailColumnCellSummaryRenderer(props),
@@ -434,7 +443,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 }
                 return undefined;
             },
-            renderEditCell: (props) => defaultColumnEditCellRenderer(props, tableDefinition, fixedFields, primaryKey, setCellFeedback, setTableData, localCellChanges, setLocalCellChanges, handleEnterKeyPressInEditor, allColumns),
+            renderEditCell: (props) => allColumnsEditCellRenderer(props, allColumns),
             renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props),
         }));
     }, [

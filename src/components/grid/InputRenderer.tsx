@@ -5,6 +5,23 @@ import { useApiCall } from "../../hooks/useApiCall";
 import InputBase from "@mui/material/InputBase";
 import { InputRendererProps } from "../../types";
 import { getPrimaryKeyValues, NEW_ROW_INDICATOR } from "./GenericDataGrid";
+import { useTheme } from "@mui/material";
+
+function findChangedValues(oldRowData:any, newRowData:any) {
+  let changes: string[] = [];
+
+  // Iteramos sobre las claves del objeto nuevo.
+  // Podrías usar también Object.keys(oldRowData) si ambos tienen las mismas claves.
+  for (const key in newRowData) {
+    // Verificamos si la propiedad existe en ambos objetos
+    // y si el valor es diferente.
+    if (Object.prototype.hasOwnProperty.call(oldRowData, key) && oldRowData[key] !== newRowData[key]) {
+      changes.push(key);
+    }
+  }
+
+  return changes;
+}
 
 function InputRenderer<R extends Record<string, any>, S>({
     column,
@@ -13,6 +30,7 @@ function InputRenderer<R extends Record<string, any>, S>({
     tableDefinition,
     onRowChange,
     onClose,
+    cellFeedback,
     setCellFeedback,
     onEnterPress,
     setTableData,
@@ -22,9 +40,13 @@ function InputRenderer<R extends Record<string, any>, S>({
 }: InputRendererProps<R, S>) {
     const tableName = tableDefinition.tableName!;
     const [editingValue, setEditingValue] = useState(row[column.key]);
-
+    const theme = useTheme();
     const { showSuccess, showError } = useSnackbar();
-
+    const rowId = getPrimaryKeyValues(row, primaryKey);
+    let cellBackgroundColor
+    if (cellFeedback && cellFeedback.rowId === rowId && cellFeedback.columnKey === column.key) {
+        cellBackgroundColor = cellFeedback.type === 'error' ? theme.palette.error.light : theme.palette.success.light;
+    }
     const initialRowId = useMemo(() => getPrimaryKeyValues(row, primaryKey), [row, primaryKey]);
     const { callApi } = useApiCall();
     const handleCommit = useCallback(async (currentValue: any, closeEditor: boolean, focusNextCell: boolean) => {
@@ -44,7 +66,7 @@ function InputRenderer<R extends Record<string, any>, S>({
 
         if (processedNewValue === row[column.key] && !isNewRow && !isMandatoryFieldEmpty) {
             console.log("No se guardó: el valor no cambió (y no es una nueva fila o campo obligatorio vacío que se está iniciando).");
-            onClose(false, focusNextCell);
+            /*onClose(false, focusNextCell);
             setLocalCellChanges(prev => {
                 const newMap = new Map(prev);
                 const columnKeys = newMap.get(initialRowId);
@@ -57,7 +79,7 @@ function InputRenderer<R extends Record<string, any>, S>({
                     }
                 }
                 return newMap;
-            });
+            });*/
             return;
         }
 
@@ -66,7 +88,7 @@ function InputRenderer<R extends Record<string, any>, S>({
         const currentRowIdBeforeUpdate = getPrimaryKeyValues(oldRowData, tableDefinition.primaryKey); // Usar oldRowData aquí
 
         onRowChange({ ...row, [column.key]: processedNewValue } as R, true);
-        onClose(true, focusNextCell);
+        //onClose(true, focusNextCell);
 
         if (isNewRow) {
             const areAllMandatoryFieldsFilled = tableDefinition.fields.every(fieldDef => {
@@ -137,9 +159,9 @@ function InputRenderer<R extends Record<string, any>, S>({
                 newRow: rowToSend,
                 oldRow: oldRowData,
                 status
-            });
+            },{reportOnSnackbar:false} );
 
-            setLocalCellChanges(prev => {
+            /*setLocalCellChanges(prev => {
                 const newMap = new Map(prev);
                 const columnKeys = newMap.get(initialRowId);
                 if (columnKeys) {
@@ -151,8 +173,7 @@ function InputRenderer<R extends Record<string, any>, S>({
                     }
                 }
                 return newMap;
-            });
-            showSuccess('Registro guardado exitosamente!');
+            });*/
             let finalRowIdForFeedback: string;
             let persistedRowData: R;
 
@@ -176,17 +197,20 @@ function InputRenderer<R extends Record<string, any>, S>({
                 });
                 finalRowIdForFeedback = getPrimaryKeyValues(persistedRowData, tableDefinition.primaryKey);
             } else {
-                persistedRowData = potentialUpdatedRow;
+                persistedRowData = response.row;
                 const isPrimaryKeyColumn = tableDefinition.primaryKey.includes(column.key);
                 finalRowIdForFeedback = isPrimaryKeyColumn
                     ? getPrimaryKeyValues(potentialUpdatedRow, tableDefinition.primaryKey)
                     : currentRowIdBeforeUpdate;
+                onRowChange({ ...response.row } as R, true);
+                onClose(true, focusNextCell);
             }
-            setCellFeedback({ rowId: finalRowIdForFeedback, columnKey: column.key, type: 'success' });
+            findChangedValues(oldRowData, response.row).forEach((key)=>
+                setCellFeedback({ rowId: finalRowIdForFeedback, columnKey: key, type: 'success' })
+            )
         } catch (err: any) {
             console.error('Error al guardar el registro:', err);
-            setCellFeedback({ rowId: currentRowIdBeforeUpdate, columnKey: column.key, type: 'error' });
-            onRowChange(oldRowData as R, true);
+            setCellFeedback({ rowId: currentRowIdBeforeUpdate, columnKey: column.key, type: 'error', message:err.message });
         }
     }, [
         column, row, onRowChange, tableName, tableDefinition.primaryKey,
@@ -230,6 +254,7 @@ function InputRenderer<R extends Record<string, any>, S>({
                 padding: '2px 4px',
                 fontSize: '0.8rem',
                 boxSizing: 'border-box',
+                backgroundColor: cellBackgroundColor
             }}
             onClick={(e) => e.stopPropagation()}
             autoFocus

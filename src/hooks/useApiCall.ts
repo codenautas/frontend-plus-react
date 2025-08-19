@@ -10,11 +10,16 @@ export const useApiCall = <T = any>(): UseApiCallResult<T> => {
 
     const callApi = useCallback(async (
         procedureName: string,
-        params: Record<string, any>
+        params: Record<string, any>,
+        opts?:{
+            reportOnSnackbar:boolean
+        }
     ): Promise<T | undefined> => {
         setLoading(true);
         setError(null);
-
+        const defaultOpts = {...{
+            reportOnSnackbar: true
+        }, ...opts}
         try {
             const result = await baseExecuteBackendProcedure<T>(procedureName, params);
             return result === null ? undefined : result;
@@ -26,7 +31,9 @@ export const useApiCall = <T = any>(): UseApiCallResult<T> => {
             } else if (err instanceof Error) {
                 snackbarMessage = err.message;
             }
-            showSnackbar(snackbarMessage, 'error');
+            if(defaultOpts.reportOnSnackbar){
+                showSnackbar(snackbarMessage, 'error');
+            }
             throw err
         } finally {
             setLoading(false);
