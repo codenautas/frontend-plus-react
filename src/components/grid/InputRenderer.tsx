@@ -159,7 +159,7 @@ function InputRenderer<R extends Record<string, any>, S>({
                 newRow: rowToSend,
                 oldRow: oldRowData,
                 status
-            },{reportOnSnackbar:false} );
+            });
 
             /*setLocalCellChanges(prev => {
                 const newMap = new Map(prev);

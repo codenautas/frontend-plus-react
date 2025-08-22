@@ -1,7 +1,8 @@
 import { Column, RenderEditCellProps } from "react-data-grid";
 import { CellFeedback, FieldDefinition, FixedField, TableDefinition } from "../../../types";
 import InputRenderer from "../InputRenderer";
-import { CustomColumn, DefaultColumn } from "../GenericDataGrid";
+import { CustomColumn, DefaultColumn, getPrimaryKeyValues } from "../GenericDataGrid";
+import { Box, Tooltip } from "@mui/material";
 
 export const allColumnsEditCellRenderer = (
     props: RenderEditCellProps<any, any>, 
@@ -31,17 +32,23 @@ export const allColumnsEditCellRenderer = (
                     // Si el campo no es editable por UI (ej. por ser fijo), no renderizamos el editor
                     return undefined
                 }
-                return <InputRenderer
-                    {...props}
-                    tableDefinition={tableDefinition}
-                    setCellFeedback={setCellFeedback}
-                    cellFeedback={cellFeedback}
-                    onEnterPress={(rowIndex, columnKey) => handleEnterKeyPressInEditor(rowIndex, columnKey, allColumns)}
-                    setTableData={setTableData}
-                    setLocalCellChanges={setLocalCellChanges}
-                    localCellChanges={localCellChanges}
-                    primaryKey={primaryKey}
-                />
+                const rowId = getPrimaryKeyValues(props.row, primaryKey);
+                
+                return <Tooltip title={cellFeedback && cellFeedback.rowId === rowId && cellFeedback.columnKey === props.column.key?cellFeedback?.message:''}>
+                    <Box>
+                        <InputRenderer
+                            {...props}
+                            tableDefinition={tableDefinition}
+                            setCellFeedback={setCellFeedback}
+                            cellFeedback={cellFeedback}
+                            onEnterPress={(rowIndex, columnKey) => handleEnterKeyPressInEditor(rowIndex, columnKey, allColumns)}
+                            setTableData={setTableData}
+                            setLocalCellChanges={setLocalCellChanges}
+                            localCellChanges={localCellChanges}
+                            primaryKey={primaryKey}
+                        />
+                    </Box>
+                </Tooltip> 
             }
             return undefined
         }

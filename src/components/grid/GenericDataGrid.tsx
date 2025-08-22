@@ -344,7 +344,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
                     const nextColumnIndex = currentColumns.findIndex(col => col.key === nextColumnKey);
 
-                    dataGridRef.current.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: true, shouldFocusCell: true } as SelectCellOptions);
+                    dataGridRef.current.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: true, shouldFocusCell: true });
+                   
                 }
             }
         }
@@ -382,7 +383,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 editable: isFieldEditable,
                 handleEnterKeyPressInEditor,
                 flexGrow: 1,
-                minWidth: 60,                
+                minWidth: 60,     
                 renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
                 renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => defaultColumnSummaryCellRenderer(props, fixedFields, isFilterRowVisible, filters, setFilters),
             };
@@ -443,6 +444,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 }
                 return undefined;
             },
+            editorOptions:{closeOnExternalRowChange:false}, //con esto no se pierde el foco
             renderEditCell: (props) => allColumnsEditCellRenderer(props, allColumns),
             renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props),
         }));
