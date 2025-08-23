@@ -322,9 +322,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             const currentColumnIndex = currentColumns.findIndex((col: Column<any>) => col.key === columnKey);
             const editableColumns = currentColumns.filter(col => {
                 const fieldDefinition = tableDefinition.fields.find(f => f.name === col.key);
-                return col.key !== 'filterToggle' && col.key !== 'deleteAction' && (fieldDefinition?.editable !== false && !fieldDefinition?.clientSide);
+                return col.key !== 'actionsColumn' && (col as DetailColumn<any, unknown>).customType != 'detail' && (fieldDefinition?.editable !== false && !fieldDefinition?.clientSide);
             });
-
             if (currentColumnIndex !== -1 && editableColumns.length > 0) {
                 const editableColumnKeys = editableColumns.map(col => col.key);
                 let currentEditableColumnIndex = editableColumnKeys.indexOf(columnKey);
@@ -390,7 +389,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         });
 
         const actionsColumn: CustomColumn<any> = {
-            key: 'filterToggle',
+            key: 'actionsColumn',
             customType: 'action',
             tableDefinition,
             handleDeleteRow,
