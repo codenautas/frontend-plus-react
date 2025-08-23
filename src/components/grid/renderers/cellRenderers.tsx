@@ -151,8 +151,8 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
             
             return (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                    <Button variant="outlined" color="error" size="small" onClick={() => handleDeleteRow(row)} title="Eliminar fila" sx={{ minWidth: 35, height: 30, p: 0.5, '& .MuiButton-startIcon': { m: 0 } }}>
-                        <DeleteIcon sx={{ fontSize: 18 }} />
+                    <Button variant="outlined" color="error" size="small" onClick={() => handleDeleteRow(row)} title="Eliminar fila" sx={{ minWidth: 30, height: 25, '& .MuiButton-startIcon': { m: 0 } }}>
+                        <DeleteIcon sx={{ fontSize: 20 }} />
                     </Button>
                 </Box>
             );

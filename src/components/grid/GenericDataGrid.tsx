@@ -570,11 +570,11 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     onSelectedCellChange={handleSelectedCellChange}
                     onRowsChange={handleRowsChange}
                     selectedRows={selectedRows}
-                    rowHeight={(row) => row[DETAIL_ROW_INDICATOR] ? 400 : 35}
+                    rowHeight={(row) => row[DETAIL_ROW_INDICATOR] ? 400 : 30}
                     style={{ height: '100%', width: '100%', boxSizing: 'border-box' }}
-                    headerRowHeight={35}
+                    headerRowHeight={30}
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
-                    summaryRowHeight={isFilterRowVisible ? 35 : 0}
+                    summaryRowHeight={isFilterRowVisible ? 30 : 0}
                     renderers={{ noRowsFallback: <EmptyRowsRenderer /> }}
                     onCellClick={handleCellClick}
                 />

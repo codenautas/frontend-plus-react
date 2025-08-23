@@ -17,6 +17,7 @@ function FilterInputRenderer<R extends Record<string, any>, S>({
             }
             sx={{
                 width: '100%',
+                height: 25,
                 margin: '0',
                 border: '1px solid #ccc',
                 borderRadius: '4px',
