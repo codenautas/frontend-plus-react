@@ -419,7 +419,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     resizable: false,
                     sortable: false,
                     editable: false,
-                    width:50,                    
+                    width:30,
+                    minWidth: 30,                  
                     renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => detailColumnCellHeaderRenderer(props, detailTable),
                     renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => detailColumnCellSummaryRenderer(props),
                 });

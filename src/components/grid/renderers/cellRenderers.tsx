@@ -113,7 +113,6 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                 <Tooltip title={detailTable.label}>
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
                         <IconButton
-                            size="small"
                             onClick={(event) => {
                                 let rows = [...tableData];
                                 const rowId = getPrimaryKeyValues({...row,[DETAIL_ROW_INDICATOR]: detailTable.abr}, primaryKey);
@@ -133,8 +132,7 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                                 }
                                 event.stopPropagation();
                             }}
-                            title={isExpanded ? 'Contraer detalle' : 'Expandir detalle'}
-                            sx={{ p: 0.5 }}
+                            
                         >
                             {isExpanded ? <KeyboardArrowUpIcon sx={{ fontSize: 20 }} /> : <KeyboardArrowDownIcon sx={{ fontSize: 20 }} />}
                         </IconButton>
