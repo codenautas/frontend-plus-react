@@ -18,7 +18,7 @@ import { ConfirmDialog } from '../ConfirmDialog';
 import { actionsColumnHeaderCellRenderer, defaultColumnHeaderCellRenderer, detailColumnCellHeaderRenderer } from './renderers/headerCellRenderers';
 import { actionsColumnSummaryCellRenderer, defaultColumnSummaryCellRenderer, detailColumnCellSummaryRenderer } from './renderers/summaryCellRenderers';
 import { allColumnsCellRenderer } from './renderers/cellRenderers';
-import { defaultColumnEditCellRenderer } from './renderers/editCellRenderers';
+import { allColumnsEditCellRenderer } from './renderers/editCellRenderers';
 import { DetailTable } from 'backend-plus';
 import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
 interface GenericDataGridProps{
@@ -27,13 +27,14 @@ interface GenericDataGridProps{
 }
 
 export const getPrimaryKeyValues = (row: Record<string, any>, primaryKey: string[]): string => {
-    return primaryKey.concat(DETAIL_ROW_INDICATOR)
-        .map(key => {
-            return row[key] !== undefined && row[key] !== null
-                ? String(row[key])
-                : 'NULL_OR_UNDEFINED';
-        })
-        .join('|');
+    if(row[DETAIL_ROW_INDICATOR]){
+        primaryKey = primaryKey.concat(DETAIL_ROW_INDICATOR)
+    }
+    return primaryKey.map(key => {
+        return row[key] !== undefined && row[key] !== null
+            ? String(row[key])
+            : 'NULL_OR_UNDEFINED';
+    }).join('|');
 };
 
 export const NEW_ROW_INDICATOR = '$new';
@@ -48,9 +49,14 @@ export interface DefaultColumn<TRow, TSummaryRow = unknown> extends BaseCustomCo
     customType: 'default';
     fieldDef: FieldDefinition;
     cellFeedback: CellFeedback | null,
+    setCellFeedback: React.Dispatch<React.SetStateAction<CellFeedback | null>>,
+    setTableData: React.Dispatch<React.SetStateAction<any[]>>,
     primaryKey: string[],
     fixedFields: FixedField[] | undefined,
-    localCellChanges: Map<string, Set<string>>
+    localCellChanges: Map<string, Set<string>>,
+    setLocalCellChanges: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>,
+    handleEnterKeyPressInEditor: (rowIndex: number, columnKey: string, currentColumns: Column<any>[]) => void
+    
 }
 
 export interface DetailColumn<TRow, TSummaryRow = unknown> extends BaseCustomColumn<TRow, TSummaryRow> {
@@ -141,7 +147,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             }
             const timerDuration = 3000;
             feedbackTimerRef.current = setTimeout(() => {
-                setCellFeedback(null);
+                if(cellFeedback.type == 'success')
+                    setCellFeedback(null);
             }, timerDuration);
         }
         return () => {
@@ -315,9 +322,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             const currentColumnIndex = currentColumns.findIndex((col: Column<any>) => col.key === columnKey);
             const editableColumns = currentColumns.filter(col => {
                 const fieldDefinition = tableDefinition.fields.find(f => f.name === col.key);
-                return col.key !== 'filterToggle' && col.key !== 'deleteAction' && (fieldDefinition?.editable !== false && !fieldDefinition?.clientSide);
+                return col.key !== 'actionsColumn' && (col as DetailColumn<any, unknown>).customType != 'detail' && (fieldDefinition?.editable !== false && !fieldDefinition?.clientSide);
             });
-
             if (currentColumnIndex !== -1 && editableColumns.length > 0) {
                 const editableColumnKeys = editableColumns.map(col => col.key);
                 let currentEditableColumnIndex = editableColumnKeys.indexOf(columnKey);
@@ -337,8 +343,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
                     const nextColumnIndex = currentColumns.findIndex(col => col.key === nextColumnKey);
 
-                    dataGridRef.current.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: false, shouldFocusCell: true } as SelectCellOptions);
-                  
+                    dataGridRef.current.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: true, shouldFocusCell: true });
+                   
                 }
             }
         }
@@ -354,9 +360,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             const fixedFieldEntry = fixedFields?.find(f => f.fieldName === field.name);
             return !(fixedFieldEntry && fixedFieldEntry.until === undefined);
         });
-
-        
-
         const defaultColumns: CustomColumn<any>[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
             const isFixedField = fixedFields?.some(f => f.fieldName === fieldDef.name);
             const isFieldEditable = fieldDef.editable !== false && !isFixedField;
@@ -370,24 +373,29 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 primaryKey,
                 fixedFields,
                 localCellChanges,
+                setLocalCellChanges,
+                setTableData,
+                setCellFeedback,
                 name: fieldDef.label || cambiarGuionesBajosPorEspacios(fieldDef.name),
                 resizable: true,
                 sortable: true,
                 editable: isFieldEditable,
+                handleEnterKeyPressInEditor,
                 flexGrow: 1,
-                minWidth: 60,                
+                minWidth: 60,     
                 renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
                 renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => defaultColumnSummaryCellRenderer(props, fixedFields, isFilterRowVisible, filters, setFilters),
             };
         });
 
         const actionsColumn: CustomColumn<any> = {
-            key: 'filterToggle',
+            key: 'actionsColumn',
             customType: 'action',
             tableDefinition,
             handleDeleteRow,
             name: 'filterCol',
             width: 50,
+            editable: false,
             resizable: false,
             sortable: false,            
             renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => actionsColumnHeaderCellRenderer(props, isFilterRowVisible, toggleFilterVisibility),
@@ -410,7 +418,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     name: detailTable.label || `Detalle ${detailTable.abr}`,
                     resizable: false,
                     sortable: false,
-                    width:50,                    
+                    editable: false,
+                    width:30,
+                    minWidth: 30,                  
                     renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => detailColumnCellHeaderRenderer(props, detailTable),
                     renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => detailColumnCellSummaryRenderer(props),
                 });
@@ -434,7 +444,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 }
                 return undefined;
             },
-            renderEditCell: (props) => defaultColumnEditCellRenderer(props, tableDefinition, fixedFields, primaryKey, setCellFeedback, setTableData, localCellChanges, setLocalCellChanges, handleEnterKeyPressInEditor, allColumns),
+            editorOptions:{closeOnExternalRowChange:false}, //con esto no se pierde el foco
+            renderEditCell: (props) => allColumnsEditCellRenderer(props, allColumns),
             renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props),
         }));
     }, [
@@ -559,11 +570,11 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     onSelectedCellChange={handleSelectedCellChange}
                     onRowsChange={handleRowsChange}
                     selectedRows={selectedRows}
-                    rowHeight={(row) => row[DETAIL_ROW_INDICATOR] ? 400 : 35}
+                    rowHeight={(row) => row[DETAIL_ROW_INDICATOR] ? 400 : 30}
                     style={{ height: '100%', width: '100%', boxSizing: 'border-box' }}
-                    headerRowHeight={35}
+                    headerRowHeight={30}
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
-                    summaryRowHeight={isFilterRowVisible ? 35 : 0}
+                    summaryRowHeight={isFilterRowVisible ? 30 : 0}
                     renderers={{ noRowsFallback: <EmptyRowsRenderer /> }}
                     onCellClick={handleCellClick}
                 />
