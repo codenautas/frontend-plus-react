@@ -554,7 +554,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     pb: 2,
                 }}
             >
-                <DataGrid
+                 <DataGrid
+                    className='rdg-light'
                     ref={dataGridRef}
                     //@ts-ignore TODO: arreglar este tipo
                     columns={columns}
@@ -570,6 +571,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     onSelectedCellChange={handleSelectedCellChange}
                     onRowsChange={handleRowsChange}
                     selectedRows={selectedRows}
+                    // TODO: Arreglar tamaño fijo pasarlo a dinamico
                     rowHeight={(row) => row[DETAIL_ROW_INDICATOR] ? 400 : 30}
                     style={{ height: '100%', width: '100%', boxSizing: 'border-box' }}
                     headerRowHeight={30}
