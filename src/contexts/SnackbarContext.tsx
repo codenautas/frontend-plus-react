@@ -14,7 +14,7 @@ const SnackbarContext = createContext<SnackbarContextType | undefined>(undefined
 
 // Valores por defecto para la duración (en milisegundos)
 const DEFAULT_SUCCESS_DURATION = 3000; 
-const DEFAULT_ERROR_DURATION = 5000;   
+const DEFAULT_ERROR_DURATION = 10000;   
 
 export const SnackbarProvider: React.FC<SnackbarProviderProps> = ({ children }) => {
     const [snackbar, setSnackbar] = useState<SnackbarState>({

@@ -4,7 +4,6 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { ClientSideProps } from './clientSides'; // Asegúrate de importar la interfaz
 
 const FallbackClientSideRenderer: React.FC<ClientSideProps> = ({ column, row, fieldDefinition }) => {
-    const value = row[column.key];
     const clientSideName = fieldDefinition?.clientSide || 'Desconocido';
 
     return (
@@ -25,7 +24,7 @@ const FallbackClientSideRenderer: React.FC<ClientSideProps> = ({ column, row, fi
                 }}
             >
                 <Typography variant="body2" noWrap sx={{ flexGrow: 1 }}>
-                    {value !== null && value !== undefined ? String(value) : '*Vacío*'}
+                    {clientSideName + ' not found'}
                 </Typography>
                 <WarningAmberIcon
                     sx={{

@@ -16,8 +16,9 @@ export interface FixedField {
 
 export interface CellFeedback {
     rowId: string;
-    columnKey: string | null;
+    columnKey: string;
     type: 'success' | 'error';
+    message?: 'string'
 }
 
 export interface ConfirmDialogProps {
@@ -34,6 +35,7 @@ export interface InputRendererProps<R extends Record<string, any>, S> {
     onRowChange: (row: R, commitChanges?: boolean) => void;
     onClose: (commitChanges?: boolean, shouldFocusCell?: boolean) => void;
     tableDefinition: TableDefinition,
+    cellFeedback:CellFeedback|null,
     setCellFeedback: (feedback: CellFeedback | null) => void;
     onEnterPress?: (rowIndex: number, columnKey: string) => void;
     setTableData: React.Dispatch<React.SetStateAction<any[]>>;
@@ -113,7 +115,7 @@ export interface SnackbarProviderProps {
 }
 
 export interface UseApiCallResult<T> {
-    callApi: (procedureName: string, params: Record<string, any>) => Promise<T | undefined>;
+    callApi: (procedureName: string, params: Record<string, any>, opts?:{reportOnSnackbar:boolean}) => Promise<T | undefined>;
     loading: boolean;
     error: Error | null;
 }

@@ -90,11 +90,13 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
             
             const value = row[props.column.key];
             return (
-                <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: cellBackgroundColor, transition: 'background-color 0.3s ease-in-out', display: 'flex', alignItems: 'center', paddingLeft: '8px', boxSizing: 'border-box' }}>
-                    <Typography variant="body2" sx={{ fontSize: '0.875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-                        {value === null || value === undefined ? '' : String(value)}
-                    </Typography>
-                </Box>
+                <Tooltip title={cellFeedback && cellFeedback.rowId === rowId && cellFeedback.columnKey === props.column.key?cellFeedback?.message:''}>
+                    <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: cellBackgroundColor, transition: 'background-color 0.3s ease-in-out', display: 'flex', alignItems: 'center', paddingLeft: '8px', boxSizing: 'border-box' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                            {value === null || value === undefined ? '' : String(value)}
+                        </Typography>
+                    </Box>
+                </Tooltip>
             );
         }
         
@@ -111,7 +113,6 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                 <Tooltip title={detailTable.label}>
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
                         <IconButton
-                            size="small"
                             onClick={(event) => {
                                 let rows = [...tableData];
                                 const rowId = getPrimaryKeyValues({...row,[DETAIL_ROW_INDICATOR]: detailTable.abr}, primaryKey);
@@ -131,8 +132,7 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                                 }
                                 event.stopPropagation();
                             }}
-                            title={isExpanded ? 'Contraer detalle' : 'Expandir detalle'}
-                            sx={{ p: 0.5 }}
+                            
                         >
                             {isExpanded ? <KeyboardArrowUpIcon sx={{ fontSize: 20 }} /> : <KeyboardArrowDownIcon sx={{ fontSize: 20 }} />}
                         </IconButton>
@@ -149,8 +149,8 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
             
             return (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                    <Button variant="outlined" color="error" size="small" onClick={() => handleDeleteRow(row)} title="Eliminar fila" sx={{ minWidth: 35, height: 30, p: 0.5, '& .MuiButton-startIcon': { m: 0 } }}>
-                        <DeleteIcon sx={{ fontSize: 18 }} />
+                    <Button variant="outlined" color="error" size="small" onClick={() => handleDeleteRow(row)} title="Eliminar fila" sx={{ minWidth: 30, height: 25, '& .MuiButton-startIcon': { m: 0 } }}>
+                        <DeleteIcon sx={{ fontSize: 20 }} />
                     </Button>
                 </Box>
             );
