@@ -1,13 +1,13 @@
 // src/components/GenericDataGrid.tsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { DataGrid, Column, DataGridHandle, SelectCellOptions, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs, CellKeyDownArgs, CellPasteArgs, CellSelectArgs, CellMouseEvent, CellKeyboardEvent, DataGridProps } from 'react-data-grid';
+import { DataGrid, Column, DataGridHandle, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs, CellSelectArgs } from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
 
 import { useApiCall } from '../../hooks/useApiCall';
 import { CircularProgress, Typography, Box, Alert, useTheme, Button } from '@mui/material';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 
-import AddIcon from '@mui/icons-material/Add';
+
 
 import { useSnackbar } from '../../contexts/SnackbarContext';
 
@@ -70,7 +70,8 @@ export interface DetailColumn<TRow, TSummaryRow = unknown> extends BaseCustomCol
 
 export interface ActionColumn<TRow, TSummaryRow = unknown> extends BaseCustomColumn<TRow, TSummaryRow> {
     customType: 'action';
-    handleDeleteRow: Function
+    handleDeleteRow: Function;
+    handleAddRow: Function
 }
 
 export type CustomColumn<TRow, TSummaryRow = unknown> =
@@ -393,8 +394,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             customType: 'action',
             tableDefinition,
             handleDeleteRow,
+            handleAddRow,
             name: 'filterCol',
-            width: 50,
+            width: 88,
             editable: false,
             resizable: false,
             sortable: false,            
@@ -453,7 +455,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         cellFeedback, primaryKey, theme.palette.success.light, theme.palette.error.light,
         theme.palette.info.light, theme.palette.action.selected,
         handleEnterKeyPressInEditor, setTableData,
-        localCellChanges, handleDeleteRow, fixedFields, tableData
+        localCellChanges, handleDeleteRow, handleAddRow, fixedFields, tableData
     ]);
 
     const handleRowsChange = useCallback((updatedRows: any[]) => {
@@ -511,17 +513,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     return (
         <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
-            {tableDefinition.allow?.insert && (
-                <Box sx={{ display: 'flex', px: 2, pb: 1 }}>
-                    <Button
-                        variant="contained"
-                        onClick={handleAddRow}
-                        startIcon={<AddIcon />}
-                    >
-                        Nuevo Registro
-                    </Button>
-                </Box>
-            )}
             <Box
                 sx={{
                     backgroundColor: theme.palette.primary.main,
@@ -536,9 +527,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     mr: 2,
                 }}
             >
-                <Typography variant="subtitle1" component="div">
-                    {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} -
-                    mostrando {getFilteredRowCount() === getRowCount() ? `${getRowCount()} registros`
+                <Typography variant="subtitle2" component="div">
+                    {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} - {getFilteredRowCount() === getRowCount() ? `${getRowCount()} registros`
                     : `${getFilteredRowCount()} registros filtrados`
                     }
                 </Typography>
@@ -554,7 +544,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     pb: 2,
                 }}
             >
-                 <DataGrid
+                <DataGrid
                     className='rdg-light'
                     ref={dataGridRef}
                     //@ts-ignore TODO: arreglar este tipo
@@ -571,10 +561,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     onSelectedCellChange={handleSelectedCellChange}
                     onRowsChange={handleRowsChange}
                     selectedRows={selectedRows}
-                    // TODO: Arreglar tamaño fijo pasarlo a dinamico
-                    rowHeight={(row) => row[DETAIL_ROW_INDICATOR] ? 400 : 30}
+                    // TODO: Cambiar a tamaño dinamico
+                    rowHeight={(row) => row[DETAIL_ROW_INDICATOR] ? 300 : 28}
                     style={{ height: '100%', width: '100%', boxSizing: 'border-box' }}
-                    headerRowHeight={30}
+                    headerRowHeight={32}
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
                     summaryRowHeight={isFilterRowVisible ? 30 : 0}
                     renderers={{ noRowsFallback: <EmptyRowsRenderer /> }}

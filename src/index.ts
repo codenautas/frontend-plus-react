@@ -3,8 +3,8 @@ export { clientSides, extendClientSides } from './components/grid/clientSides';
 export { ConfirmDialog } from './components/ConfirmDialog';
 
 // Componente de rutas genérico
-export {FrontendPlusReactRoutes, default as App} from './App';
-export {default as MainLayout} from './components/MainLayout';
+export { FrontendPlusReactRoutes, default as App } from './App';
+export { default as MainLayout } from './components/MainLayout';
 
 // Contextos
 export { SnackbarProvider, useSnackbar } from './contexts/SnackbarContext';
@@ -18,7 +18,7 @@ export { default as useLogout } from './hooks/useLogout';
 export * from './types'; // Exporta todas las interfaces y tipos
 
 // Utilidades
-export { cambiarGuionesBajosPorEspacios } from './utils/functions';
+export { cambiarGuionesBajosPorEspacios, formatearValor } from './utils/functions';
 
 //pages
 export { wScreens } from './pages/WScreens';

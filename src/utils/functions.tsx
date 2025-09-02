@@ -4,6 +4,41 @@ import { store } from '../store';
 export const cambiarGuionesBajosPorEspacios = (texto:string)=>texto.replace(/_/g,' ');
 export const quitarGuionesBajos = (texto:string)=>texto.replace(/_/g,'');
 
+export const formatearValor = (valor: any): string => {
+    if (valor === null || valor === undefined) {
+        return '';
+    }
+    
+    // Si es un objeto Date
+    if (valor instanceof Date) {
+        return valor.toLocaleDateString("es-ES");
+    }
+    
+    // Si es un objeto especial de fecha con formato {$special: 'date', $value: 'YYYY-MM-DD'}
+    if (typeof valor === 'object' && valor.$special === 'date' && valor.$value) {
+        const fecha = new Date(valor.$value);
+        return fecha.toLocaleDateString("es-ES");
+    }
+    
+    // Si es una fecha en string que puede parsearse como Date (formato ISO o similar)
+    if (typeof valor === 'string' && valor.match(/^\d{4}-\d{2}-\d{2}/) && !isNaN(Date.parse(valor))) {
+        const fecha = new Date(valor);
+        return fecha.toLocaleDateString("es-ES");
+    }
+    
+    // Si es un objeto pero no Date
+    if (typeof valor === 'object') {
+        // Intentar extraer información útil del objeto
+        if (valor.toString && valor.toString() !== '[object Object]') {
+            return valor.toString();
+        }
+        return JSON.stringify(valor);
+    }
+    
+    // Para cualquier otro valor, convertir a string
+    return String(valor);
+};
+
 const getAppPrefix = () => {
     const state = store.getState();
     const { config } = state.clientContext;
