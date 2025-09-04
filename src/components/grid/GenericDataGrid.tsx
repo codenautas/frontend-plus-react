@@ -389,6 +389,15 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             };
         });
 
+        // Calcular ancho dinámico basado en botones disponibles
+        const availableActions = [
+            tableDefinition.allow?.insert,
+            tableDefinition.allow?.delete,
+            tableDefinition.allow?.update
+        ].filter(Boolean).length;
+        
+        const actionColumnWidth = availableActions === 0 ? 30 : 12 + (availableActions * 25);
+
         const actionsColumn: CustomColumn<any> = {
             key: 'actionsColumn',
             customType: 'action',
@@ -396,7 +405,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             handleDeleteRow,
             handleAddRow,
             name: 'filterCol',
-            width: 88,
+            width: actionColumnWidth,
             editable: false,
             resizable: false,
             sortable: false,            
@@ -529,7 +538,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             >
                 <Typography variant="subtitle2" component="div">
                     {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} - {getFilteredRowCount() === getRowCount() ? `${getRowCount()} registros`
-                    : `${getFilteredRowCount()} registros filtrados`
+                    : `${getFilteredRowCount()} (F)`
                     }
                 </Typography>
             </Box>

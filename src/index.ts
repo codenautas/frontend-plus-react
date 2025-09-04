@@ -18,7 +18,7 @@ export { default as useLogout } from './hooks/useLogout';
 export * from './types'; // Exporta todas las interfaces y tipos
 
 // Utilidades
-export { cambiarGuionesBajosPorEspacios, formatearValor } from './utils/functions';
+export { cambiarGuionesBajosPorEspacios } from './utils/functions';
 
 //pages
 export { wScreens } from './pages/WScreens';

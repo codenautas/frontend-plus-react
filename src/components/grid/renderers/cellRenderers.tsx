@@ -10,7 +10,7 @@ import { CustomColumn, DefaultColumn, DetailColumn, ActionColumn } from '../Gene
 import { FixedField } from '../../../types';
 import { clientSides } from '../clientSides';
 import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
-import { formatearValor } from '../../../utils/functions';
+
 
 export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => {
     const theme = useTheme();
@@ -98,7 +98,7 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                 <Tooltip title={cellFeedback && cellFeedback.rowId === rowId && cellFeedback.columnKey === props.column.key?cellFeedback?.message:''}>
                     <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: cellBackgroundColor, transition: 'background-color 0.3s ease-in-out', display: 'flex', alignItems: 'center', paddingLeft: '8px', boxSizing: 'border-box' }}>
                         <Typography variant="body2" sx={{ fontSize: '0.875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-                            {formatearValor(value)}
+                            {value === null || value === undefined ? '' : String(value)}
                         </Typography>
                     </Box>
                 </Tooltip>
@@ -155,18 +155,22 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
             return (
                 <Box 
                     sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', gap: 0.5 }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
                 >
-                    <Button variant="outlined" color="success" size="small" onClick={() => handleAddRow(row)} title="Agregar registro" sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}>
-                        <AddIcon sx={{ fontSize: 18 }} />
-                    </Button>
-                    <Button variant="outlined" color="error" size="small" onClick={() => handleDeleteRow(row)} title="Eliminar registro" sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}>
-                        <DeleteIcon sx={{ fontSize: 18 }} />
-                    </Button>
-                    <Button variant="outlined" color="primary" size="small" onClick={() => {}} title="Editar registro en forma de ficha" sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}>
-                        <ViewHeadlineIcon sx={{ fontSize: 18 }} />
-                    </Button>
+                    {tableDefinition.allow?.insert && (
+                        <Button variant="outlined" color="success" size="small" onClick={() => handleAddRow(row)} title="Agregar registro" sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}>
+                            <AddIcon sx={{ fontSize: 18 }} />
+                        </Button>
+                    )}
+                    {tableDefinition.allow?.delete && (
+                        <Button variant="outlined" color="error" size="small" onClick={() => handleDeleteRow(row)} title="Eliminar registro" sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}>
+                            <DeleteIcon sx={{ fontSize: 18 }} />
+                        </Button>
+                    )}
+                    {tableDefinition.allow?.update && (
+                        <Button variant="outlined" color="primary" size="small" onClick={() => {}} title="Editar registro en forma de ficha" sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}>
+                            <ViewHeadlineIcon sx={{ fontSize: 18 }} />
+                        </Button>
+                    )}
                 </Box>
             );
         }
