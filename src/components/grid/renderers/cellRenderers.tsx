@@ -2,12 +2,15 @@ import { RenderCellProps } from 'react-data-grid';
 import { Box, Button, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 import GenericDataGrid, { getPrimaryKeyValues, NEW_ROW_INDICATOR, DETAIL_ROW_INDICATOR } from '../GenericDataGrid';
 import { CustomColumn, DefaultColumn, DetailColumn, ActionColumn } from '../GenericDataGrid';
 import { FixedField } from '../../../types';
 import { clientSides } from '../clientSides';
 import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
+
 
 export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => {
     const theme = useTheme();
@@ -88,6 +91,8 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                 }
             }
             
+
+            //  TODO: Capturar valor fecha
             const value = row[props.column.key];
             return (
                 <Tooltip title={cellFeedback && cellFeedback.rowId === rowId && cellFeedback.columnKey === props.column.key?cellFeedback?.message:''}>
@@ -143,15 +148,29 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
 
         case 'action': {
             const actionColumn = column as ActionColumn<any, unknown>;
-            const { tableDefinition, handleDeleteRow } = actionColumn;
+            const { tableDefinition, handleDeleteRow, handleAddRow } = actionColumn;
             
             if (!tableDefinition.allow?.delete) return undefined;
             
             return (
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                    <Button variant="outlined" color="error" size="small" onClick={() => handleDeleteRow(row)} title="Eliminar fila" sx={{ minWidth: 30, height: 25, '& .MuiButton-startIcon': { m: 0 } }}>
-                        <DeleteIcon sx={{ fontSize: 20 }} />
-                    </Button>
+                <Box 
+                    sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', gap: 0.5 }}
+                >
+                    {tableDefinition.allow?.insert && (
+                        <Button variant="outlined" color="success" size="small" onClick={() => handleAddRow(row)} title="Agregar registro" sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}>
+                            <AddIcon sx={{ fontSize: 18 }} />
+                        </Button>
+                    )}
+                    {tableDefinition.allow?.delete && (
+                        <Button variant="outlined" color="error" size="small" onClick={() => handleDeleteRow(row)} title="Eliminar registro" sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}>
+                            <DeleteIcon sx={{ fontSize: 18 }} />
+                        </Button>
+                    )}
+                    {tableDefinition.allow?.update && (
+                        <Button variant="outlined" color="primary" size="small" onClick={() => {}} title="Editar registro en forma de ficha" sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}>
+                            <ViewHeadlineIcon sx={{ fontSize: 18 }} />
+                        </Button>
+                    )}
                 </Box>
             );
         }
