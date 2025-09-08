@@ -203,7 +203,7 @@ function InputRenderer<R extends Record<string, any>, S>({
                     ? getPrimaryKeyValues(potentialUpdatedRow, tableDefinition.primaryKey)
                     : currentRowIdBeforeUpdate;
                 onRowChange({ ...response.row } as R, true);
-                onClose(true, focusNextCell);
+                //onClose(true, focusNextCell);
             }
             findChangedValues(oldRowData, response.row).forEach((key)=>
                 setCellFeedback({ rowId: finalRowIdForFeedback, columnKey: key, type: 'success' })

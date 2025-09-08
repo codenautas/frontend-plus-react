@@ -21,9 +21,11 @@ import { allColumnsCellRenderer } from './renderers/cellRenderers';
 import { allColumnsEditCellRenderer } from './renderers/editCellRenderers';
 import { DetailTable } from 'backend-plus';
 import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
+import { useIsDrawerOpen } from '../../store';
 interface GenericDataGridProps{
     tableName: string;
     fixedFields?: FixedField[];
+    gridStyles?: React.CSSProperties
 }
 
 export const getPrimaryKeyValues = (row: Record<string, any>, primaryKey: string[]): string => {
@@ -80,8 +82,10 @@ export type CustomColumn<TRow, TSummaryRow = unknown> =
 
 const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     tableName,
-    fixedFields
+    fixedFields,
+    gridStyles,
 }) => {
+    const isOpenMenu = useIsDrawerOpen()
     const [tableDefinition, setTableDefinition] = useState<TableDefinition | null>(null);
     const [tableData, setTableData] = useState<any[]>([]);
     const [isFilterRowVisible, setIsFilterRowVisible] = useState<boolean>(false);
@@ -343,7 +347,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
                     const nextColumnIndex = currentColumns.findIndex(col => col.key === nextColumnKey);
 
-                    dataGridRef.current.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: true, shouldFocusCell: true });
+                    dataGridRef.current.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }/*, { enableEditor: true, shouldFocusCell: true }*/);
                    
                 }
             }
@@ -533,7 +537,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     borderTopLeftRadius: theme.shape.borderRadius,
                     borderTopRightRadius: theme.shape.borderRadius,
                     ml: 2,
-                    mr: 2,
+                    mr: 2
                 }}
             >
                 <Typography variant="subtitle1" component="div">
@@ -573,7 +577,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     selectedRows={selectedRows}
                     // TODO: Arreglar tamaño fijo pasarlo a dinamico
                     rowHeight={(row) => row[DETAIL_ROW_INDICATOR] ? 400 : 30}
-                    style={{ height: '100%', width: '100%', boxSizing: 'border-box' }}
+                    style={{...{ height: '100%', width: '100%', boxSizing: 'border-box' },...gridStyles}}
                     headerRowHeight={30}
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
                     summaryRowHeight={isFilterRowVisible ? 30 : 0}
