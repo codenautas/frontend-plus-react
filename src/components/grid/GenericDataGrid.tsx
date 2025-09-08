@@ -347,7 +347,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
                     const nextColumnIndex = currentColumns.findIndex(col => col.key === nextColumnKey);
 
-                    dataGridRef.current.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }/*, { enableEditor: true, shouldFocusCell: true }*/);
+                    
+                    dataGridRef.current?.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: true, shouldFocusCell: true });
+                 
                    
                 }
             }
@@ -475,6 +477,12 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         });
     };
 
+    const handleCellKeyDown = (args: CellKeyDownArgs<any, { id: string }>, event: CellKeyboardEvent) => {
+        if (['Tab','Enter'].includes(event.key)) {
+            event.preventGridDefault();
+        }
+    }
+
     const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>) => {
         deselectAllOtherGrids(dataGridRef.current?.element);
         args.selectCell(true);
@@ -583,6 +591,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     summaryRowHeight={isFilterRowVisible ? 30 : 0}
                     renderers={{ noRowsFallback: <EmptyRowsRenderer /> }}
                     onCellClick={handleCellClick}
+                    onCellKeyDown={handleCellKeyDown}
                 />
             </Box>
             <ConfirmDialog
