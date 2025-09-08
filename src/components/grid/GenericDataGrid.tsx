@@ -393,7 +393,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         const availableActions = [
             tableDefinition.allow?.insert,
             tableDefinition.allow?.delete,
-            tableDefinition.allow?.update
+            tableDefinition.allow?.['vertical-edit']
         ].filter(Boolean).length;
         
         const actionColumnWidth = availableActions === 0 ? 30 : 12 + (availableActions * 25);

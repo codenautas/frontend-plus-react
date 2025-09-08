@@ -10,7 +10,35 @@ import { CustomColumn, DefaultColumn, DetailColumn, ActionColumn } from '../Gene
 import { FixedField } from '../../../types';
 import { clientSides } from '../clientSides';
 import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
+import { OverridableComponent } from '@mui/material/OverridableComponent';
+import { SvgIconTypeMap } from '@mui/material/SvgIcon';
 
+type ActionButtonDefinition = {
+    action: 'insert' | 'delete' | 'vertical-edit'
+    handler: (row: any) => void
+    title: string
+    icon: OverridableComponent<SvgIconTypeMap<{}, "svg">> & { muiName: string }
+    color: 'success' | 'error' | 'primary'
+    condition: (tableDefinition: any) => boolean
+}
+
+function renderizarBotonAccion(actionDef: ActionButtonDefinition, row: any) {
+    if (!actionDef.condition) return null;
+    
+    return (
+        <Button 
+            key={actionDef.action}
+            variant="outlined" 
+            color={actionDef.color} 
+            size="small" 
+            onClick={() => actionDef.handler(row)} 
+            title={actionDef.title} 
+            sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}
+        >
+            <actionDef.icon sx={{ fontSize: 18 }} />
+        </Button>
+    );
+}
 
 export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => {
     const theme = useTheme();
@@ -150,27 +178,42 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
             const actionColumn = column as ActionColumn<any, unknown>;
             const { tableDefinition, handleDeleteRow, handleAddRow } = actionColumn;
             
-            if (!tableDefinition.allow?.delete) return undefined;
-            
+            const gridActionButtons: ActionButtonDefinition[] = [
+                {
+                    action: 'insert',
+                    handler: handleAddRow,
+                    icon: AddIcon,
+                    title: 'Agregar registro',
+                    color: 'success',
+                    condition: (td) => td.allow?.insert
+                },
+                {
+                    action: 'delete',
+                    handler: handleDeleteRow,
+                    icon: DeleteIcon,
+                    title: 'Eliminar registro',
+                    color: 'error',
+                    condition: (td) => td.allow?.delete
+                },
+                {
+                    action: 'vertical-edit',
+                    handler: () => {}, // implementar funcion
+                    icon: ViewHeadlineIcon,
+                    title: 'Editar registro en forma de ficha',
+                    color: 'primary',
+                    condition: (td) => td.allow?.['vertical-edit']
+                }
+            ];
+
+            const botones = gridActionButtons
+                .filter(actionDef => actionDef.condition(tableDefinition))
+                .map(actionDef => renderizarBotonAccion(actionDef, row));
+
+            if (botones.length === 0) return undefined;
+
             return (
-                <Box 
-                    sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', gap: 0.5 }}
-                >
-                    {tableDefinition.allow?.insert && (
-                        <Button variant="outlined" color="success" size="small" onClick={() => handleAddRow(row)} title="Agregar registro" sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}>
-                            <AddIcon sx={{ fontSize: 18 }} />
-                        </Button>
-                    )}
-                    {tableDefinition.allow?.delete && (
-                        <Button variant="outlined" color="error" size="small" onClick={() => handleDeleteRow(row)} title="Eliminar registro" sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}>
-                            <DeleteIcon sx={{ fontSize: 18 }} />
-                        </Button>
-                    )}
-                    {tableDefinition.allow?.update && (
-                        <Button variant="outlined" color="primary" size="small" onClick={() => {}} title="Editar registro en forma de ficha" sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}>
-                            <ViewHeadlineIcon sx={{ fontSize: 18 }} />
-                        </Button>
-                    )}
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', gap: 0.5 }}>
+                    {botones}
                 </Box>
             );
         }
