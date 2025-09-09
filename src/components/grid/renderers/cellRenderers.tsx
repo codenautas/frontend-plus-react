@@ -2,12 +2,24 @@ import { RenderCellProps } from 'react-data-grid';
 import { Box, Button, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 import GenericDataGrid, { getPrimaryKeyValues, NEW_ROW_INDICATOR, DETAIL_ROW_INDICATOR } from '../GenericDataGrid';
 import { CustomColumn, DefaultColumn, DetailColumn, ActionColumn } from '../GenericDataGrid';
 import { FixedField } from '../../../types';
 import { clientSides } from '../clientSides';
 import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
+import { OverridableComponent } from '@mui/material/OverridableComponent';
+import { SvgIconTypeMap } from '@mui/material/SvgIcon';
+
+type ActionButtonDefinition = {
+    action: 'insert' | 'delete' | 'vertical-edit'
+    handler: (row: any) => void
+    title: string
+    icon: OverridableComponent<SvgIconTypeMap<{}, "svg">> & { muiName: string }
+    color: 'success' | 'error' | 'primary'
+}
 import { getDetailTableAndFixedFieldsForDetailTableAbr } from '../../../utils/functions';
 
 export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => {
@@ -79,6 +91,8 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                 }
             }
             
+
+            //  TODO: Capturar valor fecha
             const value = row[props.column.key];
             return (
                 <Tooltip title={cellFeedback && cellFeedback.rowId === rowId && cellFeedback.columnKey === props.column.key?cellFeedback?.message:''}>
@@ -134,15 +148,47 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
 
         case 'action': {
             const actionColumn = column as ActionColumn<any, unknown>;
-            const { tableDefinition, handleDeleteRow } = actionColumn;
+            const { tableDefinition, handleDeleteRow, handleAddRow } = actionColumn;
             
-            if (!tableDefinition.allow?.delete) return undefined;
-            
+            const gridActionButtons: ActionButtonDefinition[] = [
+                {
+                    action: 'insert',
+                    handler: handleAddRow,
+                    icon: AddIcon,
+                    title: 'Agregar registro',
+                    color: 'success',
+                },
+                {
+                    action: 'delete',
+                    handler: handleDeleteRow,
+                    icon: DeleteIcon,
+                    title: 'Eliminar registro',
+                    color: 'error',
+                },
+                {
+                    action: 'vertical-edit',
+                    handler: () => {}, // implementar funcion
+                    icon: ViewHeadlineIcon,
+                    title: 'Editar registro en forma de ficha',
+                    color: 'primary',
+                }
+            ];
+
             return (
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                    <Button variant="outlined" color="error" size="small" onClick={() => handleDeleteRow(row)} title="Eliminar fila" sx={{ minWidth: 30, height: 25, '& .MuiButton-startIcon': { m: 0 } }}>
-                        <DeleteIcon sx={{ fontSize: 20 }} />
-                    </Button>
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', gap: 0.5 }}>
+                    {gridActionButtons.map(actionDef => (
+                    tableDefinition.allow![actionDef.action] ? <Button 
+                        key={actionDef.action}
+                        variant="outlined" 
+                        color={actionDef.color} 
+                        size="small" 
+                        onClick={() => actionDef.handler(row)} 
+                        title={actionDef.title} 
+                        sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}
+                    >
+                        <actionDef.icon sx={{ fontSize: 18 }} />
+                    </Button> : null
+                ))}
                 </Box>
             );
         }
