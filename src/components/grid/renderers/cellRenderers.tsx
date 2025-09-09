@@ -177,18 +177,18 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
             return (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', gap: 0.5 }}>
                     {gridActionButtons.map(actionDef => (
-                    tableDefinition.allow![actionDef.action] ? <Button 
-                        key={actionDef.action}
-                        variant="outlined" 
-                        color={actionDef.color} 
-                        size="small" 
-                        onClick={() => actionDef.handler(row)} 
-                        title={actionDef.title} 
-                        sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}
-                    >
-                        <actionDef.icon sx={{ fontSize: 18 }} />
-                    </Button> : null
-                ))}
+                        tableDefinition.allow![actionDef.action] ? <Button 
+                            key={actionDef.action}
+                            variant="outlined" 
+                            color={actionDef.color} 
+                            size="small" 
+                            onClick={() => actionDef.handler(row)} 
+                            title={actionDef.title} 
+                            sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}
+                        >
+                            <actionDef.icon sx={{ fontSize: 18 }} />
+                        </Button> : null
+                    ))}
                 </Box>
             );
         }
