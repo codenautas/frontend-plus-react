@@ -1,13 +1,13 @@
 // src/components/GenericDataGrid.tsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { DataGrid, Column, DataGridHandle, SelectCellOptions, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs, CellKeyDownArgs, CellPasteArgs, CellSelectArgs, CellMouseEvent, CellKeyboardEvent, DataGridProps } from 'react-data-grid';
+import { DataGrid, Column, DataGridHandle, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs, CellSelectArgs } from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
 
 import { useApiCall } from '../../hooks/useApiCall';
 import { CircularProgress, Typography, Box, Alert, useTheme, Button } from '@mui/material';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 
-import AddIcon from '@mui/icons-material/Add';
+
 
 import { useSnackbar } from '../../contexts/SnackbarContext';
 
@@ -72,7 +72,8 @@ export interface DetailColumn<TRow, TSummaryRow = unknown> extends BaseCustomCol
 
 export interface ActionColumn<TRow, TSummaryRow = unknown> extends BaseCustomColumn<TRow, TSummaryRow> {
     customType: 'action';
-    handleDeleteRow: Function
+    handleDeleteRow: Function;
+    handleAddRow: Function
 }
 
 export type CustomColumn<TRow, TSummaryRow = unknown> =
@@ -391,13 +392,23 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             };
         });
 
+        // Calcular ancho dinámico basado en botones disponibles
+        const availableActions = [
+            tableDefinition.allow?.insert,
+            tableDefinition.allow?.delete,
+            tableDefinition.allow?.['vertical-edit']
+        ].filter(Boolean).length;
+        
+        const actionColumnWidth = availableActions === 0 ? 30 : 12 + (availableActions * 25);
+
         const actionsColumn: CustomColumn<any> = {
             key: 'actionsColumn',
             customType: 'action',
             tableDefinition,
             handleDeleteRow,
+            handleAddRow,
             name: 'filterCol',
-            width: 50,
+            width: actionColumnWidth,
             editable: false,
             resizable: false,
             sortable: false,            
@@ -456,7 +467,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         cellFeedback, primaryKey, theme.palette.success.light, theme.palette.error.light,
         theme.palette.info.light, theme.palette.action.selected,
         handleEnterKeyPressInEditor, setTableData,
-        localCellChanges, handleDeleteRow, fixedFields, tableData
+        localCellChanges, handleDeleteRow, handleAddRow, fixedFields, tableData
     ]);
 
     const handleRowsChange = useCallback((updatedRows: any[]) => {
@@ -520,17 +531,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     return (
         <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
-            {tableDefinition.allow?.insert && (
-                <Box sx={{ display: 'flex', px: 2, pb: 1 }}>
-                    <Button
-                        variant="contained"
-                        onClick={handleAddRow}
-                        startIcon={<AddIcon />}
-                    >
-                        Nuevo Registro
-                    </Button>
-                </Box>
-            )}
             <Box
                 sx={{
                     backgroundColor: theme.palette.primary.main,
@@ -545,10 +545,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     mr: 2
                 }}
             >
-                <Typography variant="subtitle1" component="div">
-                    {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} -
-                    mostrando {getFilteredRowCount() === getRowCount() ? `${getRowCount()} registros`
-                    : `${getFilteredRowCount()} registros filtrados`
+                <Typography variant="subtitle2" component="div">
+                    {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} - {getFilteredRowCount() === getRowCount() ? `${getRowCount()} registros`
+                    : `${getFilteredRowCount()} (F)`
                     }
                 </Typography>
             </Box>
@@ -563,7 +562,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     pb: 2,
                 }}
             >
-                 <DataGrid
+                <DataGrid
                     className='rdg-light'
                     ref={dataGridRef}
                     //@ts-ignore TODO: arreglar este tipo
