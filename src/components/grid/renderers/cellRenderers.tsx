@@ -19,25 +19,6 @@ type ActionButtonDefinition = {
     title: string
     icon: OverridableComponent<SvgIconTypeMap<{}, "svg">> & { muiName: string }
     color: 'success' | 'error' | 'primary'
-    condition: (tableDefinition: any) => boolean
-}
-
-function renderizarBotonAccion(actionDef: ActionButtonDefinition, row: any) {
-    if (!actionDef.condition) return null;
-    
-    return (
-        <Button 
-            key={actionDef.action}
-            variant="outlined" 
-            color={actionDef.color} 
-            size="small" 
-            onClick={() => actionDef.handler(row)} 
-            title={actionDef.title} 
-            sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}
-        >
-            <actionDef.icon sx={{ fontSize: 18 }} />
-        </Button>
-    );
 }
 
 export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => {
@@ -185,7 +166,6 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                     icon: AddIcon,
                     title: 'Agregar registro',
                     color: 'success',
-                    condition: (td) => td.allow?.insert
                 },
                 {
                     action: 'delete',
@@ -193,7 +173,6 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                     icon: DeleteIcon,
                     title: 'Eliminar registro',
                     color: 'error',
-                    condition: (td) => td.allow?.delete
                 },
                 {
                     action: 'vertical-edit',
@@ -201,19 +180,24 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                     icon: ViewHeadlineIcon,
                     title: 'Editar registro en forma de ficha',
                     color: 'primary',
-                    condition: (td) => td.allow?.['vertical-edit']
                 }
             ];
 
-            const botones = gridActionButtons
-                .filter(actionDef => actionDef.condition(tableDefinition))
-                .map(actionDef => renderizarBotonAccion(actionDef, row));
-
-            if (botones.length === 0) return undefined;
-
             return (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', gap: 0.5 }}>
-                    {botones}
+                    {gridActionButtons.map(actionDef => (
+                    tableDefinition.allow![actionDef.action] ? <Button 
+                        key={actionDef.action}
+                        variant="outlined" 
+                        color={actionDef.color} 
+                        size="small" 
+                        onClick={() => actionDef.handler(row)} 
+                        title={actionDef.title} 
+                        sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}
+                    >
+                        <actionDef.icon sx={{ fontSize: 18 }} />
+                    </Button> : null
+                ))}
                 </Box>
             );
         }
