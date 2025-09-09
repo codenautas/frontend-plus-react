@@ -1,5 +1,7 @@
 import * as JSON4all from "json4all";
 import { store } from '../store';
+import { TableDefinition } from "backend-plus";
+import { FixedField } from "../types";
 
 export const cambiarGuionesBajosPorEspacios = (texto:string)=>texto.replace(/_/g,' ');
 export const quitarGuionesBajos = (texto:string)=>texto.replace(/_/g,'');
@@ -44,3 +46,16 @@ const existsSessionVar = (varName: string) => !!(sessionStorage.getItem(getAppPr
 
 
 const removeSessionVar = (varName: string) => sessionStorage.removeItem(getAppPrefix()+varName);
+
+export const getDetailTableAndFixedFieldsForDetailTableAbr = (tableDefinition:TableDefinition, detailTableAbr:string, row:any) => {
+    const detailTable = tableDefinition.detailTables!.find((dt) => dt.abr === detailTableAbr)!;     
+    let fixedFields: FixedField[] = [];
+    detailTable.fields.forEach((field: any) => {
+        if (typeof field === "string") {
+            fixedFields.push({ fieldName: field, value: row[field] });
+        } else {
+            fixedFields.push({ fieldName: field.target, value: row[field.source] });
+        }
+    });
+    return {detailTable, fixedFields}
+}

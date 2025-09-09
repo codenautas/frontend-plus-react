@@ -20,6 +20,7 @@ type ActionButtonDefinition = {
     icon: OverridableComponent<SvgIconTypeMap<{}, "svg">> & { muiName: string }
     color: 'success' | 'error' | 'primary'
 }
+import { getDetailTableAndFixedFieldsForDetailTableAbr } from '../../../utils/functions';
 
 export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => {
     const theme = useTheme();
@@ -33,17 +34,7 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
         
         // Verifica que la columna actual sea la de detalle para esa fila
         if (column.customType === 'detail' && detailColumn.detailTable.abr === detailTableAbr) {
-            const detailTable = detailColumn.tableDefinition.detailTables!.find((dt) => dt.abr === detailTableAbr)!;
-            
-            let fixedFields: FixedField[] = [];
-            detailTable.fields.forEach((field: any) => {
-                if (typeof field === "string") {
-                    fixedFields.push({ fieldName: field, value: row[field] });
-                } else {
-                    fixedFields.push({ fieldName: field.target, value: row[field.source] });
-                }
-            });
-
+            const { detailTable, fixedFields } = getDetailTableAndFixedFieldsForDetailTableAbr(detailColumn.tableDefinition, detailTableAbr, row)
             return (
                 <Box sx={{
                     // Se eliminó el padding para que la sub-grilla se extienda por completo
@@ -59,7 +50,7 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                     onKeyDown={(e) => e.stopPropagation()}
                     onDoubleClick={(e) => e.stopPropagation()}
                 >
-                    <GenericDataGrid tableName={detailTable.table!} fixedFields={fixedFields} />
+                    <GenericDataGrid tableName={detailTable.table!} fixedFields={fixedFields} gridStyles={{height:322}}/>
                 </Box>
                 
             );
