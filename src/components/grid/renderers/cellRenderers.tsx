@@ -184,7 +184,7 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                             size="small" 
                             onClick={() => actionDef.handler(row)} 
                             title={actionDef.title} 
-                            sx={{ minWidth: 19, height: 19, '& .MuiButton-startIcon': { m: 0 } }}
+                            sx={{ width:22, minWidth: 22, height: 22, '& .MuiButton-startIcon': { m: 0 } }}
                         >
                             <actionDef.icon sx={{ fontSize: 18 }} />
                         </Button> : null
