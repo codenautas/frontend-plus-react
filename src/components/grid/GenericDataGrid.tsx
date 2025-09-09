@@ -57,7 +57,7 @@ export interface DefaultColumn<TRow, TSummaryRow = unknown> extends BaseCustomCo
     fixedFields: FixedField[] | undefined,
     localCellChanges: Map<string, Set<string>>,
     setLocalCellChanges: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>,
-    handleEnterKeyPressInEditor: (rowIndex: number, columnKey: string, currentColumns: Column<any>[]) => void
+    handleEnterKeyPressInEditor: (rowIndex: number, columnKey: string, key:string, currentColumns: Column<any>[]) => void
     
 }
 
@@ -321,7 +321,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         return rows;
     }, [tableData, filters, isFilterRowVisible]);
 
-    const handleEnterKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, currentColumns: Column<any>[]) => {
+    const handleEnterKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, key: string, currentColumns: Column<any>[]) => {
         if (dataGridRef.current && tableDefinition) {
             const currentColumnIndex = currentColumns.findIndex((col: Column<any>) => col.key === columnKey);
             const editableColumns = currentColumns.filter(col => {
@@ -347,10 +347,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
                     const nextColumnIndex = currentColumns.findIndex(col => col.key === nextColumnKey);
 
-                    
                     dataGridRef.current?.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: true, shouldFocusCell: true });
-                 
-                   
                 }
             }
         }
