@@ -16,12 +16,14 @@ import useLogout from '../hooks/useLogout';
 // Importamos los hooks de Redux y las acciones del nuevo slice
 import { useAppDispatch, useIsDrawerOpen } from '../store';
 import { setDrawerOpen, toggleDrawer } from '../store/menuUiSlice';
+import { WScreenProps } from '../pages/WScreens';
 
 
 const drawerWidth = 240;
 
 // const MainLayout: React.FC<MainLayoutProps> = ({ children }) => { // Quitamos { children }
-const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como prop
+const MainLayout = (props:{allWScreens: { [key: string]: React.ComponentType<WScreenProps> }}) => { // MainLayout ya no recibe 'children' como prop
+    const { allWScreens } = props;
     const { clientContext } = useApp();
     const logout = useLogout();
 
@@ -136,7 +138,7 @@ const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como 
                     {isDrawerOpen ? clientContext.config.title : ''}
                 </Toolbar>
                 {/* Pasamos la función para cerrar el drawer al SideMenu */}
-                <SideMenu onMenuItemClick={handleDrawerCloseMobile} />
+                <SideMenu onMenuItemClick={handleDrawerCloseMobile} allWScreens={allWScreens}/>
             </Drawer>
             <Box
                 component="main"

@@ -20,10 +20,7 @@ import { useSubMenuOpenState, useAppDispatch, useAppSelector } from '../store';
 import { toggleSubMenu, setAllSubMenusOpen } from '../store/menuUiSlice';
 import { MenuListItemProps, SideMenuProps } from '../types';
 
-import { wScreens } from '../pages/WScreens';
-
-
-const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClick }) => {
+const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClick, allWScreens}) => {
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -55,7 +52,7 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
             } else if (item.menuType === "proc") {
                 path = `/procedures/${item.name}`;
             } else {
-                const WScreenComponent = wScreens[item.menuType];
+                const WScreenComponent = allWScreens[item.menuType];
                 if (WScreenComponent !== undefined) {
                     path = `/wScreens/${item.menuType}`;
                 } else {
@@ -82,7 +79,7 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
             case "menu":
                 return <FolderIcon sx={{ color: orange[800] }} />;
             default:
-                const WScreenComponent = wScreens[item.menuType];
+                const WScreenComponent = allWScreens[item.menuType];
                 if (WScreenComponent !== undefined) {
                     return <DesktopWindowsIcon sx={{ color: grey[700] }} />;
                 }
@@ -124,6 +121,7 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
                                 item={subItem}
                                 level={level + 1}
                                 onMenuItemClick={onMenuItemClick}
+                                allWScreens={allWScreens}
                             />
                         ))}
                     </List>
@@ -134,7 +132,8 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
 };
 
 
-const SideMenu: React.FC<SideMenuProps> = ({ onMenuItemClick }) => {
+const SideMenu: React.FC<SideMenuProps> = ({ onMenuItemClick, allWScreens }) => {
+
     const { clientContext } = useApp();
     const navigate = useNavigate();
     const location = useLocation();
@@ -196,6 +195,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ onMenuItemClick }) => {
                         item={menuItem}
                         level={1}
                         onMenuItemClick={onMenuItemClick}
+                        allWScreens={allWScreens}
                     />
                 ))}
             </List>

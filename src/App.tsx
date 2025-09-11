@@ -41,10 +41,10 @@ const LocationTracker: React.FC = () => {
 
 interface FrontendPlusReactRoutesProps {
     myRoutes?: React.ReactNode;
-    myWScreens?: { [key: string]: React.ComponentType<WScreenProps> };
+    allWScreens?: { [key: string]: React.ComponentType<WScreenProps> };
 }
 
-export function FrontendPlusReactRoutes({ myRoutes, myWScreens }: FrontendPlusReactRoutesProps) { // <--- CAMBIO AQUÍ
+export function FrontendPlusReactRoutes({ myRoutes, allWScreens: myWScreens }: FrontendPlusReactRoutesProps) { // <--- CAMBIO AQUÍ
     const allWScreens = { ...wScreens, ...(myWScreens || {}) };
     return (
         <Routes>
@@ -54,7 +54,7 @@ export function FrontendPlusReactRoutes({ myRoutes, myWScreens }: FrontendPlusRe
             <Route element={
                 <PrivateRoute>
                     <InitialRedirectHandler />
-                    <MainLayout />
+                    <MainLayout allWScreens={allWScreens} />
                 </PrivateRoute>
             }>
                 <Route path="/" element={<HomePage />} />
@@ -66,7 +66,7 @@ export function FrontendPlusReactRoutes({ myRoutes, myWScreens }: FrontendPlusRe
                     <Route
                         key={screenName}
                         path={`/wScreens/${screenName}`}
-                        element={React.createElement(wScreens[screenName], { screenName } as WScreenProps)}
+                        element={React.createElement(allWScreens[screenName], { screenName } as WScreenProps)}
                     />
                 ))}
                 <Route
@@ -113,7 +113,7 @@ const App = ({
                         <SnackbarProvider>
                             <FrontendPlusReactRoutes
                                 myRoutes={myRoutes}
-                                myWScreens={myWScreens}
+                                allWScreens={myWScreens}
                             />
                             <SessionExpiredMessage />
                         </SnackbarProvider>

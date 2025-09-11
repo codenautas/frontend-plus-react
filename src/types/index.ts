@@ -2,6 +2,7 @@ import { AppConfigClientSetup, DetailTable, MenuInfoBase, ProcedureDef, TableDef
 import { Details } from "express-useragent";
 import { ReactNode } from "react";
 import { Column, RenderCellProps, RenderHeaderCellProps } from "react-data-grid";
+import { WScreenProps } from "../pages/WScreens";
 
 export type {FieldDefinition, TableDefinition} from "backend-plus"; 
 
@@ -58,12 +59,14 @@ export interface GenericDataGridForDetailProps {
 
 export interface SideMenuProps {
     onMenuItemClick?: () => void;
+    allWScreens: { [key: string]: React.ComponentType<WScreenProps> };
 }
 
 export interface MenuListItemProps {
     item: MenuInfoBase;
     level: number;
     onMenuItemClick?: () => void;
+    allWScreens: { [key: string]: React.ComponentType<WScreenProps> };
 }
 
 export interface CustomCellProps<R extends Record<string, any>, SR> extends RenderCellProps<R, SR> {
