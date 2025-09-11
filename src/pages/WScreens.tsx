@@ -26,8 +26,7 @@ const MyCustomDashboard: React.FC<WScreenProps> = ({ screenName }) => {
     );
 };
 
-// --- WScreen de Fallback por defecto (única para cualquier error de mapeo) ---
-const FallbackWScreen: React.FC<WScreenProps> = ({ screenName }) => {
+export const FallbackWScreen: React.FC<WScreenProps> = ({ screenName }) => {
     return (
         <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
             <Paper elevation={3} sx={{ p: 4, textAlign: 'center', maxWidth: 600, backgroundColor: 'warning.light', border: '1px solid orange' }}>
@@ -47,12 +46,13 @@ const FallbackWScreen: React.FC<WScreenProps> = ({ screenName }) => {
 };
 
 // Mapeo de nombres de wScreens a sus componentes
-export const wScreens: Record<string, React.FC<WScreenProps>> = {
+export let wScreens: Record<string, React.FC<WScreenProps>> = {
     'MyCustomDashboard': MyCustomDashboard,
     // Agrega más componentes de wScreen aquí:
     // 'AnotherWScreen': AnotherWScreenComponent,
 };
 
-// No exportamos FallbackWScreen por defecto aquí si lo queremos importar por su nombre explícito.
-// Lo importaremos por su nombre en App.tsx.
-export default FallbackWScreen; // Exportamos como default para mayor flexibilidad si se usa en otro lado
+export const extendWScreens = (newWScreens: Record<string, React.FC<WScreenProps>>) => {
+    wScreens = { ...wScreens, ...newWScreens };
+    console.log('wScreens extendidos:', wScreens);
+};

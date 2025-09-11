@@ -24,8 +24,8 @@ import { SnackbarProvider } from './contexts/SnackbarContext';
 import GenericDataGridPage from './pages/GenericDataGridPage';
 import MenuTablePage from './pages/MenuTablePage';
 
-import { wScreens, WScreenProps } from './pages/WScreens'; // Importa el mapeo de wScreens
-import FallbackWScreen from './pages/WScreens';
+import { WScreenProps, wScreens, FallbackWScreen, extendWScreens} from './pages/WScreens';
+
 
 import { extendClientSides, ClientSideProps} from './components/grid/clientSides'; 
 import { extendResultsOk, ResultOkProps} from './pages/procedure-results/resultsOk'; // Ajusta la ruta
@@ -41,11 +41,9 @@ const LocationTracker: React.FC = () => {
 
 interface FrontendPlusReactRoutesProps {
     myRoutes?: React.ReactNode;
-    allWScreens?: { [key: string]: React.ComponentType<WScreenProps> };
 }
 
-export function FrontendPlusReactRoutes({ myRoutes, allWScreens: myWScreens }: FrontendPlusReactRoutesProps) { // <--- CAMBIO AQUÍ
-    const allWScreens = { ...wScreens, ...(myWScreens || {}) };
+export function FrontendPlusReactRoutes({ myRoutes }: FrontendPlusReactRoutesProps) { // <--- CAMBIO AQUÍ
     return (
         <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -54,7 +52,7 @@ export function FrontendPlusReactRoutes({ myRoutes, allWScreens: myWScreens }: F
             <Route element={
                 <PrivateRoute>
                     <InitialRedirectHandler />
-                    <MainLayout allWScreens={allWScreens} />
+                    <MainLayout/>
                 </PrivateRoute>
             }>
                 <Route path="/" element={<HomePage />} />
@@ -62,11 +60,11 @@ export function FrontendPlusReactRoutes({ myRoutes, allWScreens: myWScreens }: F
                 <Route path="/table/:tableName" element={<GenericDataGridPage />} />
                 <Route path="/menu/:menuName" element={<MenuTablePage />} />
                 <Route path="/procedures/:procedureName" element={<ProcedureForm />} />
-                {Object.keys(allWScreens).map((screenName) => (
+                {Object.keys(wScreens).map((screenName) => (
                     <Route
                         key={screenName}
                         path={`/wScreens/${screenName}`}
-                        element={React.createElement(allWScreens[screenName], { screenName } as WScreenProps)}
+                        element={React.createElement(wScreens[screenName], { screenName } as WScreenProps)}
                     />
                 ))}
                 <Route
@@ -83,7 +81,7 @@ export function FrontendPlusReactRoutes({ myRoutes, allWScreens: myWScreens }: F
     );
 }
 
-interface AppProps {
+export interface AppProps {
     myRoutes?: React.ReactNode;
     myWScreens?: { [key: string]: React.ComponentType<WScreenProps> };
     myClientSides?: Record<string, React.FC<ClientSideProps>>;
@@ -103,7 +101,10 @@ const App = ({
         if (myResultsOk) {
             extendResultsOk(myResultsOk);
         }
-    }, [myClientSides, myResultsOk]);
+        if (myWScreens) {
+            extendWScreens(myWScreens);
+        }
+    }, [myClientSides, myResultsOk, myWScreens]);
     return (
         <Provider store={store}>
             <PersistGate loading={null} persistor={persistor}>
