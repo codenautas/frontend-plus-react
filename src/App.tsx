@@ -29,6 +29,7 @@ import { WScreenProps, wScreens, FallbackWScreen, extendWScreens} from './pages/
 
 import { extendClientSides, ClientSideProps} from './components/grid/clientSides'; 
 import { extendResultsOk, ResultOkProps} from './pages/procedure-results/resultsOk'; // Ajusta la ruta
+import { Box } from '@mui/material';
 
 const LocationTracker: React.FC = () => {
     const location = useLocation();
@@ -64,12 +65,18 @@ export function FrontendPlusReactRoutes({ myRoutes }: FrontendPlusReactRoutesPro
                     <Route
                         key={screenName}
                         path={`/wScreens/${screenName}`}
-                        element={React.createElement(wScreens[screenName], { screenName } as WScreenProps)}
+                        element={React.createElement(
+                            Box,
+                            { 
+                                sx: { pt: 3, pl: 4 },
+                            },
+                            React.createElement(wScreens[screenName], { screenName } as WScreenProps)
+                        )}
                     />
                 ))}
                 <Route
                     path="/wScreens-fallback/:screenName"
-                    element={<FallbackWScreen screenName=":screenName" />}
+                    element={<Box sx={{ p: 3 }}><FallbackWScreen screenName=":screenName" /></Box>}
                 />
                 <Route path="*" element={<div style={{ marginTop: '20px', marginLeft: "10px" }}>404 - Recurso No Encontrado</div>} />
             </Route>
@@ -83,7 +90,7 @@ export function FrontendPlusReactRoutes({ myRoutes }: FrontendPlusReactRoutesPro
 
 export interface AppProps {
     myRoutes?: React.ReactNode;
-    myWScreens?: { [key: string]: React.ComponentType<WScreenProps> };
+    myWScreens?: Record<string, React.FC<WScreenProps>>;
     myClientSides?: Record<string, React.FC<ClientSideProps>>;
     myResultsOk?: Record<string, React.FC<ResultOkProps>>;
 }
@@ -114,7 +121,6 @@ const App = ({
                         <SnackbarProvider>
                             <FrontendPlusReactRoutes
                                 myRoutes={myRoutes}
-                                allWScreens={myWScreens}
                             />
                             <SessionExpiredMessage />
                         </SnackbarProvider>
