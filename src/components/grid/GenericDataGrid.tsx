@@ -1,6 +1,6 @@
 // src/components/GenericDataGrid.tsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { DataGrid, Column, DataGridHandle, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs, CellSelectArgs, CellKeyDownArgs, CellKeyboardEvent } from 'react-data-grid';
+import { DataGrid, Column, DataGridHandle, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs, CellSelectArgs, CellKeyDownArgs, CellKeyboardEvent, CellMouseEvent } from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
 
 import { useApiCall } from '../../hooks/useApiCall';
@@ -557,14 +557,22 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             event.preventGridDefault();
         }
     }
+    const handleCellMouseDown = useCallback((_args: CellMouseArgs<any, { id: string }>, event: CellMouseEvent) => {
+        event.preventGridDefault();  
+    },[]);
 
-    const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>) => {
-        deselectAllOtherGrids(dataGridRef.current?.element);
-        args.selectCell(true);
+    const handlCellDoubleClick = useCallback((_args: CellMouseArgs<any, { id: string }>, event: CellMouseEvent) => {
+        event.preventGridDefault();  
+    },[]);
+
+    const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>, _event: CellMouseEvent) => {
         const fieldDefinition = tableDefinition?.fields.find(f => f.name === args.column.key);
         const isFixedField = fixedFields?.some(f => f.fieldName === args.column.key);
         const isEditable = fieldDefinition?.editable !== false && !isFixedField;
-
+        if(isEditable){
+            deselectAllOtherGrids(dataGridRef.current?.element);
+            args.selectCell(true);
+        }
         console.log("Clicked column index:", args.column.idx);
         console.log("Clicked row index:", args.rowIdx);
         console.log("Is editable:", isEditable);
@@ -653,6 +661,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
                     summaryRowHeight={isFilterRowVisible ? 30 : 0}
                     renderers={{ noRowsFallback: <EmptyRowsRenderer /> }}
+                    onCellMouseDown={handleCellMouseDown}
+                    onCellDoubleClick={handlCellDoubleClick}
                     onCellClick={handleCellClick}
                     onCellKeyDown={handleCellKeyDown}
                 />
