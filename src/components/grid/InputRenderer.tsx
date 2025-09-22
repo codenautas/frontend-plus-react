@@ -32,7 +32,7 @@ function InputRenderer<R extends Record<string, any>, S>({
     onClose,
     cellFeedback,
     setCellFeedback,
-    onEnterPress,
+    onKeyPress,
     setTableData,
     setLocalCellChanges,
     localCellChanges,
@@ -219,14 +219,14 @@ function InputRenderer<R extends Record<string, any>, S>({
     ]);
 
     const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
-        if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp','ArrowRight'].includes(event.key)) {
+        if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp','ArrowRight', 'ArrowLeft'].includes(event.key)) {
             handleCommit(editingValue, true, true);
-            event.preventDefault();
-            if (onEnterPress) {
-                onEnterPress(rowIdx, column.key, event.key);
+            //event.preventDefault();
+            if (onKeyPress) {
+                onKeyPress(rowIdx, column.key, event);
             }
         }
-    }, [handleCommit, editingValue, column.key, rowIdx, onEnterPress]);
+    }, [handleCommit, editingValue, column.key, rowIdx, onKeyPress]);
 
     const handleBlur = useCallback(() => {
         handleCommit(editingValue, true, false);

@@ -19,7 +19,7 @@ export const allColumnsEditCellRenderer = (
                 setTableData, 
                 cellFeedback, 
                 setCellFeedback, 
-                handleEnterKeyPressInEditor,
+                handleKeyPressInEditor,
                 localCellChanges,
                 setLocalCellChanges
             } = defaultColumn
@@ -41,7 +41,7 @@ export const allColumnsEditCellRenderer = (
                             tableDefinition={tableDefinition}
                             setCellFeedback={setCellFeedback}
                             cellFeedback={cellFeedback}
-                            onEnterPress={(rowIndex, columnKey, key) => handleEnterKeyPressInEditor(rowIndex, columnKey, key, allColumns)}
+                            onKeyPress={(rowIndex, columnKey, event) => handleKeyPressInEditor(rowIndex, columnKey, event, allColumns)}
                             setTableData={setTableData}
                             setLocalCellChanges={setLocalCellChanges}
                             localCellChanges={localCellChanges}

@@ -57,7 +57,7 @@ export interface DefaultColumn<TRow, TSummaryRow = unknown> extends BaseCustomCo
     fixedFields: FixedField[] | undefined,
     localCellChanges: Map<string, Set<string>>,
     setLocalCellChanges: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>,
-    handleEnterKeyPressInEditor: (rowIndex: number, columnKey: string, key:string, currentColumns: Column<any>[]) => void
+    handleKeyPressInEditor: (rowIndex: number, columnKey: string, event:React.KeyboardEvent, currentColumns: Column<any>[]) => void
     
 }
 
@@ -322,35 +322,102 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         return rows;
     }, [tableData, filters, isFilterRowVisible]);
 
-    const handleEnterKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, key: string, currentColumns: Column<any>[]) => {
+    const handleKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, event: React.KeyboardEvent, currentColumns: Column<any>[]) => {
         if (dataGridRef.current && tableDefinition) {
             const currentColumnIndex = currentColumns.findIndex((col: Column<any>) => col.key === columnKey);
             const editableColumns = currentColumns.filter(col => {
                 const fieldDefinition = tableDefinition.fields.find(f => f.name === col.key);
                 return col.key !== 'actionsColumn' && (col as DetailColumn<any, unknown>).customType != 'detail' && (fieldDefinition?.editable !== false && !fieldDefinition?.clientSide);
             });
+            const {key, currentTarget} = event;
+            const input = currentTarget as HTMLInputElement;
             if (currentColumnIndex !== -1 && editableColumns.length > 0) {
                 const editableColumnKeys = editableColumns.map(col => col.key);
                 let currentEditableColumnIndex = editableColumnKeys.indexOf(columnKey);
-
-                if (currentEditableColumnIndex !== -1) {
+                const calcularColumnaSiguienteYHacerFoco = ()=>{
                     let nextEditableColumnIndex = currentEditableColumnIndex + 1;
                     let nextRowIndex = rowIndex;
-
                     if (nextEditableColumnIndex >= editableColumns.length) {
                         nextEditableColumnIndex = 0;
                         nextRowIndex++;
+                        while(filteredRows[nextRowIndex] && filteredRows[nextRowIndex][DETAIL_ROW_INDICATOR]){
+                            nextRowIndex++;
+                        }
                         if (nextRowIndex >= filteredRows.length) {
                             nextRowIndex = 0;
                         }
                     }
-
                     const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
                     const nextColumnIndex = currentColumns.findIndex(col => col.key === nextColumnKey);
-
                     dataGridRef.current?.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: true, shouldFocusCell: true });
                 }
-            }
+                const calcularColumnaAnteriorYHacerFoco = ()=>{
+                    let nextEditableColumnIndex = currentEditableColumnIndex - 1;
+                    let nextRowIndex = rowIndex;
+                    if (nextEditableColumnIndex <= 0) {
+                        nextEditableColumnIndex = 0;
+                    }
+                    const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
+                    const nextColumnIndex = currentColumns.findIndex(col => col.key === nextColumnKey);
+                    dataGridRef.current?.selectCell({ rowIdx: nextRowIndex, idx: nextColumnIndex }, { enableEditor: true, shouldFocusCell: true });
+                }
+                const calcularFilaSiguienteYHacerFoco = ()=>{
+                    let nextRowIndex = rowIndex;   
+                    nextRowIndex++;
+                    while(filteredRows[nextRowIndex] && filteredRows[nextRowIndex][DETAIL_ROW_INDICATOR]){
+                        nextRowIndex++;
+                    }                    
+                    if (nextRowIndex >= filteredRows.length) {
+                        return
+                    }
+                    dataGridRef.current?.selectCell({ rowIdx: nextRowIndex, idx: currentColumnIndex }, { enableEditor: true, shouldFocusCell: true });
+                }
+
+                const calcularFilaAnteriorYHacerFoco = ()=>{
+                    let nextRowIndex = rowIndex;
+                    nextRowIndex--;
+                    while(filteredRows[nextRowIndex] && filteredRows[nextRowIndex][DETAIL_ROW_INDICATOR]){
+                        nextRowIndex--;
+                    }  
+                    if (nextRowIndex < 0) {
+                        return
+                    }
+                    dataGridRef.current?.selectCell({ rowIdx: nextRowIndex, idx: currentColumnIndex }, { enableEditor: true, shouldFocusCell: true });
+                }
+                
+                if (currentEditableColumnIndex !== -1) {
+                    switch(true){
+                        case ['Enter','Tab'].includes(key): {
+                            calcularColumnaSiguienteYHacerFoco();
+                            break;
+                        }
+                        case (key == 'ArrowRight'): {
+                            const cursorPosition = input.selectionStart;
+                            const inputValueLength = input.value.length;
+                            if(cursorPosition === inputValueLength){
+                                calcularColumnaSiguienteYHacerFoco();
+                            }
+                            break;
+                        }
+                        case (key == 'ArrowLeft'): {
+                            const cursorPosition = input.selectionStart;
+                            if(cursorPosition === 0){
+                                calcularColumnaAnteriorYHacerFoco();
+                            }
+                            break;
+                        }
+                        case (key == 'ArrowUp'): {
+                            calcularFilaAnteriorYHacerFoco();                            
+                            break;
+                        }
+                        case (key == 'ArrowDown'): {
+                            calcularFilaSiguienteYHacerFoco();
+                            break;
+                        }
+                        default: break;
+                    }
+                }    
+            }        
         }
     }, [filteredRows, tableDefinition]);
     
@@ -384,7 +451,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 resizable: true,
                 sortable: true,
                 editable: isFieldEditable,
-                handleEnterKeyPressInEditor,
+                handleKeyPressInEditor,
                 flexGrow: 1,
                 minWidth: 60,     
                 renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
@@ -466,7 +533,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         tableDefinition, isFilterRowVisible, filters, toggleFilterVisibility,
         cellFeedback, primaryKey, theme.palette.success.light, theme.palette.error.light,
         theme.palette.info.light, theme.palette.action.selected,
-        handleEnterKeyPressInEditor, setTableData,
+        handleKeyPressInEditor, setTableData,
         localCellChanges, handleDeleteRow, handleAddRow, fixedFields, tableData
     ]);
 
@@ -486,7 +553,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     };
 
     const handleCellKeyDown = (args: CellKeyDownArgs<any, { id: string }>, event: CellKeyboardEvent) => {
-        if (['Tab','Enter'].includes(event.key)) {
+        if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp','ArrowRight', 'ArrowLeft'].includes(event.key)) {
             event.preventGridDefault();
         }
     }

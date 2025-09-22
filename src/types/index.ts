@@ -38,7 +38,7 @@ export interface InputRendererProps<R extends Record<string, any>, S> {
     tableDefinition: TableDefinition,
     cellFeedback:CellFeedback|null,
     setCellFeedback: (feedback: CellFeedback | null) => void;
-    onEnterPress?: (rowIndex: number, columnKey: string, key: string) => void;
+    onKeyPress?: (rowIndex: number, columnKey: string, event: React.KeyboardEvent) => void;
     setTableData: React.Dispatch<React.SetStateAction<any[]>>;
     setLocalCellChanges: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>;
     localCellChanges: Map<string, Set<string>>; // Añadido como prop
