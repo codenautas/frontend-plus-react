@@ -329,8 +329,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 const fieldDefinition = tableDefinition.fields.find(f => f.name === col.key);
                 return col.key !== 'actionsColumn' && (col as DetailColumn<any, unknown>).customType != 'detail' && (fieldDefinition?.editable !== false && !fieldDefinition?.clientSide);
             });
-            const {key, currentTarget} = event;
-            const input = currentTarget as HTMLInputElement;
+            const {key, target} = event;
+            const input = target as HTMLInputElement;
             if (currentColumnIndex !== -1 && editableColumns.length > 0) {
                 const editableColumnKeys = editableColumns.map(col => col.key);
                 let currentEditableColumnIndex = editableColumnKeys.indexOf(columnKey);

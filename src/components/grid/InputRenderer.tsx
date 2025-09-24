@@ -88,6 +88,7 @@ function InputRenderer<R extends Record<string, any>, S>({
         const currentRowIdBeforeUpdate = getPrimaryKeyValues(oldRowData, tableDefinition.primaryKey); // Usar oldRowData aquí
 
         onRowChange({ ...row, [column.key]: processedNewValue } as R, true);
+        
         //onClose(true, focusNextCell);
 
         if (isNewRow) {
@@ -218,9 +219,9 @@ function InputRenderer<R extends Record<string, any>, S>({
         setTableData, setLocalCellChanges, localCellChanges, initialRowId
     ]);
 
-    const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    const handleKeyDown = useCallback(async(event: React.KeyboardEvent) => {
         if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp','ArrowRight', 'ArrowLeft'].includes(event.key)) {
-            handleCommit(editingValue, true, true);
+            await handleCommit(editingValue, true, true);
             //event.preventDefault();
             if (onKeyPress) {
                 onKeyPress(rowIdx, column.key, event);
