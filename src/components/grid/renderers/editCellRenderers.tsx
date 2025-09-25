@@ -41,7 +41,7 @@ export const allColumnsEditCellRenderer = (
                             tableDefinition={tableDefinition}
                             setCellFeedback={setCellFeedback}
                             cellFeedback={cellFeedback}
-                            onKeyPress={(rowIndex, columnKey, event) => handleKeyPressInEditor(rowIndex, columnKey, event, allColumns)}
+                            onKeyPress={(rowIndex, columnKey, event, handleCommit) => handleKeyPressInEditor(rowIndex, columnKey, event, allColumns, handleCommit)}
                             setTableData={setTableData}
                             setLocalCellChanges={setLocalCellChanges}
                             localCellChanges={localCellChanges}

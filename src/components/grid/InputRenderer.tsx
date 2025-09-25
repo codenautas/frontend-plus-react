@@ -220,11 +220,11 @@ function InputRenderer<R extends Record<string, any>, S>({
     ]);
 
     const handleKeyDown = useCallback(async(event: React.KeyboardEvent) => {
-        if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp','ArrowRight', 'ArrowLeft'].includes(event.key)) {
+        if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp','ArrowRight', 'ArrowLeft', 'F4'].includes(event.key)) {
             await handleCommit(editingValue, true, true);
             //event.preventDefault();
             if (onKeyPress) {
-                onKeyPress(rowIdx, column.key, event);
+                onKeyPress(rowIdx, column.key, event, handleCommit);
             }
         }
     }, [handleCommit, editingValue, column.key, rowIdx, onKeyPress]);

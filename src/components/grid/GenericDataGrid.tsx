@@ -57,8 +57,7 @@ export interface DefaultColumn<TRow, TSummaryRow = unknown> extends BaseCustomCo
     fixedFields: FixedField[] | undefined,
     localCellChanges: Map<string, Set<string>>,
     setLocalCellChanges: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>,
-    handleKeyPressInEditor: (rowIndex: number, columnKey: string, event:React.KeyboardEvent, currentColumns: Column<any>[]) => void
-    
+    handleKeyPressInEditor: (rowIndex: number, columnKey: string, event:React.KeyboardEvent, currentColumns: Column<any>[], handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void
 }
 
 export interface DetailColumn<TRow, TSummaryRow = unknown> extends BaseCustomColumn<TRow, TSummaryRow> {
@@ -322,7 +321,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         return rows;
     }, [tableData, filters, isFilterRowVisible]);
 
-    const handleKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, event: React.KeyboardEvent, currentColumns: Column<any>[]) => {
+    const handleKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, event: React.KeyboardEvent, currentColumns: Column<any>[], handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => {
         if (dataGridRef.current && tableDefinition) {
             const currentColumnIndex = currentColumns.findIndex((col: Column<any>) => col.key === columnKey);
             const editableColumns = currentColumns.filter(col => {
@@ -415,6 +414,14 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         }
                         case (key == 'ArrowDown'): {
                             hacerFoco(calcularFilaSiguiente());
+                            break;
+                        }
+                        case (key == 'F4'): {
+                            const {rowIdx, idx} = calcularFilaSiguiente();
+                            const previousRow = tableData[rowIndex-1]
+                            if(previousRow && !previousRow[DETAIL_ROW_INDICATOR]){
+                                handleCommit(previousRow[columnKey], true, true).then(()=>hacerFoco({rowIdx ,idx}))
+                            }
                             break;
                         }
                         default: break;
