@@ -335,7 +335,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 const editableColumnKeys = editableColumns.map(col => col.key);
                 let currentEditableColumnIndex = editableColumnKeys.indexOf(columnKey);
                 
-                const hacerFoco = ({rowIdx, idx}:{rowIdx:number, idx: number}) => dataGridRef.current?.selectCell({ rowIdx, idx }, { enableEditor: true, shouldFocusCell: true });
+                const hacerFoco = ({rowIdx, idx}:{rowIdx:number, idx: number}) => 
+                    setTimeout(()=>dataGridRef.current?.selectCell({ rowIdx, idx }, { enableEditor: true, shouldFocusCell: true }),10);
                 const calcularColumnaSiguiente = ()=>{
                     let nextEditableColumnIndex = currentEditableColumnIndex + 1;
                     let nextRowIndex = rowIndex;
