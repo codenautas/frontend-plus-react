@@ -29,6 +29,13 @@ export interface ConfirmDialogProps {
     message: string;
 }
 
+export interface TableOptionsDialogProps {
+    open: boolean;
+    onClose: () => void;
+    onOptionSelect: (option: string) => void;
+    anchorEl: HTMLElement | null;
+}
+
 export interface InputRendererProps<R extends Record<string, any>, S> {
     column: Column<R, S>,
     row: R,

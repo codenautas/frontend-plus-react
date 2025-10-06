@@ -4,7 +4,7 @@ import { DataGrid, Column, DataGridHandle, CellMouseArgs, RenderCellProps, Rende
 import 'react-data-grid/lib/styles.css';
 
 import { useApiCall } from '../../hooks/useApiCall';
-import { CircularProgress, Typography, Box, Alert, useTheme, Button } from '@mui/material';
+import { CircularProgress, Typography, Box, Alert, useTheme, Button, Modal } from '@mui/material';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 
 
@@ -14,6 +14,7 @@ import { useSnackbar } from '../../contexts/SnackbarContext';
 import { CellFeedback, FieldDefinition, FixedField, TableDefinition } from '../../types';
 
 import { ConfirmDialog } from '../ConfirmDialog';
+import { TableOptionsDialog } from '../TableOptionsDialog';
 
 import { actionsColumnHeaderCellRenderer, defaultColumnHeaderCellRenderer, detailColumnCellHeaderRenderer } from './renderers/headerCellRenderers';
 import { actionsColumnSummaryCellRenderer, defaultColumnSummaryCellRenderer, detailColumnCellSummaryRenderer } from './renderers/summaryCellRenderers';
@@ -98,6 +99,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const theme = useTheme();
 
     const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+    const [openTableOptions, setOpenTableOptions] = useState(false);
+    const [tableOptionsAnchorEl, setTableOptionsAnchorEl] = useState<HTMLElement | null>(null);
     const [rowToDelete, setRowToDelete] = useState<any | null>(null);
     const [exitingRowIds, setExitingRowIds] = useState<Set<string>>(new Set());
 
@@ -174,6 +177,38 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             }
             return !prev;
         });
+    }, []);
+
+    const handleTableOptions = useCallback((event: React.MouseEvent<HTMLElement>) => {
+        setTableOptionsAnchorEl(event.currentTarget);
+        setOpenTableOptions(true);
+    }, []);
+
+    const handleTableOptionSelect = useCallback((option: string) => {
+        console.log('Opción seleccionada:', option);
+        switch(option) {
+            case 'refresh':
+                // Lógica para refrescar
+                break;
+            case 'export':
+                // Lógica para exportar
+                break;
+            case 'showColumns':
+                // Lógica para mostrar columnas relacionadas
+                break;
+            case 'hideColumns':
+                // Lógica para ocultar/mostrar columnas
+                break;
+            case 'import':
+                // Lógica para importar
+                break;
+            case 'deleteAll':
+                // Lógica para borrar todos los registros
+                break;
+            case 'completeTable':
+                // Lógica para tabla completa y filtrada
+                break;
+        }
     }, []);
 
     const handleAddRow = useCallback(() => {
@@ -489,7 +524,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             editable: false,
             resizable: false,
             sortable: false,            
-            renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => actionsColumnHeaderCellRenderer(props, isFilterRowVisible, toggleFilterVisibility),
+            renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => actionsColumnHeaderCellRenderer(props, isFilterRowVisible, toggleFilterVisibility, handleTableOptions),
             renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => actionsColumnSummaryCellRenderer(props),
         };
 
@@ -688,7 +723,20 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         : '¿Estás seguro de que quieres eliminar este registro? Esta acción es irreversible.'
                 }
             />
+            <TableOptionsDialog
+                open={openTableOptions}
+                onClose={() => {
+                    setOpenTableOptions(false);
+                    setTableOptionsAnchorEl(null);
+                }}
+                onOptionSelect={handleTableOptionSelect}
+                anchorEl={tableOptionsAnchorEl}
+            />
         </Box>
     );
 };
 export default GenericDataGrid;
+
+function handleClose(event: {}, reason: 'backdropClick' | 'escapeKeyDown'): void {
+    throw new Error('Function not implemented.');
+}
