@@ -142,7 +142,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             } finally { }
         };
         fetchDataAndDefinition();
-    }, [tableName, /*fixedFields,*/ showError]);
+    }, [tableName, fixedFields, showError]);
 
     useEffect(() => {
         if (cellFeedback) {
