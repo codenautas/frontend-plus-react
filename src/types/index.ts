@@ -1,10 +1,44 @@
-import { AppConfigClientSetup, DetailTable, MenuInfoBase, ProcedureDef, TableDefinition } from "backend-plus";
+import { AppConfigClientSetup, DetailTable, MenuInfoBase, ProcedureDef, TableDefinition, FieldDefinition } from "backend-plus";
 import { Details } from "express-useragent";
 import { ReactNode } from "react";
 import { Column, RenderCellProps, RenderHeaderCellProps } from "react-data-grid";
 export type {AppProps} from "../App";
 
-export type {FieldDefinition, TableDefinition} from "backend-plus"; 
+// Exportamos los tipos de backend-plus para que el código no dé error
+export type {FieldDefinition, TableDefinition}; 
+
+// --- MODIFICACIONES DE FEEDBACK ---
+
+export interface CellFeedback {
+    rowId: string;
+    columnKey: string;
+    type: 'success' | 'error';
+    message?: string; // Corregido el tipo de 'message' a 'string'
+}
+
+// Tipo para el mapa de feedback, usando una clave string (rowId-columnKey)
+export type CellFeedbackMap = Map<string, CellFeedback>; 
+// Nota: También podrías usar Record<string, CellFeedback> si prefieres objetos.
+
+export interface InputRendererProps<R extends Record<string, any>, S> {
+    column: Column<R, S>,
+    row: R,
+    rowIdx: number;
+    onRowChange: (row: R, commitChanges?: boolean) => void;
+    onClose: (commitChanges?: boolean, shouldFocusCell?: boolean) => void;
+    tableDefinition: TableDefinition,
+    // --- CAMBIOS DE PROPIEDADES ---
+    cellFeedbackMap: CellFeedbackMap, // <--- CAMBIADO
+    setCellFeedbackMap: React.Dispatch<React.SetStateAction<CellFeedbackMap>>; // <--- CAMBIADO
+    // ----------------------------
+    onKeyPress?: (rowIndex: number, columnKey: string, event: React.KeyboardEvent, handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void;
+    setTableData: React.Dispatch<React.SetStateAction<any[]>>;
+    setLocalCellChanges: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>;
+    localCellChanges: Map<string, Set<string>>; 
+    primaryKey: string[];
+}
+
+// ------------------------------------
 
 export interface GenericDataGridProps {
     // tableName: string; // Comentado según tu código original
@@ -15,34 +49,11 @@ export interface FixedField {
     until?: any;
 }
 
-export interface CellFeedback {
-    rowId: string;
-    columnKey: string;
-    type: 'success' | 'error';
-    message?: 'string'
-}
-
 export interface ConfirmDialogProps {
     open: boolean;
     onClose: (confirm: boolean) => void;
     title: string;
     message: string;
-}
-
-export interface InputRendererProps<R extends Record<string, any>, S> {
-    column: Column<R, S>,
-    row: R,
-    rowIdx: number;
-    onRowChange: (row: R, commitChanges?: boolean) => void;
-    onClose: (commitChanges?: boolean, shouldFocusCell?: boolean) => void;
-    tableDefinition: TableDefinition,
-    cellFeedback:CellFeedback|null,
-    setCellFeedback: (feedback: CellFeedback | null) => void;
-    onKeyPress?: (rowIndex: number, columnKey: string, event: React.KeyboardEvent, handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void;
-    setTableData: React.Dispatch<React.SetStateAction<any[]>>;
-    setLocalCellChanges: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>;
-    localCellChanges: Map<string, Set<string>>; // Añadido como prop
-    primaryKey: string[];
 }
 
 export interface FilterRendererProps<R extends Record<string, any>, S> {
@@ -69,9 +80,6 @@ export interface MenuListItemProps {
 
 export interface CustomCellProps<R extends Record<string, any>, SR> extends RenderCellProps<R, SR> {
     column: RenderCellProps<R, SR>['column'] & { isPK?: boolean };
-    // No necesitamos redefinir 'row: R' aquí porque RenderCellProps ya lo tiene,
-    // y la restricción en el genérico <R extends Record<string, any>> ya debería ser suficiente.
-    // Si la redefinición causa problemas, es mejor confiar en la restricción.
 }
 
 export interface CustomHeaderCellProps<R, SR> extends RenderHeaderCellProps<R, SR> {
@@ -145,6 +153,4 @@ export interface RouterState {
 
 export interface FetchApiOptions extends RequestInit {
     // Puedes extender RequestInit para añadir opciones específicas si es necesario
-    // Por ejemplo, si siempre envías JSON, podrías tener:
-    // body?: Record<string, any>; // Para que el cuerpo sea un objeto que se stringify
-  }
+}

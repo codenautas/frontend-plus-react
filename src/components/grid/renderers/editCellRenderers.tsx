@@ -17,38 +17,49 @@ export const allColumnsEditCellRenderer = (
                 fixedFields, 
                 primaryKey, 
                 setTableData, 
-                cellFeedback, 
-                setCellFeedback, 
+                cellFeedbackMap, // <--- CAMBIADO
+                setCellFeedbackMap, // <--- CAMBIADO
                 handleKeyPressInEditor,
                 localCellChanges,
                 setLocalCellChanges
             } = defaultColumn
-            if (column.editable) { // la columna sabe que es editable porque se setea en la definicion de defaultColumns
+            
+            if (column.editable) { 
                 const fieldDefinition = tableDefinition.fields.find(f => f.name === column.key);
+                
                 // Busca si el campo es fijo en el array fixedFields
                 const isFixedField = fixedFields?.some(f => f.fieldName === column.key);
                 const isFieldEditableByUI = fieldDefinition?.editable !== false && !isFixedField; // No editable si es fijo
+                
                 if (!isFieldEditableByUI) {
                     // Si el campo no es editable por UI (ej. por ser fijo), no renderizamos el editor
                     return undefined
                 }
-                const rowId = getPrimaryKeyValues(props.row, primaryKey);
                 
-                return <Tooltip title={cellFeedback && cellFeedback.rowId === rowId && cellFeedback.columnKey === props.column.key?cellFeedback?.message:''}>
-                    <Box>
-                        <InputRenderer
-                            {...props}
-                            tableDefinition={tableDefinition}
-                            setCellFeedback={setCellFeedback}
-                            cellFeedback={cellFeedback}
-                            onKeyPress={(rowIndex, columnKey, event, handleCommit) => handleKeyPressInEditor(rowIndex, columnKey, event, allColumns, handleCommit)}
-                            setTableData={setTableData}
-                            setLocalCellChanges={setLocalCellChanges}
-                            localCellChanges={localCellChanges}
-                            primaryKey={primaryKey}
-                        />
-                    </Box>
-                </Tooltip> 
+                const rowId = getPrimaryKeyValues(props.row, primaryKey);
+                const cellKey = `${rowId}-${props.column.key}`; // Clave única
+                
+                // Obtener el feedback específico para esta celda
+                const currentCellFeedback = cellFeedbackMap.get ? cellFeedbackMap.get(cellKey) : cellFeedbackMap[cellKey];
+
+                return (
+                    // --- TOOLTIP ADAPTADO: Lee el mensaje de error desde el Mapa ---
+                    <Tooltip title={currentCellFeedback?.message || ''}>
+                        <Box>
+                            <InputRenderer
+                                {...props}
+                                tableDefinition={tableDefinition}
+                                setCellFeedbackMap={setCellFeedbackMap} // <--- PASAMOS setCellFeedbackMap como setCellFeedback a InputRenderer
+                                cellFeedbackMap={cellFeedbackMap} // <--- PASAMOS cellFeedbackMap
+                                onKeyPress={(rowIndex, columnKey, event, handleCommit) => handleKeyPressInEditor(rowIndex, columnKey, event, allColumns, handleCommit)}
+                                setTableData={setTableData}
+                                setLocalCellChanges={setLocalCellChanges}
+                                localCellChanges={localCellChanges}
+                                primaryKey={primaryKey}
+                            />
+                        </Box>
+                    </Tooltip> 
+                )
             }
             return undefined
         }

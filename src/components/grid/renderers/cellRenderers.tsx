@@ -64,8 +64,14 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
     switch (column.customType) {
         case 'default': {
             const defaultColumn = column as DefaultColumn<any, unknown>;
-            const { fieldDef, tableDefinition, primaryKey, cellFeedback, fixedFields, localCellChanges } = defaultColumn;
+            // --- CAMBIO: Cambiamos cellFeedback a cellFeedbackMap ---
+            const { fieldDef, tableDefinition, primaryKey, cellFeedbackMap, fixedFields, localCellChanges } = defaultColumn;
+            // ---------------------------------------------------------
             const rowId = getPrimaryKeyValues(row, primaryKey);
+            const cellKey = `${rowId}-${props.column.key}`; // Clave única para el mapa
+
+            // Obtener el feedback específico para esta celda
+            const currentCellFeedback = cellFeedbackMap.get ? cellFeedbackMap.get(cellKey) : cellFeedbackMap[cellKey];
 
             if (fieldDef?.clientSide) {
                 const ClientSideComponent = clientSides[fieldDef.clientSide];
@@ -76,9 +82,12 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
             }
 
             let cellBackgroundColor = 'transparent';
-            if (cellFeedback && cellFeedback.rowId === rowId && cellFeedback.columnKey === props.column.key) {
-                cellBackgroundColor = cellFeedback.type === 'error' ? theme.palette.error.light : theme.palette.success.light;
+            
+            // --- LÓGICA DE COLOR DE FEEDBACK ADAPTADA ---
+            if (currentCellFeedback) {
+                cellBackgroundColor = currentCellFeedback.type === 'error' ? theme.palette.error.light : theme.palette.success.light;
             } else {
+            // ------------------------------------------
                 const isNewRowLocalCheck = row[NEW_ROW_INDICATOR];
                 const isMandatory = tableDefinition.primaryKey.includes(props.column.key) || (tableDefinition.fields.find(f => f.name === props.column.key)?.nullable === false);
                 const hasValue = row[props.column.key] !== null && row[props.column.key] !== undefined && String(row[props.column.key]).trim() !== '';
@@ -91,11 +100,10 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                 }
             }
             
-
-            //  TODO: Capturar valor fecha
+            //  TODO: Capturar valor fecha
             const value = row[props.column.key];
             return (
-                <Tooltip title={cellFeedback && cellFeedback.rowId === rowId && cellFeedback.columnKey === props.column.key?cellFeedback?.message:''}>
+                <Tooltip title={currentCellFeedback?.message || ''}>
                     <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: cellBackgroundColor, transition: 'background-color 0.3s ease-in-out', display: 'flex', alignItems: 'center', paddingLeft: '8px', boxSizing: 'border-box' }}>
                         <Typography variant="body2" sx={{ fontSize: '0.875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
                             {value === null || value === undefined ? '' : String(value)}
