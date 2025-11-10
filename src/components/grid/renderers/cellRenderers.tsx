@@ -15,7 +15,7 @@ import { SvgIconTypeMap } from '@mui/material/SvgIcon';
 
 type ActionButtonDefinition = {
     action: 'insert' | 'delete' | 'vertical-edit'
-    handler: (row: any) => void
+    handler: (row?: any) => void
     title: string
     icon: OverridableComponent<SvgIconTypeMap<{}, "svg">> & { muiName: string }
     color: 'success' | 'error' | 'primary'
