@@ -7,14 +7,20 @@ import { useApiCall } from '../../hooks/useApiCall';
 import { CircularProgress, Typography, Box, Alert, useTheme, Button, Modal } from '@mui/material';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 
-
+import RefreshIcon from '@mui/icons-material/Refresh';
+import ViewColumnIcon from '@mui/icons-material/ViewColumn';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
 
 import { useSnackbar } from '../../contexts/SnackbarContext';
 
-import { CellFeedback, FieldDefinition, FixedField, TableDefinition } from '../../types';
+import { CellFeedback, FieldDefinition, FixedField, TableDefinition, DataGridOption } from '../../types';
 
 import { ConfirmDialog } from '../ConfirmDialog';
-import { TableOptionsDialog } from '../TableOptionsDialog';
+import { DataGridOptionsDialog } from '../DataGridOptionsDialog';
 
 import { actionsColumnHeaderCellRenderer, defaultColumnHeaderCellRenderer, detailColumnCellHeaderRenderer } from './renderers/headerCellRenderers';
 import { actionsColumnSummaryCellRenderer, defaultColumnSummaryCellRenderer, detailColumnCellSummaryRenderer } from './renderers/summaryCellRenderers';
@@ -99,8 +105,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const theme = useTheme();
 
     const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
-    const [openTableOptions, setOpenTableOptions] = useState(false);
-    const [tableOptionsAnchorEl, setTableOptionsAnchorEl] = useState<HTMLElement | null>(null);
+    const [openDataGridOptions, setOpenDataGridOptions] = useState(false);
+    const [dataGridOptionsAnchorEl, setDataGridOptionsAnchorEl] = useState<HTMLElement | null>(null);
     const [rowToDelete, setRowToDelete] = useState<any | null>(null);
     const [exitingRowIds, setExitingRowIds] = useState<Set<string>>(new Set());
 
@@ -179,37 +185,117 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         });
     }, []);
 
-    const handleTableOptions = useCallback((event: React.MouseEvent<HTMLElement>) => {
-        setTableOptionsAnchorEl(event.currentTarget);
-        setOpenTableOptions(true);
+    const handleDataGridOptions = useCallback((event: React.MouseEvent<HTMLElement>) => {
+        setDataGridOptionsAnchorEl(event.currentTarget);
+        setOpenDataGridOptions(true);
     }, []);
 
-    const handleTableOptionSelect = useCallback((option: string) => {
-        console.log('Opción seleccionada:', option);
-        switch(option) {
-            case 'refresh':
-                // Lógica para refrescar
-                break;
-            case 'export':
-                // Lógica para exportar
-                break;
-            case 'showColumns':
-                // Lógica para mostrar columnas relacionadas
-                break;
-            case 'hideColumns':
-                // Lógica para ocultar/mostrar columnas
-                break;
-            case 'import':
-                // Lógica para importar
-                break;
-            case 'deleteAll':
-                // Lógica para borrar todos los registros
-                break;
-            case 'completeTable':
-                // Lógica para tabla completa y filtrada
-                break;
+    // Construcción de opciones del menú con visibilidad condicional
+    const dataGridMenuOptions = useMemo((): DataGridOption[] => {
+        if (!tableDefinition) return [];
+
+        const options: DataGridOption[] = [];
+
+        // Opción: Refrescar (siempre visible)
+        options.push({
+            id: 'refresh',
+            label: 'refrescar la grilla desde la base de datos',
+            icon: <RefreshIcon />,
+            handler: async () => {
+                try {
+                    const data = await callApi('table_data', {
+                        table: tableName,
+                        fixedFields: fixedFields
+                    });
+                    setTableData(data);
+                    showSuccess('Grilla refrescada correctamente');
+                } catch (err: any) {
+                    showError(`Error al refrescar: ${err.message || 'Error desconocido'}`);
+                }
+            },
+            visible: true
+        });
+
+        // Opción: Mostrar columnas relacionadas (siempre visible)
+        options.push({
+            id: 'showColumns',
+            label: 'mostrar las columnas relacionadas',
+            icon: <ViewColumnIcon />,
+            handler: async () => {
+                console.log('Mostrar columnas relacionadas');
+                // TODO: Implementar lógica
+            },
+            visible: true
+        });
+
+        // Opción: Ocultar/mostrar columnas (siempre visible)
+        options.push({
+            id: 'hideColumns',
+            label: 'ocultar o mostrar columnas',
+            icon: <VisibilityOffIcon />,
+            handler: async () => {
+                console.log('Ocultar/mostrar columnas');
+                // TODO: Implementar lógica
+            },
+            visible: true
+        });
+
+        // Opción: Exportar (solo si está permitido)
+        if (tableDefinition.allow?.export) {
+            options.push({
+                id: 'export',
+                label: 'exportar',
+                icon: <FileDownloadIcon />,
+                handler: async () => {
+                    console.log('Exportar datos');
+                    // TODO: Implementar lógica de exportación
+                },
+                visible: true
+            });
         }
-    }, []);
+
+        // Opción: Importar (solo si está permitido)
+        if (tableDefinition.allow?.import) {
+            options.push({
+                id: 'import',
+                label: 'importar',
+                icon: <FileUploadIcon />,
+                handler: async () => {
+                    console.log('Importar datos');
+                    // TODO: Implementar lógica de importación
+                },
+                visible: true
+            });
+        }
+
+        // Opción: Borrar todos los registros (solo si está permitido delete)
+        if (tableDefinition.allow?.delete) {
+            options.push({
+                id: 'deleteAll',
+                label: 'borrar todos los registros',
+                icon: <DeleteSweepIcon />,
+                handler: async () => {
+                    showWarning('Esta operación eliminará TODOS los registros de la tabla');
+                    // TODO: Implementar confirmación y lógica
+                },
+                visible: true
+            });
+        }
+
+        // Opción: Tabla completa y filtrada
+        options.push({
+            id: 'completeTable',
+            label: 'tabla completa y filtrada',
+            icon: <FilterAltIcon />,
+            handler: async () => {
+                console.log('Toggle tabla completa/filtrada');
+                // TODO: Implementar lógica
+            },
+            visible: true
+        });
+
+        return options;
+    }, [tableDefinition, tableName, fixedFields, callApi, showSuccess, showError, showWarning]);
 
     const handleAddRow = useCallback(() => {
         if (!tableDefinition) {
@@ -524,7 +610,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             editable: false,
             resizable: false,
             sortable: false,            
-            renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => actionsColumnHeaderCellRenderer(props, isFilterRowVisible, toggleFilterVisibility, handleTableOptions),
+            renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => actionsColumnHeaderCellRenderer(props, isFilterRowVisible, toggleFilterVisibility, handleDataGridOptions),
             renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => actionsColumnSummaryCellRenderer(props),
         };
 
@@ -723,20 +809,16 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         : '¿Estás seguro de que quieres eliminar este registro? Esta acción es irreversible.'
                 }
             />
-            <TableOptionsDialog
-                open={openTableOptions}
+            <DataGridOptionsDialog
+                open={openDataGridOptions}
                 onClose={() => {
-                    setOpenTableOptions(false);
-                    setTableOptionsAnchorEl(null);
+                    setOpenDataGridOptions(false);
+                    setDataGridOptionsAnchorEl(null);
                 }}
-                onOptionSelect={handleTableOptionSelect}
-                anchorEl={tableOptionsAnchorEl}
+                options={dataGridMenuOptions}
+                anchorEl={dataGridOptionsAnchorEl}
             />
         </Box>
     );
 };
 export default GenericDataGrid;
-
-function handleClose(event: {}, reason: 'backdropClick' | 'escapeKeyDown'): void {
-    throw new Error('Function not implemented.');
-}

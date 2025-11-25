@@ -2,9 +2,9 @@ import { AppConfigClientSetup, DetailTable, MenuInfoBase, ProcedureDef, TableDef
 import { Details } from "express-useragent";
 import { ReactNode } from "react";
 import { Column, RenderCellProps, RenderHeaderCellProps } from "react-data-grid";
-export type {AppProps} from "../App";
+export type { AppProps } from "../App";
 
-export type {FieldDefinition, TableDefinition} from "backend-plus"; 
+export type { FieldDefinition, TableDefinition } from "backend-plus";
 
 export interface GenericDataGridProps {
     // tableName: string; // Comentado según tu código original
@@ -29,10 +29,18 @@ export interface ConfirmDialogProps {
     message: string;
 }
 
-export interface TableOptionsDialogProps {
+export interface DataGridOption {
+    id: string;
+    label: string;
+    icon: React.ReactNode;
+    handler: () => Promise<void>;
+    visible?: boolean;  // Si es false o undefined se oculta
+}
+
+export interface DataGridOptionsDialogProps {
     open: boolean;
     onClose: () => void;
-    onOptionSelect: (option: string) => void;
+    options: DataGridOption[];
     anchorEl: HTMLElement | null;
 }
 
@@ -43,9 +51,9 @@ export interface InputRendererProps<R extends Record<string, any>, S> {
     onRowChange: (row: R, commitChanges?: boolean) => void;
     onClose: (commitChanges?: boolean, shouldFocusCell?: boolean) => void;
     tableDefinition: TableDefinition,
-    cellFeedback:CellFeedback|null,
+    cellFeedback: CellFeedback | null,
     setCellFeedback: (feedback: CellFeedback | null) => void;
-    onKeyPress?: (rowIndex: number, columnKey: string, event: React.KeyboardEvent, handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void;
+    onKeyPress?: (rowIndex: number, columnKey: string, event: React.KeyboardEvent, handleCommit: (currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void;
     setTableData: React.Dispatch<React.SetStateAction<any[]>>;
     setLocalCellChanges: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>;
     localCellChanges: Map<string, Set<string>>; // Añadido como prop
@@ -123,7 +131,7 @@ export interface SnackbarProviderProps {
 }
 
 export interface UseApiCallResult<T> {
-    callApi: (procedureName: string, params: Record<string, any>, opts?:{reportOnSnackbar:boolean}) => Promise<T | undefined>;
+    callApi: (procedureName: string, params: Record<string, any>, opts?: { reportOnSnackbar: boolean }) => Promise<T | undefined>;
     loading: boolean;
     error: Error | null;
 }
@@ -154,4 +162,4 @@ export interface FetchApiOptions extends RequestInit {
     // Puedes extender RequestInit para añadir opciones específicas si es necesario
     // Por ejemplo, si siempre envías JSON, podrías tener:
     // body?: Record<string, any>; // Para que el cuerpo sea un objeto que se stringify
-  }
+}
