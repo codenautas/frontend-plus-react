@@ -1,6 +1,6 @@
 {
   "name": "frontend-plus-react",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "librería React genérica para consumir backends de tipo backend-plus.",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -19,8 +19,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean --splitting --sourcemap",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --clean --splitting --watch --sourcemap"
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean --splitting --sourcemap --external react,react-dom,frontend-plus-react",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --clean --splitting --watch --sourcemap --external react,react-dom,frontend-plus-react"
   },
   "keywords": [
     "react",
