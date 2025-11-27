@@ -35,7 +35,12 @@ export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<any
     );
 }
 
-export const actionsColumnHeaderCellRenderer = (props: RenderHeaderCellProps<any, unknown>, isFilterRowVisible:boolean, toggleFilterVisibility: Function, handleDataGridOptions: Function) =>
+export const actionsColumnHeaderCellRenderer = (
+    props: RenderHeaderCellProps<any, unknown>, 
+    isFilterRowVisible:boolean, 
+    toggleFilterVisibility: () => void, 
+    handleDataGridOptions: (event: React.MouseEvent<HTMLElement>) => void
+) =>
     <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0.2}}> 
         <IconButton
             color="inherit"
