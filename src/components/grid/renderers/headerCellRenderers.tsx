@@ -40,7 +40,8 @@ export const actionsColumnHeaderCellRenderer = (
     isFilterRowVisible:boolean, 
     toggleFilterVisibility: () => void, 
     handleDataGridOptions: (event: React.MouseEvent<HTMLElement>) => void
-) =>
+) => {
+    return (
     <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0.2}}> 
         <IconButton
             color="inherit"
@@ -60,7 +61,8 @@ export const actionsColumnHeaderCellRenderer = (
             <MoreVertIcon sx={{ fontSize: 20, variant: "filled", size: "small" }} />
         </IconButton>
     </Box>
-    
+    );
+};
 
 export const detailColumnCellHeaderRenderer = (props: RenderHeaderCellProps<any, unknown>, detailTable:DetailTable) => 
     <Tooltip title={detailTable.label}>

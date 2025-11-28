@@ -1,4 +1,4 @@
-// src/components/grid/actions/events.ts
+// src/components/grid/actions/eventHandlers.ts
 import React from 'react';
 import {
     Column,

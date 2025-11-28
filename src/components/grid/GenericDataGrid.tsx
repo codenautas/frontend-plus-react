@@ -13,6 +13,7 @@ import { useSnackbar } from '../../contexts/SnackbarContext';
 import { CellFeedback, FieldDefinition, FixedField, TableDefinition } from '../../types';
 
 import { ConfirmDialog } from '../ConfirmDialog';
+import { DataGridOptionsDialog } from './DataGridOptionsDialog';
 
 import { actionsColumnHeaderCellRenderer, defaultColumnHeaderCellRenderer, detailColumnCellHeaderRenderer } from './renderers/headerCellRenderers';
 import { actionsColumnSummaryCellRenderer, defaultColumnSummaryCellRenderer, detailColumnCellSummaryRenderer } from './renderers/summaryCellRenderers';
@@ -21,6 +22,7 @@ import { allColumnsEditCellRenderer } from './renderers/editCellRenderers';
 import { DetailTable } from 'backend-plus';
 import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
 import { useIsDrawerOpen } from '../../store';
+import { buildMenuOptions } from './menu/options';
 
 interface GenericDataGridProps{
     tableName: string;
@@ -115,16 +117,16 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     
     // 🗑️ OLD: [cellFeedback, setCellFeedback] = useState<CellFeedback | null>(null);
 
-    const [localCellChanges, setLocalCellChanges] = useState<Map<string, Set<string>>>(new Map());
-    const theme = useTheme();
+    const [localCellChanges, setLocalCellChanges] = useState<Map<string, Set<string>>>(new Map());
+    const theme = useTheme();
 
-    const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
-    const [rowToDelete, setRowToDelete] = useState<any | null>(null);
-    const [exitingRowIds, setExitingRowIds] = useState<Set<string>>(new Set());
+    const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+    const [openDataGridOptions, setOpenDataGridOptions] = useState(false);
+    const [dataGridOptionsAnchorEl, setDataGridOptionsAnchorEl] = useState<HTMLElement | null>(null);
+    const [rowToDelete, setRowToDelete] = useState<any | null>(null);
+    const [exitingRowIds, setExitingRowIds] = useState<Set<string>>(new Set());
 
-    const { showSuccess, showError, showWarning, showInfo } = useSnackbar();
-
-    const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const { showSuccess, showError, showWarning, showInfo } = useSnackbar();    const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
     const dataGridRef = useRef<DataGridHandle>(null);
     const { callApi, loading, error } = useApiCall();
 
@@ -474,6 +476,17 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setSelectedCell(args);
     }, []);
     
+    
+    const menuOptions = useMemo(() => buildMenuOptions({
+        tableDefinition,
+        tableName,
+        fixedFields,
+        setTableData,
+        callApi,
+        showSuccess,
+        showError,
+        showWarning
+    }), [tableDefinition, tableName, fixedFields, setTableData, callApi, showSuccess, showError, showWarning]);
     const columns: CustomColumn<any>[] = useMemo(() => {
         if (!tableDefinition) return [];
         const fieldsToShow = tableDefinition.fields.filter((field: FieldDefinition) => {
@@ -525,15 +538,16 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             handleDeleteRow,
             handleAddRow,
             name: 'filterCol',
-            width: actionColumnWidth,
-            editable: false,
-            resizable: false,
-            sortable: false,            
-            renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => actionsColumnHeaderCellRenderer(props, isFilterRowVisible, toggleFilterVisibility),
-            renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => actionsColumnSummaryCellRenderer(props),
-        };
-
-        const detailColumns: CustomColumn<any>[] = [];
+            width: actionColumnWidth,
+            editable: false,
+            resizable: false,
+            sortable: false,            
+            renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => actionsColumnHeaderCellRenderer(props, isFilterRowVisible, toggleFilterVisibility, (e: React.MouseEvent<HTMLElement>) => { 
+                setDataGridOptionsAnchorEl(e.currentTarget); 
+                setOpenDataGridOptions(true); 
+            }),
+            renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => actionsColumnSummaryCellRenderer(props),
+        };        const detailColumns: CustomColumn<any>[] = [];
         if (tableDefinition.detailTables && tableDefinition.detailTables.length > 0) {
             tableDefinition.detailTables.forEach(detailTable => {
                 const detailKey = `detail_${detailTable.abr}`;
@@ -728,9 +742,15 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     : rowToDelete
                         ? `¿Estás seguro de que quieres eliminar la fila con ID: ${getPrimaryKeyValues(rowToDelete, primaryKey)} de la base de datos? Esta acción es irreversible.`
                         : '¿Estás seguro de que quieres eliminar este registro? Esta acción es irreversible.'
-                }
-            />
-        </Box>
-    );
+                }
+            />
+            <DataGridOptionsDialog
+                open={openDataGridOptions}
+                onClose={() => setOpenDataGridOptions(false)}
+                options={menuOptions}
+                anchorEl={dataGridOptionsAnchorEl}
+            />
+        </Box>
+    );
 };
 export default GenericDataGrid;
