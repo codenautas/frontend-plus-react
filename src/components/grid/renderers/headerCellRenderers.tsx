@@ -35,7 +35,13 @@ export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<any
     );
 }
 
-export const actionsColumnHeaderCellRenderer = (props: RenderHeaderCellProps<any, unknown>, isFilterRowVisible:boolean, toggleFilterVisibility: Function) =>
+export const actionsColumnHeaderCellRenderer = (
+    props: RenderHeaderCellProps<any, unknown>, 
+    isFilterRowVisible:boolean, 
+    toggleFilterVisibility: () => void, 
+    handleDataGridOptions: (event: React.MouseEvent<HTMLElement>) => void
+) => {
+    return (
     <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0.2}}> 
         <IconButton
             color="inherit"
@@ -47,7 +53,7 @@ export const actionsColumnHeaderCellRenderer = (props: RenderHeaderCellProps<any
             {isFilterRowVisible ? <SearchOffIcon sx={{ fontSize: 18 }} /> : <SearchIcon sx={{ fontSize: 18 }} />}
         </IconButton>
         <IconButton
-            onClick={() => {}}
+            onClick={(event) => handleDataGridOptions(event)}
             size ="small"
             title = "Opciones de esta tabla"
             sx={{ p: 0.25 }}
@@ -55,7 +61,8 @@ export const actionsColumnHeaderCellRenderer = (props: RenderHeaderCellProps<any
             <MoreVertIcon sx={{ fontSize: 20, variant: "filled", size: "small" }} />
         </IconButton>
     </Box>
-    
+    );
+};
 
 export const detailColumnCellHeaderRenderer = (props: RenderHeaderCellProps<any, unknown>, detailTable:DetailTable) => 
     <Tooltip title={detailTable.label}>
