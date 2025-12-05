@@ -2,6 +2,7 @@ import { AppConfigClientSetup, DetailTable, MenuInfoBase, ProcedureDef, TableDef
 import { Details } from "express-useragent";
 import { ReactNode } from "react";
 import { Column, RenderCellProps, RenderHeaderCellProps } from "react-data-grid";
+import { wScreens } from "../pages/WScreens";
 export type {AppProps} from "../App";
 
 // Exportamos los tipos de backend-plus para que el código no dé error

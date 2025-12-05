@@ -11,15 +11,9 @@ export const useApiCall = <T = any>(): UseApiCallResult<T> => {
     const callApi = useCallback(async (
         procedureName: string,
         params: Record<string, any>,
-        opts?:{
-            reportOnSnackbar:boolean
-        }
     ): Promise<T | undefined> => {
         setLoading(true);
         setError(null);
-        const defaultOpts = {...{
-            reportOnSnackbar: true
-        }, ...opts}
         try {
             const result = await baseExecuteBackendProcedure<T>(procedureName, params);
             return result === null ? undefined : result;
@@ -31,14 +25,39 @@ export const useApiCall = <T = any>(): UseApiCallResult<T> => {
             } else if (err instanceof Error) {
                 snackbarMessage = err.message;
             }
-            if(defaultOpts.reportOnSnackbar){
-                showSnackbar(snackbarMessage, 'error');
-            }
+            showSnackbar(snackbarMessage, 'error');
             throw err
         } finally {
             setLoading(false);
         }
     }, [showSnackbar]);
+
+    return { callApi, loading, error };
+};
+
+export const useApiCallWithoutSnackbar = <T = any>(): UseApiCallResult<T> => {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+
+    const callApi = useCallback(async (
+        procedureName: string,
+        params: Record<string, any>
+    ): Promise<T | undefined> => {
+        setLoading(true);
+        setError(null);
+        
+        try {
+            const result = await baseExecuteBackendProcedure<T>(procedureName, params);
+            return result === null ? undefined : result;
+        } catch (err: any) {
+            // Manejamos el error internamente (opcionalmente logueando) pero NO usamos el Snackbar.
+            setError(err); 
+            console.error(`Error en la llamada API (WithoutSnackbar) para ${procedureName}:`, err);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     return { callApi, loading, error };
 };

@@ -40,11 +40,12 @@ const LocationTracker: React.FC = () => {
     return null;
 };
 
-interface FrontendPlusReactRoutesProps {
+interface RoutesProps {
     myRoutes?: React.ReactNode;
+    layout?: React.ComponentType;
 }
 
-export function FrontendPlusReactRoutes({ myRoutes }: FrontendPlusReactRoutesProps) { // <--- CAMBIO AQUÍ
+export function FrontendPlusReactRoutes({ myRoutes, layout: Layout = MainLayout }: RoutesProps) {
     return (
         <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -53,7 +54,7 @@ export function FrontendPlusReactRoutes({ myRoutes }: FrontendPlusReactRoutesPro
             <Route element={
                 <PrivateRoute>
                     <InitialRedirectHandler />
-                    <MainLayout/>
+                    <Layout/>
                 </PrivateRoute>
             }>
                 <Route path="/" element={<HomePage />} />
@@ -88,12 +89,34 @@ export function FrontendPlusReactRoutes({ myRoutes }: FrontendPlusReactRoutesPro
     );
 }
 
+export type WScreenMap = Record<string, React.FC<WScreenProps>>;
+export type ClientSidesMap = Record<string, React.FC<ClientSideProps>>;
+export type ResultsOksMap = Record<string, React.FC<ResultOkProps>>;
+
 export interface AppProps {
     myRoutes?: React.ReactNode;
-    myWScreens?: Record<string, React.FC<WScreenProps>>;
-    myClientSides?: Record<string, React.FC<ClientSideProps>>;
-    myResultsOk?: Record<string, React.FC<ResultOkProps>>;
+    myWScreens?: WScreenMap;
+    myClientSides?: ClientSidesMap;
+    myResultsOk?: ResultsOksMap;
 }
+
+export const FrontendPlusProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    return (
+        <Provider store={store}>
+            <PersistGate loading={null} persistor={persistor}>
+                <BrowserRouter>
+                    <LocationTracker /> {/* El tracker necesita estar dentro del Router */}
+                    <AppProvider>
+                        <SnackbarProvider>
+                             {children}
+                             <SessionExpiredMessage />
+                        </SnackbarProvider>
+                    </AppProvider>
+                </BrowserRouter>
+            </PersistGate>
+        </Provider>
+    );
+};
 
 const App = ({
     myRoutes,
@@ -113,21 +136,9 @@ const App = ({
         }
     }, [myClientSides, myResultsOk, myWScreens]);
     return (
-        <Provider store={store}>
-            <PersistGate loading={null} persistor={persistor}>
-                <BrowserRouter>
-                    <LocationTracker />
-                    <AppProvider>
-                        <SnackbarProvider>
-                            <FrontendPlusReactRoutes
-                                myRoutes={myRoutes}
-                            />
-                            <SessionExpiredMessage />
-                        </SnackbarProvider>
-                    </AppProvider>
-                </BrowserRouter>
-            </PersistGate>
-        </Provider>
+        <FrontendPlusProviders>
+            <FrontendPlusReactRoutes myRoutes={myRoutes} />
+        </FrontendPlusProviders>
     );
 }
 
