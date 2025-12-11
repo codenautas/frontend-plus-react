@@ -5,6 +5,8 @@ import { Column, RenderCellProps, RenderHeaderCellProps } from "react-data-grid"
 import { wScreens } from "../pages/WScreens";
 export type {AppProps} from "../App";
 
+export {extractPathsFromRoutes} from "../utils/routeUtils";
+
 // Exportamos los tipos de backend-plus para que el código no dé error
 export type {FieldDefinition, TableDefinition}; 
 
