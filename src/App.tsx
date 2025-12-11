@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import './App.css';
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate, Outlet } from 'react-router-dom';
 import MainLayout from './components/MainLayout';
 import SessionExpiredMessage from './components/SessionExpiredMessage';
 import { AppProvider } from './contexts/AppContext';
@@ -31,6 +31,8 @@ import { extendClientSides, ClientSideProps} from './components/grid/clientSides
 import { extendResultsOk, ResultOkProps} from './pages/procedure-results/resultsOk'; // Ajusta la ruta
 import { Box } from '@mui/material';
 
+import { extractPathsFromRoutes } from './utils/routeUtils';
+
 const LocationTracker: React.FC = () => {
     const location = useLocation();
     const dispatch = useAppDispatch();
@@ -42,15 +44,20 @@ const LocationTracker: React.FC = () => {
 
 interface RoutesProps {
     myRoutes?: React.ReactNode;
+    myUnloggedRoutes?: React.ReactNode;
     layout?: React.ComponentType;
+    unloggedLayout?: React.ComponentType;
 }
 
-export function FrontendPlusReactRoutes({ myRoutes, layout: Layout = MainLayout }: RoutesProps) {
+export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: Layout = MainLayout, unloggedLayout: UnloggedLayout }: RoutesProps) {
     return (
         <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/logout" element={<LogoutPage />} />
-
+            <Route element={UnloggedLayout ? <UnloggedLayout /> : <Outlet />}>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/logout" element={<LogoutPage />} />
+                {myUnloggedRoutes}
+            </Route>
+            
             <Route element={
                 <PrivateRoute>
                     <InitialRedirectHandler />
@@ -79,10 +86,11 @@ export function FrontendPlusReactRoutes({ myRoutes, layout: Layout = MainLayout 
                     path="/wScreens-fallback/:screenName"
                     element={<Box sx={{ p: 3 }}><FallbackWScreen screenName=":screenName" /></Box>}
                 />
-                <Route path="*" element={<div style={{ marginTop: '20px', marginLeft: "10px" }}>404 - Recurso No Encontrado</div>} />
-            </Route>
-            {myRoutes}
 
+                {myRoutes}
+                
+                <Route path="*" element={<div style={{ marginTop: '20px', marginLeft: "10px" }}>404 - Recurso No Encontrado</div>} />
+            </Route>          
             
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -95,18 +103,20 @@ export type ResultsOksMap = Record<string, React.FC<ResultOkProps>>;
 
 export interface AppProps {
     myRoutes?: React.ReactNode;
+    myUnloggedRoutes?: React.ReactNode;
+    unloggedLayout?: React.ComponentType;
     myWScreens?: WScreenMap;
     myClientSides?: ClientSidesMap;
     myResultsOk?: ResultsOksMap;
 }
 
-export const FrontendPlusProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const FrontendPlusProviders: React.FC<{ children: React.ReactNode, publicPaths: string[]}> = ({ children, publicPaths }) => {
     return (
         <Provider store={store}>
             <PersistGate loading={null} persistor={persistor}>
                 <BrowserRouter>
                     <LocationTracker /> {/* El tracker necesita estar dentro del Router */}
-                    <AppProvider>
+                    <AppProvider publicPaths={publicPaths}>
                         <SnackbarProvider>
                              {children}
                              <SessionExpiredMessage />
@@ -120,6 +130,8 @@ export const FrontendPlusProviders: React.FC<{ children: React.ReactNode }> = ({
 
 const App = ({
     myRoutes,
+    myUnloggedRoutes,
+    unloggedLayout,
     myWScreens,
     myClientSides,
     myResultsOk
@@ -135,9 +147,19 @@ const App = ({
             extendWScreens(myWScreens);
         }
     }, [myClientSides, myResultsOk, myWScreens]);
+
+    const safePaths = React.useMemo(() => {
+        const extracted = extractPathsFromRoutes(myUnloggedRoutes);
+        // Siempre añadimos login y logout como rutas base seguras
+        return ['/login', '/logout', ...extracted];
+    }, [myUnloggedRoutes]);
     return (
-        <FrontendPlusProviders>
-            <FrontendPlusReactRoutes myRoutes={myRoutes} />
+        <FrontendPlusProviders publicPaths={safePaths}>
+            <FrontendPlusReactRoutes 
+                myRoutes={myRoutes} 
+                myUnloggedRoutes={myUnloggedRoutes} 
+                unloggedLayout={unloggedLayout} // Pasamos el layout
+            />
         </FrontendPlusProviders>
     );
 }

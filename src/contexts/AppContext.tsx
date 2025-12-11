@@ -1,7 +1,7 @@
 // src/contexts/AppContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { fetchApi } from '../utils/fetchApi';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // Importa los hooks de Redux y las acciones de tu slice
 import { useSelector, useDispatch } from 'react-redux';
@@ -23,23 +23,51 @@ export const useApp = () => {
     return { ...context, clientContext };
 };
 
-export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
+export const AppProvider: React.FC<AppProviderProps> = ({ children, publicPaths=[] }) => {
     console.log("AppProvider rendered/re-rendered");
 
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [showSessionExpiredMessage, setShowSessionExpiredMessage] = useState(false);
 
-    // Obtener 'dispatch' para despachar acciones de Redux
+    const isRedirectingRef = useRef(false);
+    
+    
+    
     const dispatch = useDispatch<AppDispatch>();
-    // Obtener 'clientContext' del store de Redux
     const clientContext = useSelector((state: RootState) => state.clientContext);
-
+    
     const navigate = useNavigate();
+
+    const handleExpiredSessionRedirect = useCallback(() => {
+        // A. Activamos el bloqueo inmediatamente
+        isRedirectingRef.current = true;
+        
+        // B. Cerramos modal y navegamos
+        setShowSessionExpiredMessage(false);
+        setIsLoggedIn(false);
+        navigate('/login', { replace: true });
+
+        // C. (Opcional) Desbloqueamos después de un tiempo prudencial por si el usuario vuelve
+        setTimeout(() => {
+            isRedirectingRef.current = false;
+        }, 2000);
+    }, [navigate]);
+
+    const location = useLocation();
+
+    const isCurrentPathPublic = useCallback(() => {
+        const current = location.pathname;
+        // Verificamos si la ruta actual está en la lista de permitidas
+        // Usamos startsWith para manejar sub-rutas si fuera necesario, o coincidencia exacta
+        return publicPaths.some(path => current === path || current.startsWith(`${path}/`));
+    }, [location.pathname, publicPaths]);
 
     // Memoizamos checkSession. Ahora despachará acciones de Redux.
     const checkSession = useCallback(async () => {
+        if (isRedirectingRef.current) return;
         try {
             const response = await fetchApi('/keep-alive.json', { method: 'GET' });
+            if (isRedirectingRef.current) return;
             if (response.ok) {
                 setIsLoggedIn(true);
                 setShowSessionExpiredMessage(false);
@@ -63,15 +91,19 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
                 setIsLoggedIn(false);
                 dispatch(clearClientContext()); // Disparar la acción para limpiar el clientContext en Redux
 
-                if (!showSessionExpiredMessage && window.location.pathname !== '/login') {
+                if (!showSessionExpiredMessage && !isCurrentPathPublic()) {
+                    console.warn("Sesión inválida en ruta protegida. Mostrando modal.");
                     setShowSessionExpiredMessage(true);
+                } else {
+                    console.log("Sesión inválida, pero estamos en ruta pública. Todo bien.");
                 }
             }
         } catch (error: any) {
             console.error("Error checking session:", error);
             setIsLoggedIn(false);
             dispatch(clearClientContext()); // Limpiar clientContext en Redux
-            if (!showSessionExpiredMessage && window.location.pathname !== '/login') {
+            const isPublic = publicPaths.some(p => location.pathname === p || location.pathname.startsWith(p + '/'));
+            if (!showSessionExpiredMessage && !isCurrentPathPublic()) {
                 setShowSessionExpiredMessage(true);
             }
         }
@@ -95,12 +127,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         checkSession,
         showSessionExpiredMessage,
         setShowSessionExpiredMessage,
+        handleExpiredSessionRedirect
     }), [
         isLoggedIn,
         setIsLoggedIn,
         checkSession,
         showSessionExpiredMessage,
         setShowSessionExpiredMessage,
+        handleExpiredSessionRedirect
     ]);
 
     return (

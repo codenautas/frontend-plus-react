@@ -18,13 +18,9 @@ const style = {
 };
 
 const SessionExpiredMessage: React.FC = () => {
-  const { showSessionExpiredMessage, setShowSessionExpiredMessage, setIsLoggedIn } = useApp();
-  const navigate = useNavigate();
-
+  const { showSessionExpiredMessage, setShowSessionExpiredMessage, setIsLoggedIn, handleExpiredSessionRedirect } = useApp();
   const handleClose = () => {
-    setShowSessionExpiredMessage(false);
-    setIsLoggedIn(false);
-    navigate('/login', { replace: true });
+     handleExpiredSessionRedirect(); 
   };
 
   return (

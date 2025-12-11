@@ -1,6 +1,6 @@
 {
   "name": "frontend-plus-react",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "librería React genérica para consumir backends de tipo backend-plus.",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

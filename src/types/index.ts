@@ -93,10 +93,12 @@ export interface AppContextType {
     checkSession: () => Promise<void>;
     showSessionExpiredMessage: boolean;
     setShowSessionExpiredMessage: (show: boolean) => void;
+    handleExpiredSessionRedirect: () => void;
 }
 
 export interface AppProviderProps {
     children: ReactNode;
+    publicPaths?: string[];
 }
 
 export interface PrivateRouteProps {
