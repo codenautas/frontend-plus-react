@@ -1,7 +1,6 @@
 import { RenderCellProps } from 'react-data-grid';
 import { Box, Button, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -22,7 +21,7 @@ type ActionButtonDefinition = {
 }
 import { getDetailTableAndFixedFieldsForDetailTableAbr } from '../../../utils/functions';
 
-export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => {
+export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>,onOpenDetail?: (tableName: string, fixedFields: any[], label: string) => void,) => {
     const theme = useTheme();
     const column = props.column as unknown as CustomColumn<any, unknown>;
     const { row, rowIdx } = props;
@@ -115,7 +114,7 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
         
         case 'detail': {
             const detailColumn = column as DetailColumn<any, unknown>;
-            const { detailTable, primaryKey, tableData, setTableData, detailKey } = detailColumn;
+            const { detailTable, primaryKey, tableData, setTableData, detailKey, tableDefinition } = detailColumn;
             
             const isExpanded = tableData.some(r => 
                 r[DETAIL_ROW_INDICATOR] === detailTable.abr && 
@@ -127,27 +126,23 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>) => 
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
                         <IconButton
                             onClick={(event) => {
-                                let rows = [...tableData];
-                                const rowId = getPrimaryKeyValues({...row,[DETAIL_ROW_INDICATOR]: detailTable.abr}, primaryKey);
-                                
-                                if (isExpanded) {
-                                    setTableData(rows.filter((r) => 
-                                        !(r[DETAIL_ROW_INDICATOR] === detailTable.abr && 
-                                          getPrimaryKeyValues(r, primaryKey) === rowId)
-                                    ));
-                                } else {
-                                    const parentRowIndex = rowIdx;
-                                    rows.splice(parentRowIndex + 1, 0, {
-                                        ...row,
-                                        [DETAIL_ROW_INDICATOR]: detailTable.abr,
+                                if (detailTable && onOpenDetail) {
+                                    // Calculamos los campos fijos basados en la fila actual
+                                    const fixedFields = detailTable.fields.map(f => {
+                                        const source = typeof f === 'string' ? f : f.source;
+                                        const target = typeof f === 'string' ? f : f.target;
+                                        return { fieldName: target, value: row[source] };
                                     });
-                                    setTableData(rows);
+
+                                    // Título para la pestaña: "TablaHija (ValorPadre)"
+                                    const label = `${detailTable.table} (${row[tableDefinition.primaryKey[0]]})`;
+                                    
+                                    onOpenDetail(detailTable.table!, fixedFields, label);
                                 }
-                                event.stopPropagation();
                             }}
                             
                         >
-                            {isExpanded ? <KeyboardArrowUpIcon sx={{ fontSize: 20 }} /> : <KeyboardArrowDownIcon sx={{ fontSize: 20 }} />}
+                            <KeyboardArrowRightIcon />
                         </IconButton>
                     </Box>
                 </Tooltip>

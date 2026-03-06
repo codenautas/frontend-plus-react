@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Box, Alert, Typography } from '@mui/material';
-import GenericDataGrid from '../components/grid/GenericDataGrid'; // Ajusta la ruta si es necesario
+import GenericDataGridPage from './GenericDataGridPage'; // Importamos el contenedor de tabs
 import { useApp } from '../contexts/AppContext'; // Necesitamos el contexto para acceder al menú
 import { MenuInfoBase, MenuInfoMenu, MenuInfoTable } from 'backend-plus'; // Asegúrate de importar tus tipos de menú
 
@@ -70,9 +70,9 @@ const MenuTablePage: React.FC = () => {
 
     // Renderiza GenericDataGrid con los datos obtenidos del menú
     return (
-        <GenericDataGrid
-            tableName={currentTableName}
-            fixedFields={currentFixedFields}
+        <GenericDataGridPage 
+            initialTableName={currentTableName} 
+            initialFixedFields={currentFixedFields} 
         />
     );
 };

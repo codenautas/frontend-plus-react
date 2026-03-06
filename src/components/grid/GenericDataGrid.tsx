@@ -27,6 +27,7 @@ import { buildMenuOptions } from './menu/options';
 interface GenericDataGridProps{
     tableName: string;
     fixedFields?: FixedField[];
+    onOpenDetail?: (tableName: string, fixedFields: FixedField[], label: string) => void;
     gridStyles?: React.CSSProperties
 }
 
@@ -103,6 +104,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     tableName,
     fixedFields,
     gridStyles,
+    onOpenDetail
 }) => {
     const isOpenMenu = useIsDrawerOpen()
     const [tableDefinition, setTableDefinition] = useState<TableDefinition | null>(null);
@@ -489,10 +491,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     }), [tableDefinition, tableName, fixedFields, setTableData, callApi, showSuccess, showError, showWarning]);
     const columns: CustomColumn<any>[] = useMemo(() => {
         if (!tableDefinition) return [];
-        const fieldsToShow = tableDefinition.fields.filter((field: FieldDefinition) => {
+        const fieldsToShow = tableDefinition.fields/*.filter((field: FieldDefinition) => {
             const fixedFieldEntry = fixedFields?.find(f => f.fieldName === field.name);
             return !(fixedFieldEntry && fixedFieldEntry.until === undefined);
-        });
+        })*/;
         const defaultColumns: CustomColumn<any>[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
             const isFixedField = fixedFields?.some(f => f.fieldName === fieldDef.name);
             const isFieldEditable = fieldDef.editable !== false && !isFixedField;
@@ -591,16 +593,15 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             },
             editorOptions:{closeOnExternalRowChange:false}, //con esto no se pierde el foco
             renderEditCell: (props) => allColumnsEditCellRenderer(props, allColumns),
-            renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props),
+            renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props, onOpenDetail),
         }));
     }, [
         tableDefinition, isFilterRowVisible, filters, toggleFilterVisibility,
-        // 💥 MULTI-CELL: Se usa el mapa en lugar de la variable simple
         cellFeedbackMap, 
         primaryKey, theme.palette.success.light, theme.palette.error.light,
         theme.palette.info.light, theme.palette.action.selected,
         handleKeyPressInEditor, setTableData,
-        localCellChanges, handleDeleteRow, handleAddRow, fixedFields, tableData
+        localCellChanges, handleDeleteRow, handleAddRow, fixedFields, tableData, onOpenDetail
     ]);
 
     const handleRowsChange = useCallback((updatedRows: any[]) => {
