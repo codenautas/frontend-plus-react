@@ -5,9 +5,10 @@ import { useApiCall } from "../../hooks/useApiCall";
 import InputBase from "@mui/material/InputBase";
 // Importamos CellFeedbackMap junto con InputRendererProps
 import { InputRendererProps, CellFeedback, CellFeedbackMap } from "../../types"; 
-// getCellKey y getPrimaryKeyValues deben provenir de tu archivo GenericDataGrid
-import { getCellKey, getPrimaryKeyValues, NEW_ROW_INDICATOR } from "./GenericDataGrid"; 
+// getCellKey deben provenir de tu archivo GenericDataGrid
+import { getCellKey, NEW_ROW_INDICATOR } from "./GenericDataGrid"; 
 import { useTheme } from "@mui/material";
+import { getPrimaryKeyValues } from "./utils/helpers";
 
 function findChangedValues(oldRowData:any, newRowData:any, isNewRow: boolean) {
   let changes: string[] = [];

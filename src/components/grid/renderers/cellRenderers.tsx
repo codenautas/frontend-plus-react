@@ -4,13 +4,13 @@ import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import GenericDataGrid, { getPrimaryKeyValues, NEW_ROW_INDICATOR, DETAIL_ROW_INDICATOR } from '../GenericDataGrid';
-import { CustomColumn, DefaultColumn, DetailColumn, ActionColumn } from '../GenericDataGrid';
+import { CustomColumn, DefaultColumn, DetailColumn, ActionColumn, NEW_ROW_INDICATOR } from '../GenericDataGrid';
 import { FixedField } from '../../../types';
 import { clientSides } from '../clientSides';
 import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
 import { OverridableComponent } from '@mui/material/OverridableComponent';
 import { SvgIconTypeMap } from '@mui/material/SvgIcon';
+import { getPrimaryKeyValues } from '../utils/helpers';
 
 type ActionButtonDefinition = {
     action: 'insert' | 'delete' | 'vertical-edit'
@@ -19,45 +19,11 @@ type ActionButtonDefinition = {
     icon: OverridableComponent<SvgIconTypeMap<{}, "svg">> & { muiName: string }
     color: 'success' | 'error' | 'primary'
 }
-import { getDetailTableAndFixedFieldsForDetailTableAbr } from '../../../utils/functions';
 
 export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>,onOpenDetail?: (tableName: string, fixedFields: any[], label: string) => void,) => {
     const theme = useTheme();
     const column = props.column as unknown as CustomColumn<any, unknown>;
-    const { row, rowIdx } = props;
-
-    // Lógica para la fila de detalle
-    if (row[DETAIL_ROW_INDICATOR]) {
-        const detailTableAbr = row[DETAIL_ROW_INDICATOR];
-        const detailColumn = column as DetailColumn<any, unknown>;
-        
-        // Verifica que la columna actual sea la de detalle para esa fila
-        if (column.customType === 'detail' && detailColumn.detailTable.abr === detailTableAbr) {
-            const { detailTable, fixedFields } = getDetailTableAndFixedFieldsForDetailTableAbr(detailColumn.tableDefinition, detailTableAbr, row)
-            return (
-                <Box sx={{
-                    // Se eliminó el padding para que la sub-grilla se extienda por completo
-                    minHeight: '200px',
-                    width: '100%',
-                    height: '100%',
-                    //display: 'flex',
-                    //flexDirection: 'column',
-                    boxSizing: 'border-box'
-                }}
-                    onMouseDown={(e) => e.stopPropagation()} 
-                    onClick={(e) => e.stopPropagation()} 
-                    onKeyDown={(e) => e.stopPropagation()}
-                    onDoubleClick={(e) => e.stopPropagation()}
-                >
-                    <GenericDataGrid tableName={detailTable.table!} fixedFields={fixedFields} gridStyles={{height:322}}/>
-                </Box>
-                
-            );
-        }
-        
-        // Si la fila es de detalle, pero no es la columna correcta, devuelve null
-        return undefined;
-    }
+    const { row } = props;
 
     // Lógica para renderizar una celda normal
     switch (column.customType) {
@@ -115,11 +81,6 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>,onOp
         case 'detail': {
             const detailColumn = column as DetailColumn<any, unknown>;
             const { detailTable, primaryKey, tableData, setTableData, detailKey, tableDefinition } = detailColumn;
-            
-            const isExpanded = tableData.some(r => 
-                r[DETAIL_ROW_INDICATOR] === detailTable.abr && 
-                getPrimaryKeyValues(r, primaryKey) === getPrimaryKeyValues({...row,[DETAIL_ROW_INDICATOR]: detailTable.abr}, primaryKey)
-            );
 
             return (
                 <Tooltip title={detailTable.label}>

@@ -1,8 +1,8 @@
 import { Column, RenderEditCellProps } from "react-data-grid";
-import { CellFeedback, FieldDefinition, FixedField, TableDefinition } from "../../../types";
 import InputRenderer from "../InputRenderer";
-import { CustomColumn, DefaultColumn, getPrimaryKeyValues } from "../GenericDataGrid";
+import { CustomColumn, DefaultColumn } from "../GenericDataGrid";
 import { Box, Tooltip } from "@mui/material";
+import { getPrimaryKeyValues } from "../utils/helpers";
 
 export const allColumnsEditCellRenderer = (
     props: RenderEditCellProps<any, any>, 
@@ -17,8 +17,8 @@ export const allColumnsEditCellRenderer = (
                 fixedFields, 
                 primaryKey, 
                 setTableData, 
-                cellFeedbackMap, // <--- CAMBIADO
-                setCellFeedbackMap, // <--- CAMBIADO
+                cellFeedbackMap,
+                setCellFeedbackMap,
                 handleKeyPressInEditor,
                 localCellChanges,
                 setLocalCellChanges

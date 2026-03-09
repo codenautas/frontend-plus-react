@@ -23,6 +23,7 @@ import { DetailTable } from 'backend-plus';
 import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
 import { useIsDrawerOpen } from '../../store';
 import { buildMenuOptions } from './menu/options';
+import { getPrimaryKeyValues } from './utils/helpers';
 
 interface GenericDataGridProps{
     tableName: string;
@@ -32,21 +33,6 @@ interface GenericDataGridProps{
 }
 
 export const NEW_ROW_INDICATOR = '$new';
-export const DETAIL_ROW_INDICATOR = '$detail';
-
-// --- Funciones de Utilidad ---
-
-export const getPrimaryKeyValues = (row: Record<string, any>, primaryKey: string[]): string => {
-    let keys = [...primaryKey];
-    if(row[DETAIL_ROW_INDICATOR]){
-        keys = keys.concat(DETAIL_ROW_INDICATOR);
-    }
-    return keys.map(key => {
-        return row[key] !== undefined && row[key] !== null
-            ? String(row[key])
-            : 'NULL_OR_UNDEFINED';
-    }).join('|');
-};
 
 /**
  * Obtiene la clave única para una celda.
@@ -132,8 +118,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const dataGridRef = useRef<DataGridHandle>(null);
     const { callApi, loading, error } = useApiCall();
 
-    const getRowCount = () => tableData.filter((row)=> !row[DETAIL_ROW_INDICATOR]).length
-    const getFilteredRowCount = () => filteredRows.filter((row)=> !row[DETAIL_ROW_INDICATOR]).length
+    const getRowCount = () => tableData.length
+    const getFilteredRowCount = () => filteredRows.length
     
     // 💥 MULTI-CELL: Limpieza de estado al cambiar de tabla
     useEffect(() => {
@@ -385,9 +371,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     if (nextEditableColumnIndex >= editableColumns.length) {
                         nextEditableColumnIndex = 0;
                         nextRowIndex++;
-                        while(filteredRows[nextRowIndex] && filteredRows[nextRowIndex][DETAIL_ROW_INDICATOR]){
-                            nextRowIndex++;
-                        }
                         if (nextRowIndex >= filteredRows.length) {
                             nextRowIndex = 0;
                         }
@@ -408,10 +391,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 }
                 const calcularFilaSiguiente = ()=>{
                     let nextRowIndex = rowIndex;   
-                    nextRowIndex++;
-                    while(filteredRows[nextRowIndex] && filteredRows[nextRowIndex][DETAIL_ROW_INDICATOR]){
-                        nextRowIndex++;
-                    }                    
+                    nextRowIndex++;               
                     if (nextRowIndex >= filteredRows.length) {
                         return {rowIdx: rowIndex, idx:currentColumnIndex}
                     }
@@ -421,9 +401,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 const calcularFilaAnterior = ()=>{
                     let nextRowIndex = rowIndex;
                     nextRowIndex--;
-                    while(filteredRows[nextRowIndex] && filteredRows[nextRowIndex][DETAIL_ROW_INDICATOR]){
-                        nextRowIndex--;
-                    }  
                     if (nextRowIndex < 0) {
                         return {rowIdx: rowIndex, idx:currentColumnIndex}
                     }
@@ -462,7 +439,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         case (key == 'F4'): {
                             const {rowIdx, idx} = calcularFilaSiguiente();
                             const previousRow = tableData[rowIndex-1]
-                            if(previousRow && !previousRow[DETAIL_ROW_INDICATOR]){
+                            if(previousRow){
                                 handleCommit(previousRow[columnKey], true, true).then(()=>hacerFoco({rowIdx ,idx}))
                             }
                             break;
@@ -582,15 +559,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
         return allColumns.map(col => ({
             ...col,
-            colSpan: (args: ColSpanArgs<any, unknown>) => {
-                if (args.type === 'ROW'){
-                    const detailTableAbr = args.row[DETAIL_ROW_INDICATOR];
-                    if(col.key === `detail_${detailTableAbr}`) {
-                        return allColumns.length;
-                    }
-                }
-                return undefined;
-            },
             editorOptions:{closeOnExternalRowChange:false}, //con esto no se pierde el foco
             renderEditCell: (props) => allColumnsEditCellRenderer(props, allColumns),
             renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props, onOpenDetail),
@@ -607,17 +575,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const handleRowsChange = useCallback((updatedRows: any[]) => {
         setTableData(updatedRows);
     }, []);
-
-    //TODO: mejorar esto, por ahora no encontré una forma programática
-    const deselectAllOtherGrids = (currentGridElement: HTMLDivElement|undefined|null) => {
-        const allSelectedCells = document.querySelectorAll("div[aria-selected='true']");
-        allSelectedCells.forEach(cell => {
-            const parentGrid = cell.closest('.rdg'); 
-            if (parentGrid && parentGrid !== currentGridElement) {
-                cell.setAttribute("aria-selected", "false");
-            }
-        });
-    };
 
     const handleCellKeyDown = (args: CellKeyDownArgs<any, { id: string }>, event: CellKeyboardEvent) => {
         if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp','ArrowRight', 'ArrowLeft'].includes(event.key)) {
@@ -637,12 +594,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         const isFixedField = fixedFields?.some(f => f.fieldName === args.column.key);
         const isEditable = fieldDefinition?.editable !== false && !isFixedField;
         if(isEditable){
-            deselectAllOtherGrids(dataGridRef.current?.element);
             args.selectCell(true);
         }
-        console.log("Clicked column index:", args.column.idx);
-        console.log("Clicked row index:", args.rowIdx);
-        console.log("Is editable:", isEditable);
     }, [tableDefinition, fixedFields]);
 
    
@@ -721,8 +674,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     onSelectedCellChange={handleSelectedCellChange}
                     onRowsChange={handleRowsChange}
                     selectedRows={selectedRows}
-                    // TODO: Arreglar tamaño fijo pasarlo a dinamico
-                    rowHeight={(row) => row[DETAIL_ROW_INDICATOR] ? 400 : 30}
+                    rowHeight={(_row) => 30}
                     style={{...{ height: '100%', width: '100%', boxSizing: 'border-box' },...gridStyles}}
                     headerRowHeight={30}
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
