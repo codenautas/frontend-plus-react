@@ -18,3 +18,15 @@ export const getPrimaryKeyValues = (row: Record<string, any>, primaryKey: string
             : 'NULL_OR_UNDEFINED';
     }).join('|');
 };
+
+
+/**
+ * Obtiene la clave única para una celda.
+ * @param row La fila actual.
+ * @param columnKey La clave de la columna.
+ * @param primaryKey La clave primaria de la tabla.
+ * @returns Clave única de la celda (ej: "pkValue1|pkValue2|columnKey").
+ */
+export const getCellKey = (row: Record<string, any>, columnKey: string, primaryKey: string[]): string => {
+    return `${getPrimaryKeyValues(row, primaryKey)}|${columnKey}`;
+};

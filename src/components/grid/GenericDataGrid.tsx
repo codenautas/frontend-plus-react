@@ -7,7 +7,6 @@ import { useApiCall } from '../../hooks/useApiCall';
 import { CircularProgress, Typography, Box, Alert, useTheme, Button } from '@mui/material';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 
-
 import { useSnackbar } from '../../contexts/SnackbarContext';
 
 import { CellFeedback, FieldDefinition, FixedField, TableDefinition } from '../../types';
@@ -21,9 +20,10 @@ import { allColumnsCellRenderer } from './renderers/cellRenderers';
 import { allColumnsEditCellRenderer } from './renderers/editCellRenderers';
 import { DetailTable } from 'backend-plus';
 import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
-import { useIsDrawerOpen } from '../../store';
 import { buildMenuOptions } from './menu/options';
 import { getPrimaryKeyValues } from './utils/helpers';
+import { useGridActions } from '../../hooks/grid/useGridActions';
+import { useGridEvents } from '../../hooks/grid/useGridEvents';
 
 interface GenericDataGridProps{
     tableName: string;
@@ -33,20 +33,6 @@ interface GenericDataGridProps{
 }
 
 export const NEW_ROW_INDICATOR = '$new';
-
-/**
- * Obtiene la clave única para una celda.
- * @param row La fila actual.
- * @param columnKey La clave de la columna.
- * @param primaryKey La clave primaria de la tabla.
- * @returns Clave única de la celda (ej: "pkValue1|pkValue2|columnKey").
- */
-export const getCellKey = (row: Record<string, any>, columnKey: string, primaryKey: string[]): string => {
-    return `${getPrimaryKeyValues(row, primaryKey)}|${columnKey}`;
-};
-
-// --- Tipos de Columna ---
-
 interface BaseCustomColumn<TRow, TSummaryRow = unknown> extends Column<TRow, TSummaryRow> {
     customType: 'default' | 'detail' | 'action',
     tableDefinition: TableDefinition,
@@ -92,46 +78,70 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     gridStyles,
     onOpenDetail
 }) => {
-    const isOpenMenu = useIsDrawerOpen()
     const [tableDefinition, setTableDefinition] = useState<TableDefinition | null>(null);
     const [tableData, setTableData] = useState<any[]>([]);
     const [isFilterRowVisible, setIsFilterRowVisible] = useState<boolean>(false);
     const [filters, setFilters] = useState<Record<string, string>>({});
     const [selectedRows, setSelectedRows] = useState((): ReadonlySet<string> => new Set());
-    const [selectedCell, setSelectedCell] = useState<CellSelectArgs<any, NoInfer<{id: string}>> | undefined>(undefined);
+    const [selectedCell, setSelectedCell] = useState<CellSelectArgs<any, NoInfer<{id: string}>> | undefined>(undefined);
 
-    // 💥 MULTI-CELL FEEDBACK: Estado principal para manejar múltiples mensajes de feedback
     const [cellFeedbackMap, setCellFeedbackMap] = useState<Map<string, CellFeedback>>(new Map());
     
-    // 🗑️ OLD: [cellFeedback, setCellFeedback] = useState<CellFeedback | null>(null);
-
     const [localCellChanges, setLocalCellChanges] = useState<Map<string, Set<string>>>(new Map());
     const theme = useTheme();
 
-    const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
     const [openDataGridOptions, setOpenDataGridOptions] = useState(false);
     const [dataGridOptionsAnchorEl, setDataGridOptionsAnchorEl] = useState<HTMLElement | null>(null);
-    const [rowToDelete, setRowToDelete] = useState<any | null>(null);
+    
     const [exitingRowIds, setExitingRowIds] = useState<Set<string>>(new Set());
 
-    const { showSuccess, showError, showWarning, showInfo } = useSnackbar();    const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const { showSuccess, showError, showWarning, showInfo } = useSnackbar();    
+    const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
     const dataGridRef = useRef<DataGridHandle>(null);
     const { callApi, loading, error } = useApiCall();
 
-    const getRowCount = () => tableData.length
-    const getFilteredRowCount = () => filteredRows.length
+    const getRowCount = () => tableData.length;
+    const getFilteredRowCount = () => filteredRows.length;
+
+    const primaryKey = useMemo(() => {
+        if (!tableDefinition) return ['id'];
+        return tableDefinition.primaryKey && tableDefinition.primaryKey.length > 0 ? tableDefinition.primaryKey : ['id'];
+    }, [tableDefinition]);
+
+    const {handleAddRow, handleConfirmDelete, handleDeleteRow, openConfirmDialog, rowToDelete} = useGridActions({
+        tableDefinition, tableName, primaryKey, 
+        fixedFields, setExitingRowIds, setLocalCellChanges, 
+        setSelectedRows, setTableData
+    });
+
+    const filteredRows = useMemo(() => {
+        let rows = tableData;
+        if (isFilterRowVisible) {
+            Object.keys(filters).forEach(key => {
+                const filterValue = filters[key].toLowerCase();
+                if (filterValue) {
+                    rows = rows.filter(row => {
+                        const cellValue = String(row[key] || '').toLowerCase();
+                        return cellValue.includes(filterValue);
+                    });
+                }
+            });
+        }
+        return rows;
+    }, [tableData, filters, isFilterRowVisible]);
+
+    const {handlCellDoubleClick, handleCellClick, handleCellKeyDown, handleCellMouseDown, handleKeyPressInEditor, handleSelectedCellChange, handleRowsChange} = useGridEvents({
+        dataGridRef,filteredRows,fixedFields,tableData,tableDefinition, setSelectedCell, setTableData
+    });
     
-    // 💥 MULTI-CELL: Limpieza de estado al cambiar de tabla
     useEffect(() => {
         setFilters({});
         setIsFilterRowVisible(false);
         setSelectedRows(new Set());
         setTableDefinition(null);
         setTableData([]);
-        setCellFeedbackMap(new Map()); // 💥 MULTI-CELL: Limpiar el mapa
+        setCellFeedbackMap(new Map());
         setLocalCellChanges(new Map());
-        setOpenConfirmDialog(false);
-        setRowToDelete(null);
         setExitingRowIds(new Set());
         if (feedbackTimerRef.current) {
             clearTimeout(feedbackTimerRef.current);
@@ -157,7 +167,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         fetchDataAndDefinition();
     }, [tableName, fixedFields, showError]);
 
-    // 💥 MULTI-CELL: Lógica del temporizador actualizada para el mapa
     useEffect(() => {
         if (cellFeedbackMap.size > 0) {
             if (feedbackTimerRef.current) {
@@ -190,12 +199,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         };
     }, [cellFeedbackMap]);
 
-
-    const primaryKey = useMemo(() => {
-        if (!tableDefinition) return ['id'];
-        return tableDefinition.primaryKey && tableDefinition.primaryKey.length > 0 ? tableDefinition.primaryKey : ['id'];
-    }, [tableDefinition]);
-
     const toggleFilterVisibility = useCallback(() => {
         setIsFilterRowVisible(prev => {
             if (prev) {
@@ -205,258 +208,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         });
     }, []);
 
-    const handleAddRow = useCallback(() => {
-        if (!tableDefinition) {
-            showWarning('No se puede agregar una fila sin la definición de la tabla.');
-            return;
-        }
-        const newRow: Record<string, any> = {};
-        tableDefinition.fields.forEach(field => {
-            newRow[field.name] = null;
-        });
-        newRow[NEW_ROW_INDICATOR] = true;
-
-        if (fixedFields) {
-            fixedFields.forEach(fixedField => {
-                newRow[fixedField.fieldName] = fixedField.value;
-            });
-        }
-
-        setTableData(prevData => [newRow, ...prevData]);
-        setSelectedRows(new Set());
-
-        const tempRowId = getPrimaryKeyValues(newRow, primaryKey);
-        setLocalCellChanges(prev => {
-            const newMap = new Map(prev);
-            const mandatoryEditableColumns = new Set<string>();
-
-            tableDefinition.fields.forEach(field => {
-                const isMandatory = (field.nullable === false || field.isPk);
-                const isEditable = field.editable !== false;
-
-                if (isMandatory && isEditable) {
-                    mandatoryEditableColumns.add(field.name);
-                }
-            });
-            newMap.set(tempRowId, mandatoryEditableColumns);
-            return newMap;
-        });
-
-    }, [tableDefinition, showWarning, primaryKey, fixedFields]);
-
-    const handleDeleteRow = useCallback(async (row: any) => {
-        setRowToDelete(row);
-        setOpenConfirmDialog(true);
-    }, []);
-
-    const handleConfirmDelete = useCallback(async (confirm: boolean) => {
-        setOpenConfirmDialog(false);
-        if (!confirm || !rowToDelete) {
-            showWarning('Eliminación cancelada por el usuario.');
-            setRowToDelete(null);
-            return;
-        }
-
-        if (!tableDefinition || !tableName) {
-            showError('No se puede eliminar la fila sin la definición de la tabla o el nombre de la tabla.');
-            setRowToDelete(null);
-            return;
-        }
-
-        const rowId = getPrimaryKeyValues(rowToDelete, primaryKey);
-
-        setExitingRowIds(prev => new Set(prev).add(rowId));
-
-        setTimeout(async () => {
-            if (rowToDelete[NEW_ROW_INDICATOR]) {
-                setTimeout(() => {
-                    setTableData(prevData => prevData.filter(row => getPrimaryKeyValues(row, primaryKey) !== rowId));
-                    setLocalCellChanges(prev => {
-                        const newMap = new Map(prev);
-                        newMap.delete(rowId);
-                        return newMap;
-                    });
-                    setSelectedRows(prev => {
-                        const newSet = new Set(prev);
-                        newSet.delete(rowId);
-                        return newSet;
-                    });
-                    setExitingRowIds(prev => {
-                        const newSet = new Set(prev);
-                        newSet.delete(rowId);
-                        return newSet;
-                    });
-                    showInfo(`Fila no guardada '${rowId}' eliminada localmente.`);
-                    setRowToDelete(null);
-                }, 500);
-                return;
-            }
-
-            try {
-                const primaryKeyValues = tableDefinition.primaryKey.map((key) => rowToDelete[key]);
-                await callApi('table_record_delete', {
-                    table: tableName,
-                    primaryKeyValues: primaryKeyValues
-                });
-
-                console.log(`Fila con ID ${rowId} eliminada exitosamente del backend.`);
-                setTimeout(() => {
-                    setTableData(prevData => prevData.filter(row => getPrimaryKeyValues(row, primaryKey) !== rowId));
-                    setLocalCellChanges(prev => {
-                        const newMap = new Map(prev);
-                        newMap.delete(rowId);
-                        return newMap;
-                    });
-                    setSelectedRows(prev => {
-                        const newSet = new Set(prev);
-                        newSet.delete(rowId);
-                        return newSet;
-                    });
-                    setExitingRowIds(prev => {
-                        const newSet = new Set(prev);
-                        newSet.delete(rowId);
-                        return newSet;
-                    });
-                    showSuccess(`Fila '${rowId}' eliminada exitosamente.`);
-                    setRowToDelete(null);
-                }, 500);
-
-            } catch (err: any) {
-                console.error(`Error al eliminar la fila '${rowId}':`, err);
-                showError(`Error al eliminar la fila '${rowId}': ${err.message || 'Error desconocido'}`);
-                setExitingRowIds(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(rowId);
-                    return newSet;
-                });
-                setRowToDelete(null);
-            }
-        }, 10);
-    }, [rowToDelete, tableDefinition, tableName, primaryKey, showInfo, showSuccess, showError, showWarning, setTableData, setLocalCellChanges, setSelectedRows]);
-
-    const filteredRows = useMemo(() => {
-        let rows = tableData;
-        if (isFilterRowVisible) {
-            Object.keys(filters).forEach(key => {
-                const filterValue = filters[key].toLowerCase();
-                if (filterValue) {
-                    rows = rows.filter(row => {
-                        const cellValue = String(row[key] || '').toLowerCase();
-                        return cellValue.includes(filterValue);
-                    });
-                }
-            });
-        }
-        return rows;
-    }, [tableData, filters, isFilterRowVisible]);
-
-    const handleKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, event: React.KeyboardEvent, currentColumns: Column<any>[], handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => {
-        if (dataGridRef.current && tableDefinition) {
-            const currentColumnIndex = currentColumns.findIndex((col: Column<any>) => col.key === columnKey);
-            const editableColumns = currentColumns.filter(col => {
-                const fieldDefinition = tableDefinition.fields.find(f => f.name === col.key);
-                return col.key !== 'actionsColumn' && (col as DetailColumn<any, unknown>).customType != 'detail' && (fieldDefinition?.editable !== false && !fieldDefinition?.clientSide);
-            });
-            const {key, target} = event;
-            const input = target as HTMLInputElement;
-            if (currentColumnIndex !== -1 && editableColumns.length > 0) {
-                const editableColumnKeys = editableColumns.map(col => col.key);
-                let currentEditableColumnIndex = editableColumnKeys.indexOf(columnKey);
-                
-                const hacerFoco = ({rowIdx, idx}:{rowIdx:number, idx: number}) => 
-                    setTimeout(()=>dataGridRef.current?.selectCell({ rowIdx, idx }, { enableEditor: true, shouldFocusCell: true }),10);
-                const calcularColumnaSiguiente = ()=>{
-                    let nextEditableColumnIndex = currentEditableColumnIndex + 1;
-                    let nextRowIndex = rowIndex;
-                    if (nextEditableColumnIndex >= editableColumns.length) {
-                        nextEditableColumnIndex = 0;
-                        nextRowIndex++;
-                        if (nextRowIndex >= filteredRows.length) {
-                            nextRowIndex = 0;
-                        }
-                    }
-                    const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
-                    const nextColumnIndex = currentColumns.findIndex(col => col.key === nextColumnKey);
-                    return {rowIdx: nextRowIndex, idx:nextColumnIndex}
-                }
-                const calcularColumnaAnterior = ()=>{
-                    let nextEditableColumnIndex = currentEditableColumnIndex - 1;
-                    let nextRowIndex = rowIndex;
-                    if (nextEditableColumnIndex <= 0) {
-                        nextEditableColumnIndex = 0;
-                    }
-                    const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
-                    const nextColumnIndex = currentColumns.findIndex(col => col.key === nextColumnKey);
-                    return {rowIdx: nextRowIndex, idx:nextColumnIndex}
-                }
-                const calcularFilaSiguiente = ()=>{
-                    let nextRowIndex = rowIndex;   
-                    nextRowIndex++;               
-                    if (nextRowIndex >= filteredRows.length) {
-                        return {rowIdx: rowIndex, idx:currentColumnIndex}
-                    }
-                    return {rowIdx: nextRowIndex, idx:currentColumnIndex}
-                }
-
-                const calcularFilaAnterior = ()=>{
-                    let nextRowIndex = rowIndex;
-                    nextRowIndex--;
-                    if (nextRowIndex < 0) {
-                        return {rowIdx: rowIndex, idx:currentColumnIndex}
-                    }
-                    return {rowIdx: nextRowIndex, idx:currentColumnIndex}
-                }
-                
-                if (currentEditableColumnIndex !== -1) {
-                    switch(true){
-                        case ['Enter','Tab'].includes(key): {
-                            hacerFoco(calcularColumnaSiguiente());
-                            break;
-                        }
-                        case (key == 'ArrowRight'): {
-                            const cursorPosition = input.selectionStart;
-                            const inputValueLength = input.value.length;
-                            if(cursorPosition === inputValueLength){
-                                hacerFoco(calcularColumnaSiguiente());
-                            }
-                            break;
-                        }
-                        case (key == 'ArrowLeft'): {
-                            const cursorPosition = input.selectionStart;
-                            if(cursorPosition === 0){
-                                hacerFoco(calcularColumnaAnterior());
-                            }
-                            break;
-                        }
-                        case (key == 'ArrowUp'): {
-                            hacerFoco(calcularFilaAnterior());
-                            break;
-                        }
-                        case (key == 'ArrowDown'): {
-                            hacerFoco(calcularFilaSiguiente());
-                            break;
-                        }
-                        case (key == 'F4'): {
-                            const {rowIdx, idx} = calcularFilaSiguiente();
-                            const previousRow = tableData[rowIndex-1]
-                            if(previousRow){
-                                handleCommit(previousRow[columnKey], true, true).then(()=>hacerFoco({rowIdx ,idx}))
-                            }
-                            break;
-                        }
-                        default: break;
-                    }
-                }    
-            }        
-        }
-    }, [filteredRows, tableDefinition, tableData]);
-    
-    const handleSelectedCellChange = useCallback((args: CellSelectArgs<any, NoInfer<{id: string}>>|undefined) => {
-        setSelectedCell(args);
-    }, []);
-    
-    
-    const menuOptions = useMemo(() => buildMenuOptions({
+    const menuOptions = useMemo(() => buildMenuOptions({
         tableDefinition,
         tableName,
         fixedFields,
@@ -466,7 +218,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         showError,
         showWarning
     }), [tableDefinition, tableName, fixedFields, setTableData, callApi, showSuccess, showError, showWarning]);
-    const columns: CustomColumn<any>[] = useMemo(() => {
+    
+    const columns: CustomColumn<any>[] = useMemo(() => {
         if (!tableDefinition) return [];
         const fieldsToShow = tableDefinition.fields/*.filter((field: FieldDefinition) => {
             const fixedFieldEntry = fixedFields?.find(f => f.fieldName === field.name);
@@ -481,7 +234,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 customType: 'default',
                 tableDefinition,
                 fieldDef,
-                // 💥 MULTI-CELL: Se inyecta el mapa y su setter
                 cellFeedbackMap,
                 setCellFeedbackMap,
                 primaryKey,
@@ -571,33 +323,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         handleKeyPressInEditor, setTableData,
         localCellChanges, handleDeleteRow, handleAddRow, fixedFields, tableData, onOpenDetail
     ]);
-
-    const handleRowsChange = useCallback((updatedRows: any[]) => {
-        setTableData(updatedRows);
-    }, []);
-
-    const handleCellKeyDown = (args: CellKeyDownArgs<any, { id: string }>, event: CellKeyboardEvent) => {
-        if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp','ArrowRight', 'ArrowLeft'].includes(event.key)) {
-            event.preventGridDefault();
-        }
-    }
-    const handleCellMouseDown = useCallback((_args: CellMouseArgs<any, { id: string }>, event: CellMouseEvent) => {
-        event.preventGridDefault();  
-    },[]);
-
-    const handlCellDoubleClick = useCallback((_args: CellMouseArgs<any, { id: string }>, event: CellMouseEvent) => {
-        event.preventGridDefault();  
-    },[]);
-
-    const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>, _event: CellMouseEvent) => {
-        const fieldDefinition = tableDefinition?.fields.find(f => f.name === args.column.key);
-        const isFixedField = fixedFields?.some(f => f.fieldName === args.column.key);
-        const isEditable = fieldDefinition?.editable !== false && !isFixedField;
-        if(isEditable){
-            args.selectCell(true);
-        }
-    }, [tableDefinition, fixedFields]);
-
    
     if (loading) {
         return (
