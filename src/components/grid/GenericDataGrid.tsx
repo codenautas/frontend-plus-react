@@ -260,7 +260,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             tableDefinition.allow?.['vertical-edit']
         ].filter(Boolean).length;
 
-        const actionColumnWidth = availableActions === 0 ? 30 : 12 + (availableActions * 25);
+        // Ancho base para "Lupa" y "Opciones" (2 botones siempre presentes) + Paddington general = ~60px
+        // Ancho extra por cada botón de acción habilitado (Agregar, Eliminar, Editar) = ~25px
+        const actionColumnWidth = 60 + (availableActions * 10);
 
         const actionsColumn: CustomColumn<any> = {
             key: 'actionsColumn',
