@@ -10,7 +10,7 @@ import { clientSides } from '../clientSides';
 import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
 import { OverridableComponent } from '@mui/material/OverridableComponent';
 import { SvgIconTypeMap } from '@mui/material/SvgIcon';
-import { getPrimaryKeyValues } from '../utils/helpers';
+import { getPrimaryKeyValues, isNumericType } from '../utils/helpers';
 
 type ActionButtonDefinition = {
     action: 'insert' | 'delete' | 'vertical-edit'
@@ -67,10 +67,12 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>,onOp
             
             //  TODO: Capturar valor fecha
             const value = row[props.column.key];
+            const isNumeric = isNumericType(fieldDef?.typeName);
+
             return (
                 <Tooltip title={currentCellFeedback?.message || ''}>
-                    <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: cellBackgroundColor, transition: 'background-color 0.3s ease-in-out', display: 'flex', alignItems: 'center', paddingLeft: '8px', boxSizing: 'border-box' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                    <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: cellBackgroundColor, transition: 'background-color 0.3s ease-in-out', display: 'flex', alignItems: 'center', paddingLeft: '8px', paddingRight: '8px', boxSizing: 'border-box' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: isNumeric ? 'right' : 'left' }}>
                             {value === null || value === undefined ? '' : String(value)}
                         </Typography>
                     </Box>

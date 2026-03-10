@@ -8,7 +8,7 @@ import { InputRendererProps, CellFeedback, CellFeedbackMap } from "../../types";
 // getCellKey deben provenir de tu archivo GenericDataGrid
 import {NEW_ROW_INDICATOR } from "./GenericDataGrid"; 
 import { useTheme } from "@mui/material";
-import { getPrimaryKeyValues, getCellKey } from "./utils/helpers";
+import { getPrimaryKeyValues, getCellKey, isNumericType } from "./utils/helpers";
 
 function findChangedValues(oldRowData:any, newRowData:any, isNewRow: boolean) {
   let changes: string[] = [];
@@ -240,6 +240,7 @@ function InputRenderer<R extends Record<string, any>, S>({
 
     const fieldDefinition = tableDefinition.fields.find(f => f.name === column.key);
     const isFieldEditable = fieldDefinition?.editable !== false;
+    const isNumeric = isNumericType(fieldDefinition?.typeName);
 
     return (
         <InputBase
@@ -257,6 +258,9 @@ function InputRenderer<R extends Record<string, any>, S>({
                 fontSize: '0.8rem',
                 boxSizing: 'border-box',
                 backgroundColor: cellBackgroundColor,
+                input: {
+                    textAlign: isNumeric ? 'right' : 'left',
+                }
             }}
             onClick={(e) => e.stopPropagation()}
             autoFocus

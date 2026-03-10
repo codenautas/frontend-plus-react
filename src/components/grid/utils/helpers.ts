@@ -30,3 +30,12 @@ export const getPrimaryKeyValues = (row: Record<string, any>, primaryKey: string
 export const getCellKey = (row: Record<string, any>, columnKey: string, primaryKey: string[]): string => {
     return `${getPrimaryKeyValues(row, primaryKey)}|${columnKey}`;
 };
+
+/**
+ * Checks if a given database field type name corresponds to a numeric field.
+ * @param typeName - The string representing the database field type
+ * @returns boolean
+ */
+export const isNumericType = (typeName?: string): boolean => {
+    return ['integer', 'bigint', 'decimal', 'double', 'float', 'number'].includes(typeName || '');
+};
