@@ -406,7 +406,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     summaryRowHeight={isFilterRowVisible ? 30 : 0}
                     renderers={{ noRowsFallback: <EmptyRowsRenderer /> }}
                     onCellMouseDown={handleCellMouseDown}
-                    onCellDoubleClick={handlCellDoubleClick}
+                    onCellDoubleClick={handleCellDoubleClick}
                     onCellClick={handleCellClick}
                     onCellKeyDown={handleCellKeyDown}
                 />
