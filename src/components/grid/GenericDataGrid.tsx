@@ -64,7 +64,7 @@ export interface DetailColumn<TRow, TSummaryRow = unknown> extends BaseCustomCol
 export interface ActionColumn<TRow, TSummaryRow = unknown> extends BaseCustomColumn<TRow, TSummaryRow> {
     customType: 'action';
     handleDeleteRow: (row: any) => void;
-    handleAddRow: () => void
+    handleAddRow: (row?: any) => void;
 }
 
 export type CustomColumn<TRow, TSummaryRow = unknown> =

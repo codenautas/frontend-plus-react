@@ -34,7 +34,7 @@ export const useGridActions = ({
         setRowToDelete(null);
     }, [tableName, setLocalCellChanges]); 
 
-    const handleAddRow = useCallback(() => {
+    const handleAddRow = useCallback((currentRow?: any) => {
         if (!tableDefinition) {
             showWarning('No se puede agregar una fila sin la definición de la tabla.');
             return;
@@ -51,7 +51,19 @@ export const useGridActions = ({
             });
         }
 
-        setTableData(prevData => [newRow, ...prevData]);
+        setTableData(prevData => {
+            if (currentRow) {
+                const currentRowId = getPrimaryKeyValues(currentRow, primaryKey);
+                const index = prevData.findIndex(row => getPrimaryKeyValues(row, primaryKey) === currentRowId);
+                
+                if (index !== -1) {
+                    const newData = [...prevData];
+                    newData.splice(index + 1, 0, newRow);
+                    return newData;
+                }
+            }
+            return [newRow, ...prevData];
+        });
         setSelectedRows(new Set());
 
         const tempRowId = getPrimaryKeyValues(newRow, primaryKey);
