@@ -276,7 +276,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => actionsColumnHeaderCellRenderer(props, isFilterRowVisible, toggleFilterVisibility, (e: React.MouseEvent<HTMLElement>) => {
                 setDataGridOptionsAnchorEl(e.currentTarget);
                 setOpenDataGridOptions(true);
-            }),
+            }, handleAddRow, tableDefinition.allow?.insert),
             renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => actionsColumnSummaryCellRenderer(props),
         }; const detailColumns: CustomColumn<any>[] = [];
         if (tableDefinition.detailTables && tableDefinition.detailTables.length > 0) {

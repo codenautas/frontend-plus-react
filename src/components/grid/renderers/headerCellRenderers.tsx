@@ -2,6 +2,7 @@ import {Box, IconButton, Tooltip, Typography} from "@mui/material";
 import SearchIcon from '@mui/icons-material/Search';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import AddIcon from '@mui/icons-material/Add';
 import { RenderHeaderCellProps } from "react-data-grid";
 import { DetailTable } from "backend-plus";
 import { FieldDefinition } from "../../../types";
@@ -39,10 +40,23 @@ export const actionsColumnHeaderCellRenderer = (
     props: RenderHeaderCellProps<any, unknown>, 
     isFilterRowVisible:boolean, 
     toggleFilterVisibility: () => void, 
-    handleDataGridOptions: (event: React.MouseEvent<HTMLElement>) => void
+    handleDataGridOptions: (event: React.MouseEvent<HTMLElement>) => void,
+    handleAddRow: () => void,
+    allowInsert?: boolean
 ) => {
     return (
     <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0.2}}> 
+        {allowInsert && (
+            <IconButton
+                color="inherit"
+                onClick={handleAddRow}
+                size="small"
+                title="Añadir registro"
+                sx={{ p: 0.25 }}
+            >
+                <AddIcon sx={{ fontSize: 18, color: 'success.main' }} />
+            </IconButton>
+        )}
         <IconButton
             color="inherit"
             onClick={toggleFilterVisibility}
