@@ -246,8 +246,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 sortable: true,
                 editable: isFieldEditable,
                 handleKeyPressInEditor,
-                flexGrow: 1,
-                minWidth: 60,
+                width: undefined,
+                minWidth: 20,
                 renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
                 renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => defaultColumnSummaryCellRenderer(props, fixedFields, isFilterRowVisible, filters, setFilters),
             };
