@@ -22,7 +22,7 @@ import { MenuListItemProps, SideMenuProps } from '../types';
 
 import { wScreens } from '../pages/WScreens';
 
-const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClick}) => {
+const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClick }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -38,8 +38,8 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
 
             if (item.menuType === "table") {
                 // Todas las tablas del menú navegan a esta ruta uniforme
-                path = `/menu/${item.name}`; 
-                
+                path = `/menu/${item.name}`;
+
                 // Los parámetros td y fc siguen siendo query params
                 if (item.td) queryParams.append('td', JSON.stringify((item.td)));
                 if (item.fc) queryParams.append('fc', JSON.stringify((item.fc)));
@@ -62,7 +62,7 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
                     console.warn(`Menu type '${item.menuType}' no reconocido o WScreen no mapeada.`);
                 }
             }
-            
+
             if (path) {
                 navigate(path);
             }
@@ -93,8 +93,8 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
     let isSelected = false;
 
     if (item.menuType === "table") {
-        // La selección ahora siempre se basa en la ruta /menu/table/:name para los ítems de tabla
-        isSelected = currentPath === `/menu/table/${item.name}`;
+        // La selección se basa en la ruta /menu/:name para los ítems de tabla
+        isSelected = currentPath === `/menu/${item.name}`;
     } else if (item.menuType === "proc") {
         isSelected = currentPath === `/procedures/${item.name}`;
     } else {
