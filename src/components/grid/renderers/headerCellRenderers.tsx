@@ -6,21 +6,17 @@ import AddIcon from '@mui/icons-material/Add';
 import { RenderHeaderCellProps } from "react-data-grid";
 import { DetailTable } from "backend-plus";
 import { FieldDefinition } from "../../../types";
-import { isNumericType } from "../utils/helpers";
 
 export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<any, unknown>, fieldDef: FieldDefinition) => {
     const { column } = props;
     const isPrimaryKey = fieldDef.isPk;
-    const isNumeric = isNumericType(fieldDef?.typeName);
     return (
         <Box
             sx={{
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
-                alignItems: isNumeric ? 'flex-end' : 'flex-start',
                 padding: '4px',
-                paddingRight: isNumeric ? '8px' : '4px',
                 boxSizing: 'border-box',
                 height: '100%',
                 width: '100%',
@@ -32,7 +28,7 @@ export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<any
                     fontWeight: 'bold',
                     textDecoration: isPrimaryKey ? 'underline' : 'none',
                     fontSize: '0.930rem', // Puedes ajustar el tamaño si es necesario
-                    textAlign: isNumeric ? 'right' : 'left',
+                    textAlign: 'left',
                     width: '100%'
                 }}
             >
