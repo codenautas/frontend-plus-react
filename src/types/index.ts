@@ -130,6 +130,7 @@ export interface SnackbarProviderProps {
 
 export interface UseApiCallResult<T> {
     callApi: (procedureName: string, params: Record<string, any>, opts?:{reportOnSnackbar:boolean}) => Promise<T | undefined>;
+    callApiUpload: (procedureName: string, file: File, params: Record<string, any>) => Promise<T | undefined>;
     loading: boolean;
     error: Error | null;
 }
@@ -159,3 +160,11 @@ export interface RouterState {
 export interface FetchApiOptions extends RequestInit {
     // Puedes extender RequestInit para añadir opciones específicas si es necesario
 }
+
+export interface DataGridOption {
+    id: string;
+    label: string;
+    icon: React.ReactNode;
+    handler: () => Promise<void>;
+    visible?: boolean;
+}

@@ -24,6 +24,7 @@ import { buildMenuOptions } from './menu/options';
 import { getPrimaryKeyValues } from './utils/helpers';
 import { useGridActions } from '../../hooks/grid/useGridActions';
 import { useGridEvents } from '../../hooks/grid/useGridEvents';
+import { ImportDialog, ImportOptions } from './ImportDialog';
 
 interface GenericDataGridProps {
     tableName: string;
@@ -98,7 +99,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const { showSuccess, showError, showWarning, showInfo } = useSnackbar();
     const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
     const dataGridRef = useRef<DataGridHandle>(null);
-    const { callApi, loading, error } = useApiCall();
+    const [openImportDialog, setOpenImportDialog] = useState(false);
+    const { callApi, callApiUpload, loading: apiLoading, error } = useApiCall();
 
     const getRowCount = () => tableData.length;
     const getFilteredRowCount = () => filteredRows.length;
@@ -208,6 +210,44 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         });
     }, []);
 
+    const triggerImport = useCallback(() => {
+        setOpenImportDialog(true);
+    }, []);
+
+    const handleImportFile = async (file: File, options: ImportOptions) => {
+        try {
+            const result = await callApiUpload('table_upload', file, {
+                table: tableName,
+                prefilledFields: fixedFields,
+                ...options
+            });
+
+            if (result && result.uploaded) {
+                const { inserted, updated, skipped, deleted, skippedColumns } = result.uploaded;
+                const messages = [];
+                if (inserted > 0) messages.push(`${inserted} fila(s) insertada(s).`);
+                if (updated > 0) messages.push(`${updated} fila(s) actualizada(s).`);
+                if (skipped > 0) messages.push(`${skipped} fila(s) omitida(s).`);
+                if (deleted > 0) messages.push(`${deleted} fila(s) eliminada(s).`);
+                if (skippedColumns?.length > 0) messages.push(`Columnas omitidas: ${skippedColumns.join(', ')}`);
+
+                showSuccess(messages.join('\n') || 'Importación finalizada sin cambios detectados.');
+
+                // Refrescar los datos después de la importación
+                const newData = await callApi('table_data', {
+                    table: tableName,
+                    fixedFields: fixedFields
+                });
+                setTableData(newData);
+            } else if (result && result.message) {
+                showSuccess(result.message);
+            }
+        } catch (err: any) {
+            console.error('Error durante la importación:', err);
+            // El error ya lo muestra el snackbar de useApiCall
+        }
+    };
+
     const menuOptions = useMemo(() => buildMenuOptions({
         tableDefinition,
         tableName,
@@ -216,8 +256,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         callApi,
         showSuccess,
         showError,
-        showWarning
-    }), [tableDefinition, tableName, fixedFields, setTableData, callApi, showSuccess, showError, showWarning]);
+        showWarning,
+        triggerImport
+    }), [tableDefinition, tableName, fixedFields, setTableData, callApi, showSuccess, showError, showWarning, triggerImport]);
 
     const columns: CustomColumn<any>[] = useMemo(() => {
         if (!tableDefinition) return [];
@@ -326,7 +367,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         localCellChanges, handleDeleteRow, handleAddRow, fixedFields, tableData, onOpenDetail
     ]);
 
-    if (loading) {
+    if (apiLoading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
                 <CircularProgress />
@@ -429,6 +470,12 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 onClose={() => setOpenDataGridOptions(false)}
                 options={menuOptions}
                 anchorEl={dataGridOptionsAnchorEl}
+            />
+            <ImportDialog
+                open={openImportDialog}
+                onClose={() => setOpenImportDialog(false)}
+                onImport={handleImportFile}
+                loading={apiLoading}
             />
         </Box>
     );

@@ -21,6 +21,7 @@ export interface BuildMenuOptionsParams {
     showSuccess: (message: string) => void;
     showError: (message: string) => void;
     showWarning: (message: string) => void;
+    triggerImport?: () => void;
 }
 
 /**
@@ -36,7 +37,8 @@ export const buildMenuOptions = (params: BuildMenuOptionsParams): DataGridOption
         callApi, 
         showSuccess, 
         showError,
-        showWarning
+        showWarning,
+        triggerImport
     } = params;
 
     if (!tableDefinition) return [];
@@ -105,11 +107,14 @@ export const buildMenuOptions = (params: BuildMenuOptionsParams): DataGridOption
     if (tableDefinition.allow?.import) {
         options.push({
             id: 'import',
-            label: 'importar',
+            label: 'importar (Excel/CSV)',
             icon: <FileUploadIcon />,
             handler: async () => {
-                console.log('Importar datos');
-                // TODO: Implementar lógica de importación
+                if (triggerImport) {
+                    triggerImport();
+                } else {
+                    showWarning('La funcionalidad de importación no está disponible en este momento.');
+                }
             },
             visible: true
         });
