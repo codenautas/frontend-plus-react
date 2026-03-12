@@ -30,7 +30,7 @@ export interface ImportOptions {
 export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose, onImport, loading }) => {
     const [file, setFile] = useState<File | null>(null);
     const [options, setOptions] = useState<ImportOptions>({
-        skipUnknownFieldsAtImport: true,
+        skipUnknownFieldsAtImport: false,
         simplificateSpaces: true,
         replaceNewLineWithSpace: true
     });

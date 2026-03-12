@@ -100,7 +100,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
     const dataGridRef = useRef<DataGridHandle>(null);
     const [openImportDialog, setOpenImportDialog] = useState(false);
-    const { callApi, callApiUpload, loading: apiLoading, error } = useApiCall();
+    const { callApi, callApiUpload, loading, error } = useApiCall();
 
     const getRowCount = () => tableData.length;
     const getFilteredRowCount = () => filteredRows.length;
@@ -110,10 +110,13 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         return tableDefinition.primaryKey && tableDefinition.primaryKey.length > 0 ? tableDefinition.primaryKey : ['id'];
     }, [tableDefinition]);
 
-    const { handleAddRow, handleConfirmDelete, handleDeleteRow, openConfirmDialog, rowToDelete } = useGridActions({
+    const {
+        handleAddRow, handleConfirmDelete, handleDeleteRow,
+        openConfirmDialog, rowToDelete, handleImportFile
+    } = useGridActions({
         tableDefinition, tableName, primaryKey,
         fixedFields, setExitingRowIds, setLocalCellChanges,
-        setSelectedRows, setTableData
+        setSelectedRows, setTableData, callApi, callApiUpload
     });
 
     const filteredRows = useMemo(() => {
@@ -153,12 +156,12 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     useEffect(() => {
         const fetchDataAndDefinition = async () => {
             try {
-                const definition: TableDefinition = await callApi('table_structure', { table: tableName });
+                const definition: TableDefinition = await callApi('table_structure', { table: tableName }, { isCritical: true });
                 setTableDefinition(definition);
                 const data = await callApi('table_data', {
                     table: tableName,
                     fixedFields: fixedFields
-                });
+                }, { isCritical: true });
                 setTableData(data);
             } catch (err: any) {
                 setTableDefinition(null);
@@ -214,39 +217,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setOpenImportDialog(true);
     }, []);
 
-    const handleImportFile = async (file: File, options: ImportOptions) => {
-        try {
-            const result = await callApiUpload('table_upload', file, {
-                table: tableName,
-                prefilledFields: fixedFields,
-                ...options
-            });
-
-            if (result && result.uploaded) {
-                const { inserted, updated, skipped, deleted, skippedColumns } = result.uploaded;
-                const messages = [];
-                if (inserted > 0) messages.push(`${inserted} fila(s) insertada(s).`);
-                if (updated > 0) messages.push(`${updated} fila(s) actualizada(s).`);
-                if (skipped > 0) messages.push(`${skipped} fila(s) omitida(s).`);
-                if (deleted > 0) messages.push(`${deleted} fila(s) eliminada(s).`);
-                if (skippedColumns?.length > 0) messages.push(`Columnas omitidas: ${skippedColumns.join(', ')}`);
-
-                showSuccess(messages.join('\n') || 'Importación finalizada sin cambios detectados.');
-
-                // Refrescar los datos después de la importación
-                const newData = await callApi('table_data', {
-                    table: tableName,
-                    fixedFields: fixedFields
-                });
-                setTableData(newData);
-            } else if (result && result.message) {
-                showSuccess(result.message);
-            }
-        } catch (err: any) {
-            console.error('Error durante la importación:', err);
-            // El error ya lo muestra el snackbar de useApiCall
-        }
-    };
 
     const menuOptions = useMemo(() => buildMenuOptions({
         tableDefinition,
@@ -367,7 +337,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         localCellChanges, handleDeleteRow, handleAddRow, fixedFields, tableData, onOpenDetail
     ]);
 
-    if (apiLoading) {
+    if (loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
                 <CircularProgress />
@@ -475,7 +445,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 open={openImportDialog}
                 onClose={() => setOpenImportDialog(false)}
                 onImport={handleImportFile}
-                loading={apiLoading}
+                loading={loading}
             />
         </Box>
     );

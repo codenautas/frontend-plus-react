@@ -128,9 +128,13 @@ export interface SnackbarProviderProps {
     children: ReactNode;
 }
 
+export interface CallApiOptions {
+    isCritical?: boolean;
+}
+
 export interface UseApiCallResult<T> {
-    callApi: (procedureName: string, params: Record<string, any>, opts?:{reportOnSnackbar:boolean}) => Promise<T | undefined>;
-    callApiUpload: (procedureName: string, file: File, params: Record<string, any>) => Promise<T | undefined>;
+    callApi: (procedureName: string, params: Record<string, any>, opts?: CallApiOptions) => Promise<T | undefined>;
+    callApiUpload: (procedureName: string, file: File, params: Record<string, any>, opts?: CallApiOptions) => Promise<T | undefined>;
     loading: boolean;
     error: Error | null;
 }

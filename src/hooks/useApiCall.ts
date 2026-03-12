@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { executeBackendProcedure as baseExecuteBackendProcedure, executeBackendUpload as baseExecuteBackendUpload } from '../utils/fetchApi';
-import { UseApiCallResult } from '../types';
+import { UseApiCallResult, CallApiOptions } from '../types';
 
 export const useApiCall = <T = any>(): UseApiCallResult<T> => {
     const { showSnackbar } = useSnackbar();
@@ -11,14 +11,15 @@ export const useApiCall = <T = any>(): UseApiCallResult<T> => {
     const callApi = useCallback(async (
         procedureName: string,
         params: Record<string, any>,
+        opts: CallApiOptions = { isCritical: true }
     ): Promise<T | undefined> => {
         setLoading(true);
-        setError(null);
+        if (opts.isCritical) setError(null);
         try {
             const result = await baseExecuteBackendProcedure<T>(procedureName, params);
             return result === null ? undefined : result;
         } catch (err: any) {
-            setError(err);
+            if (opts.isCritical) setError(err);
             let snackbarMessage = `Error inesperado al ejecutar '${procedureName}'.`;
             if (err instanceof TypeError) {
                 snackbarMessage = `Problema de conexión: ${err.message}. Por favor, revisa tu internet o intenta de nuevo.`;
@@ -36,14 +37,15 @@ export const useApiCall = <T = any>(): UseApiCallResult<T> => {
         procedureName: string,
         file: File,
         params: Record<string, any>,
+        opts: CallApiOptions = { isCritical: true }
     ): Promise<T | undefined> => {
         setLoading(true);
-        setError(null);
+        if (opts.isCritical) setError(null);
         try {
             const result = await baseExecuteBackendUpload<T>(procedureName, file, params);
             return result === null ? undefined : result;
         } catch (err: any) {
-            setError(err);
+            if (opts.isCritical) setError(err);
             let snackbarMessage = `Error inesperado al subir archivo en '${procedureName}'.`;
             if (err instanceof TypeError) {
                 snackbarMessage = `Problema de conexión: ${err.message}. Por favor, revisa tu internet o intenta de nuevo.`;
@@ -66,7 +68,8 @@ export const useApiCallWithoutSnackbar = <T = any>(): UseApiCallResult<T> => {
 
     const callApi = useCallback(async (
         procedureName: string,
-        params: Record<string, any>
+        params: Record<string, any>,
+        opts: CallApiOptions = { isCritical: true }
     ): Promise<T | undefined> => {
         setLoading(true);
         setError(null);
@@ -87,7 +90,8 @@ export const useApiCallWithoutSnackbar = <T = any>(): UseApiCallResult<T> => {
     const callApiUpload = useCallback(async (
         procedureName: string,
         file: File,
-        params: Record<string, any>
+        params: Record<string, any>,
+        opts: CallApiOptions = { isCritical: true }
     ): Promise<T | undefined> => {
         setLoading(true);
         setError(null);
