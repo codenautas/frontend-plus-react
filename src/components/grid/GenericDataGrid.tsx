@@ -154,6 +154,11 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             calculatedHeight = Math.max(calculatedHeight, 200); // Aumentado de 150 a 200 para dar más aire
         }
 
+        // Si la tabla está totalmente vacía de origen (BBDD), aseguramos un mínimo para el EmptyRowsRenderer
+        if (tableData.length === 0) {
+            calculatedHeight = Math.max(calculatedHeight, 200);
+        }
+
         return calculatedHeight;
     }, [filteredRows.length, isFilterRowVisible, tableData.length]);
 
@@ -433,11 +438,11 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     height: `min(${gridHeight}px, 100%)`, // Altura dinámica aquí
                     maxHeight: '100%',
                     boxSizing: 'border-box',
-                    position: 'relative',
+                    position: 'relative', // CRÍTICO para el centrado del fallback
                     overflowX: 'auto',
                     overflowY: 'auto',
                     px: 2,
-                    pb: 2,
+                    pb: 3,
                 }}
             >
                 <DataGrid
@@ -465,18 +470,51 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
                     bottomSummaryRows={[{ id: 'bottomSummaryRow' }]}
                     summaryRowHeight={30}
-                    renderers={tableData.length === 0 ? { noRowsFallback: <EmptyRowsRenderer /> } : undefined}
+                    renderers={undefined}
                     onCellMouseDown={handleCellMouseDown}
                     onCellDoubleClick={handleCellDoubleClick}
                     onCellClick={handleCellClick}
                     onCellKeyDown={handleCellKeyDown}
                 />
+                
+                {/* Fallback cuando no hay datos en la base de datos */}
+                {tableData.length === 0 && (
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            top: 30, // Debajo del header
+                            bottom: 30, // Arriba del resumen inferior
+                            left: 0,
+                            right: 0,
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            pointerEvents: 'none',
+                            zIndex: 10,
+                        }}
+                    >
+                        <Box sx={{
+                            border: '1px solid #ccc',
+                            borderRadius: '4px',
+                            padding: '16px 24px',
+                            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                            backgroundColor: '#fff'
+                        }}>
+                            <Typography variant="body2" color="textSecondary">
+                                No hay filas para mostrar
+                            </Typography>
+                        </Box>
+                    </Box>
+                )}
+
+                {/* Mensaje cuando los filtros vacían la grilla */}
                 {tableData.length > 0 && filteredRows.length === 0 && (
                     <Box
                         sx={{
                             position: 'absolute',
                             top: isFilterRowVisible ? 60 : 30, // Dinámico según filtros
-                            bottom: 64,
+                            bottom: 30, // Arriba del resumen inferior
                             left: 0,
                             right: 0,
                             display: 'flex',

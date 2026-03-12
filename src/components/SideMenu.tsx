@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider, Box, Typography, Collapse } from '@mui/material';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -17,7 +17,7 @@ import { MenuInfoBase, MenuInfoTable, MenuInfoProc, MenuInfoMenu } from "backend
 import { blue, orange, teal, red, grey } from '@mui/material/colors';
 
 import { useSubMenuOpenState, useAppDispatch, useAppSelector } from '../store';
-import { toggleSubMenu, setAllSubMenusOpen } from '../store/menuUiSlice';
+import { toggleSubMenu, setAllSubMenusOpen, setSubMenuOpen } from '../store/menuUiSlice';
 import { MenuListItemProps, SideMenuProps } from '../types';
 
 import { wScreens } from '../pages/WScreens';
@@ -92,17 +92,29 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
     const currentPath = location.pathname;
     let isSelected = false;
 
+    // Obtener tableName de la URL si existe
+    const pathParts = currentPath.split('/');
+    const urlTableName = pathParts[1] === 'table' ? pathParts[2] : null;
+
     if (item.menuType === "table") {
-        // La selección se basa en la ruta /menu/:name para los ítems de tabla
-        isSelected = currentPath === `/menu/${item.name}`;
+        // Seleccionado si coincide la ruta de menú o la ruta directa de tabla
+        isSelected = currentPath === `/menu/${item.name}` || (urlTableName === (item.table || item.name));
     } else if (item.menuType === "proc") {
         isSelected = currentPath === `/procedures/${item.name}`;
-    } else {
+    } else if (item.menuType !== "menu") {
         isSelected = currentPath.startsWith(`/wScreens/${item.menuType}`) || currentPath.startsWith(`/wScreens-fallback/${item.menuType}`);
     }
 
+    // SCROLL AUTOMÁTICO: Cuando se selecciona un ítem, lo traemos a la vista
+    const itemRef = React.useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (isSelected && itemRef.current) {
+            itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }, [isSelected]);
+
     return (
-        <>
+        <div ref={itemRef}>
             <ListItemButton
                 onClick={handleClick}
                 sx={{ pl: level * 2 }}
@@ -128,7 +140,7 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
                     </List>
                 </Collapse>
             )}
-        </>
+        </div>
     );
 };
 
@@ -166,6 +178,43 @@ const SideMenu: React.FC<SideMenuProps> = ({ onMenuItemClick }) => {
     }
 
     const isHomeSelected = location.pathname === '/home';
+
+    // AUTO-EXPANSIÓN: Expandir padres según la ruta actual
+    useEffect(() => {
+        if (!clientContext?.menu) return;
+
+        const expandParents = (items: MenuInfoBase[], targetPath: string, parentNames: string[] = []): boolean => {
+            const pathParts = targetPath.split('/');
+            const urlTableName = pathParts[1] === 'table' ? pathParts[2] : null;
+
+            for (const item of items) {
+                let matches = false;
+                if (item.menuType === "table") {
+                    matches = targetPath === `/menu/${item.name}` || (urlTableName === (item.table || item.name));
+                } else if (item.menuType === "proc") {
+                    matches = targetPath === `/procedures/${item.name}`;
+                } else if (item.menuType !== "menu") {
+                    matches = targetPath.startsWith(`/wScreens/${item.menuType}`) || targetPath.startsWith(`/wScreens-fallback/${item.menuType}`);
+                }
+
+                if (matches) {
+                    // Encontramos el ítem, expandimos todos sus padres
+                    parentNames.forEach(name => {
+                        dispatch(setSubMenuOpen({ menuName: name, isOpen: true }));
+                    });
+                    return true;
+                }
+
+                if (item.menuType === "menu") {
+                    const found = expandParents((item as MenuInfoMenu).menuContent, targetPath, [...parentNames, item.name]);
+                    if (found) return true;
+                }
+            }
+            return false;
+        };
+
+        expandParents(clientContext.menu, location.pathname);
+    }, [location.pathname, clientContext, dispatch]);
 
     return (
         <Box sx={{ width: '100%', flexShrink: 0 }}>
