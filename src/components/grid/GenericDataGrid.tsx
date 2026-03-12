@@ -444,7 +444,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     headerRowHeight={30}
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
                     summaryRowHeight={isFilterRowVisible ? 30 : 0}
-                    renderers={{ noRowsFallback: <EmptyRowsRenderer /> }}
+                    renderers={tableData.length === 0 ? { noRowsFallback: <EmptyRowsRenderer /> } : undefined}
                     onCellMouseDown={handleCellMouseDown}
                     onCellDoubleClick={handleCellDoubleClick}
                     onCellClick={handleCellClick}
