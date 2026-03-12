@@ -138,6 +138,25 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         return rows;
     }, [tableData, filters, isFilterRowVisible]);
 
+    const gridHeight = useMemo(() => {
+        const rowHeight = 30;
+        const headerHeight = 30; // Altura de la cabecera (headerRowHeight)
+        const filterHeight = isFilterRowVisible ? 30 : 0; // Altura de filtros (summaryRowHeight top)
+        const bottomSummaryHeight = 30; // Altura de la fila de resumen inferior
+
+        // Añadimos 30px extra para margen/bordes y mejorar el espaciado visual
+        // La altura total incluye: Filas + Header + Filtros(top) + Resumen(bottom) + Margen Visual
+        let calculatedHeight = (filteredRows.length * rowHeight) + headerHeight + filterHeight + bottomSummaryHeight + 30;
+
+        // Si hay datos pero no coinciden los filtros, forzamos un mínimo para el mensaje de "Sin resultados"
+        // El mínimo debe cubrir Header(30) + Filtros(30) + Resumen(30) + Mensaje + Margen
+        if (tableData.length > 0 && filteredRows.length === 0 && isFilterRowVisible) {
+            calculatedHeight = Math.max(calculatedHeight, 200); // Aumentado de 150 a 200 para dar más aire
+        }
+
+        return calculatedHeight;
+    }, [filteredRows.length, isFilterRowVisible, tableData.length]);
+
     const { handleCellDoubleClick, handleCellClick, handleCellKeyDown, handleCellMouseDown, handleKeyPressInEditor, handleSelectedCellChange, handleRowsChange } = useGridEvents({
         dataGridRef, filteredRows, fixedFields, tableData, tableDefinition, setSelectedCell, setTableData
     });
@@ -411,7 +430,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             </Box>
             <Box
                 sx={{
-                    flexGrow: 1,
+                    height: `min(${gridHeight}px, 100%)`, // Altura dinámica aquí
+                    maxHeight: '100%',
                     boxSizing: 'border-box',
                     position: 'relative',
                     overflowX: 'auto',
@@ -443,13 +463,35 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     style={{ ...{ height: '100%', width: '100%', boxSizing: 'border-box' }, ...gridStyles }}
                     headerRowHeight={30}
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
-                    summaryRowHeight={isFilterRowVisible ? 30 : 0}
+                    bottomSummaryRows={[{ id: 'bottomSummaryRow' }]}
+                    summaryRowHeight={30}
                     renderers={tableData.length === 0 ? { noRowsFallback: <EmptyRowsRenderer /> } : undefined}
                     onCellMouseDown={handleCellMouseDown}
                     onCellDoubleClick={handleCellDoubleClick}
                     onCellClick={handleCellClick}
                     onCellKeyDown={handleCellKeyDown}
                 />
+                {tableData.length > 0 && filteredRows.length === 0 && (
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            top: isFilterRowVisible ? 60 : 30, // Dinámico según filtros
+                            bottom: 64,
+                            left: 0,
+                            right: 0,
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                            pointerEvents: 'none',
+                            zIndex: 1,
+                        }}
+                    >
+                        <Typography variant="body2" color="textSecondary">
+                            No se encontraron resultados para tu búsqueda
+                        </Typography>
+                    </Box>
+                )}
             </Box>
             <ExportDialog
                 open={openExportDialog}
