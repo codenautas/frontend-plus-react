@@ -25,6 +25,7 @@ import { getPrimaryKeyValues } from './utils/helpers';
 import { useGridActions } from '../../hooks/grid/useGridActions';
 import { useGridEvents } from '../../hooks/grid/useGridEvents';
 import { ImportDialog, ImportOptions } from './ImportDialog';
+import { ExportDialog } from './ExportDialog';
 
 interface GenericDataGridProps {
     tableName: string;
@@ -100,6 +101,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
     const dataGridRef = useRef<DataGridHandle>(null);
     const [openImportDialog, setOpenImportDialog] = useState(false);
+    const [openExportDialog, setOpenExportDialog] = useState(false);
     const [columnWidths, setColumnWidths] = useState<ReadonlyMap<string, any>>(() => new Map());
     const { callApi, callApiUpload, loading, error } = useApiCall();
 
@@ -229,7 +231,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         showSuccess,
         showError,
         showWarning,
-        triggerImport
+        triggerImport,
+        triggerExport: () => setOpenExportDialog(true)
     }), [tableDefinition, tableName, fixedFields, setTableData, callApi, showSuccess, showError, showWarning, triggerImport]);
 
     const columns: CustomColumn<any>[] = useMemo(() => {
@@ -448,6 +451,14 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     onCellKeyDown={handleCellKeyDown}
                 />
             </Box>
+            <ExportDialog
+                open={openExportDialog}
+                onClose={() => setOpenExportDialog(false)}
+                tableDefinition={tableDefinition}
+                tableData={tableData}
+                filteredRows={filteredRows}
+                username={(window as any).my?.config?.username || 'anonymous'}
+            />
             <ConfirmDialog
                 open={openConfirmDialog}
                 onClose={handleConfirmDelete}

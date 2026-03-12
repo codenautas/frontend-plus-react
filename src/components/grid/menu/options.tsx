@@ -22,6 +22,7 @@ export interface BuildMenuOptionsParams {
     showError: (message: string) => void;
     showWarning: (message: string) => void;
     triggerImport?: () => void;
+    triggerExport?: () => void;
 }
 
 /**
@@ -38,7 +39,8 @@ export const buildMenuOptions = (params: BuildMenuOptionsParams): DataGridOption
         showSuccess,
         showError,
         showWarning,
-        triggerImport
+        triggerImport,
+        triggerExport
     } = params;
 
     if (!tableDefinition) return [];
@@ -89,15 +91,17 @@ export const buildMenuOptions = (params: BuildMenuOptionsParams): DataGridOption
         visible: true
     });
 
-    // Opción: Exportar (solo si está permitido)
     if (tableDefinition.allow?.export) {
         options.push({
             id: 'export',
             label: 'exportar',
             icon: <FileDownloadIcon />,
             handler: async () => {
-                console.log('Exportar datos');
-                // TODO: Implementar lógica de exportación
+                if (triggerExport) {
+                    triggerExport();
+                } else {
+                    showWarning('La funcionalidad de exportación no está disponible en este momento.');
+                }
             },
             visible: true
         });

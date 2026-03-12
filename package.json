@@ -54,7 +54,10 @@
     "redux": ">=4.0.0",
     "redux-persist": ">=6.0.0",
     "web-vitals": ">=2.1.4",
-    "zod": ">=3.24.4"
+    "zod": ">=3.24.4",
+    "type-store": "*",
+    "xlsx": "*",
+    "like-ar": "*"
   },
   "devDependencies": {
     "@types/express-useragent": "^1.0.5",
@@ -68,7 +71,10 @@
     "backend-plus": "^2.5.2-betha.10",
     "kill-9": "^0.4.3",
     "tsup": "8.3.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "type-store": "^0.4.8",
+    "xlsx": "^0.20.2",
+    "like-ar": "^0.5.2"
   },
   "dependencies": {
     "tslib": "^2.8.1"
