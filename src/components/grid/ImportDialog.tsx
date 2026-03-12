@@ -62,7 +62,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose, onImp
                 <Stack spacing={3} sx={{ mt: 1 }}>
                     <Box>
                         <Typography variant="subtitle2" gutterBottom fontWeight="bold">
-                            Seleccionar archivo (.xlsx / .tab)
+                            Seleccionar archivo
                         </Typography>
                         <Box
                             sx={{

@@ -29,13 +29,13 @@ export interface BuildMenuOptionsParams {
  * Las opciones se muestran condicionalmente según los permisos de la tabla
  */
 export const buildMenuOptions = (params: BuildMenuOptionsParams): DataGridOption[] => {
-    const { 
-        tableDefinition, 
-        tableName, 
-        fixedFields, 
-        setTableData, 
-        callApi, 
-        showSuccess, 
+    const {
+        tableDefinition,
+        tableName,
+        fixedFields,
+        setTableData,
+        callApi,
+        showSuccess,
         showError,
         showWarning,
         triggerImport
@@ -107,7 +107,7 @@ export const buildMenuOptions = (params: BuildMenuOptionsParams): DataGridOption
     if (tableDefinition.allow?.import) {
         options.push({
             id: 'import',
-            label: 'importar (Excel/CSV)',
+            label: 'importar (Excel/Tab)',
             icon: <FileUploadIcon />,
             handler: async () => {
                 if (triggerImport) {
