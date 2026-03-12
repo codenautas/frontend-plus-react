@@ -100,6 +100,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
     const dataGridRef = useRef<DataGridHandle>(null);
     const [openImportDialog, setOpenImportDialog] = useState(false);
+    const [columnWidths, setColumnWidths] = useState<ReadonlyMap<string, any>>(() => new Map());
     const { callApi, callApiUpload, loading, error } = useApiCall();
 
     const getRowCount = () => tableData.length;
@@ -148,6 +149,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setCellFeedbackMap(new Map());
         setLocalCellChanges(new Map());
         setExitingRowIds(new Set());
+        setColumnWidths(new Map());
         if (feedbackTimerRef.current) {
             clearTimeout(feedbackTimerRef.current);
         }
@@ -236,9 +238,29 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             const fixedFieldEntry = fixedFields?.find(f => f.fieldName === field.name);
             return !(fixedFieldEntry && fixedFieldEntry.until === undefined);
         })*/;
+        const getColumnWidthFromMetadata = (fieldDef: FieldDefinition) => {
+            const titleWidth = (fieldDef.label || fieldDef.name).length * 8 + 35;
+            const type = fieldDef.typeName?.toLowerCase() || '';
+            const baseLength = (fieldDef as any).length || 0;
+
+            // Anchos mínimos sugeridos por tipo para que no se vea feo al inicio
+            let minWidth = 60;
+            if (type.includes('boolean') || type.includes('checkbox')) minWidth = 60;
+            else if (type.includes('date') || type.includes('timestamp')) minWidth = 110;
+            else if (type.includes('integer') || type.includes('numeric')) minWidth = 80;
+
+            // Si es un campo muy largo, permitimos que sea flexible o usamos max-content
+            // RDG v7 soporta 'max-content' como string.
+            return {
+                width: 'max-content',
+                minWidth: Math.max(titleWidth, minWidth)
+            };
+        };
+
         const defaultColumns: CustomColumn<any>[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
             const isFixedField = fixedFields?.some(f => f.fieldName === fieldDef.name);
             const isFieldEditable = fieldDef.editable !== false && !isFixedField;
+            const { width, minWidth } = getColumnWidthFromMetadata(fieldDef);
 
             return {
                 key: fieldDef.name,
@@ -257,8 +279,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 sortable: true,
                 editable: isFieldEditable,
                 handleKeyPressInEditor,
-                width: undefined,
-                minWidth: 20,
+                width,
+                minWidth,
                 renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
                 renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => defaultColumnSummaryCellRenderer(props, fixedFields, isFilterRowVisible, filters, setFilters),
             };
@@ -406,6 +428,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                             ? { maxHeight: 0, opacity: 0, overflow: 'hidden' }
                             : { maxHeight: '35px', opacity: 1 }
                     }))}
+                    columnWidths={columnWidths}
+                    onColumnWidthsChange={setColumnWidths}
                     enableVirtualization={true}
                     rowKeyGetter={(row: any) => getPrimaryKeyValues(row, primaryKey)}
                     onSelectedRowsChange={setSelectedRows}

@@ -71,8 +71,8 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>,onOp
 
             return (
                 <Tooltip title={currentCellFeedback?.message || ''}>
-                    <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: cellBackgroundColor, transition: 'background-color 0.3s ease-in-out', display: 'flex', alignItems: 'center', paddingLeft: '8px', paddingRight: '8px', boxSizing: 'border-box' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: isNumeric ? 'right' : 'left' }}>
+                    <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: cellBackgroundColor, transition: 'background-color 0.3s ease-in-out', display: 'flex', alignItems: 'center', justifyContent: isNumeric ? 'flex-end' : 'flex-start', paddingLeft: '8px', paddingRight: '8px', boxSizing: 'border-box' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
                             {value === null || value === undefined ? '' : String(value)}
                         </Typography>
                     </Box>
