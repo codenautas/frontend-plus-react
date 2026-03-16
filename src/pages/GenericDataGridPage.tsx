@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { Box, Alert, Typography, Tabs, Tab, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import GenericDataGrid from '../components/grid/GenericDataGrid';
-import { FixedField } from '../types';
+import { FixedField, Ancestor } from '../types';
 import { cambiarGuionesBajosPorEspacios } from '../utils/functions';
 
 interface TabItem {
@@ -12,6 +12,7 @@ interface TabItem {
     label: string;
     tableName: string;
     fixedFields: FixedField[];
+    ancestors?: Ancestor[];
 }
 
 interface GenericDataGridPageProps {
@@ -40,13 +41,14 @@ const GenericDataGridPage: React.FC<GenericDataGridPageProps> = ({
                 id: `main-${effectiveTableName}-${ffKey}`, // ID único que incluye filtros
                 label: effectiveTableName.replace(/_/g, ' ').toUpperCase(),
                 tableName: effectiveTableName,
-                fixedFields: initialFixedFields
+                fixedFields: initialFixedFields,
+                ancestors: []
             }]);
             setActiveTabIdx(0);
         }
     }, [effectiveTableName, ffKey]);
 
-    const handleOpenDetail = useCallback((tableName: string, fixedFields: FixedField[], label: string) => {
+    const handleOpenDetail = useCallback((tableName: string, fixedFields: FixedField[], label: string, ancestors: Ancestor[]) => {
         const tabId = `${tableName}-${JSON.stringify(fixedFields)}`;
         
         setTabs(prevTabs => {
@@ -55,7 +57,7 @@ const GenericDataGridPage: React.FC<GenericDataGridPageProps> = ({
                 setActiveTabIdx(existingTabIdx);
                 return prevTabs;
             }
-            const newTabs = [...prevTabs, { id: tabId, label, tableName, fixedFields }];
+            const newTabs = [...prevTabs, { id: tabId, label, tableName, fixedFields, ancestors }];
             setActiveTabIdx(newTabs.length - 1);
             return newTabs;
         });
@@ -110,6 +112,7 @@ const GenericDataGridPage: React.FC<GenericDataGridPageProps> = ({
                         tableName={tab.tableName} 
                         fixedFields={tab.fixedFields} 
                         onOpenDetail={handleOpenDetail} 
+                        ancestors={tab.ancestors}
                     />
                 </Box>
             ))}

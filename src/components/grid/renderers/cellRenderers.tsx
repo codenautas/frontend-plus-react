@@ -4,13 +4,14 @@ import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { CustomColumn, DefaultColumn, DetailColumn, ActionColumn, NEW_ROW_INDICATOR } from '../GenericDataGrid';
-import { FixedField } from '../../../types';
+import { ActionColumn, CustomColumn, DefaultColumn, DetailColumn, NEW_ROW_INDICATOR } from '../GenericDataGrid';
+import { Ancestor, FixedField } from '../../../types';
 import { clientSides } from '../clientSides';
 import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
 import { OverridableComponent } from '@mui/material/OverridableComponent';
 import { SvgIconTypeMap } from '@mui/material/SvgIcon';
 import { getPrimaryKeyValues, isNumericType } from '../utils/helpers';
+import { cambiarGuionesBajosPorEspacios } from '../../../utils/functions';
 
 type ActionButtonDefinition = {
     action: 'insert' | 'delete' | 'vertical-edit'
@@ -20,7 +21,11 @@ type ActionButtonDefinition = {
     color: 'success' | 'error' | 'primary'
 }
 
-export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>,onOpenDetail?: (tableName: string, fixedFields: any[], label: string) => void,) => {
+export const allColumnsCellRenderer = (
+    props: RenderCellProps<any, unknown>,
+    onOpenDetail?: (tableName: string, fixedFields: any[], label: string, ancestors: Ancestor[]) => void,
+    ancestors: Ancestor[] = []
+) => {
     const theme = useTheme();
     const column = props.column as unknown as CustomColumn<any, unknown>;
     const { row } = props;
@@ -36,7 +41,7 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>,onOp
             const cellKey = `${rowId}-${props.column.key}`; // Clave única para el mapa
 
             // Obtener el feedback específico para esta celda
-            const currentCellFeedback = cellFeedbackMap.get ? cellFeedbackMap.get(cellKey) : cellFeedbackMap[cellKey];
+            const currentCellFeedback = cellFeedbackMap.get(cellKey);
 
             if (fieldDef?.clientSide) {
                 const ClientSideComponent = clientSides[fieldDef.clientSide];
@@ -90,17 +95,23 @@ export const allColumnsCellRenderer = (props: RenderCellProps<any, unknown>,onOp
                         <IconButton
                             onClick={(event) => {
                                 if (detailTable && onOpenDetail) {
-                                    // Calculamos los campos fijos basados en la fila actual
                                     const fixedFields = detailTable.fields.map(f => {
-                                        const source = typeof f === 'string' ? f : f.source;
-                                        const target = typeof f === 'string' ? f : f.target;
-                                        return { fieldName: target, value: row[source] };
+                                        if (typeof f === 'string') return { fieldName: f, value: row[f] };
+                                        if ('source' in f) return { fieldName: f.target, value: row[f.source] };
+                                        return { fieldName: f.target, value: f.value };
                                     });
 
-                                    // Título para la pestaña: "TablaHija (ValorPadre)"
-                                    const label = `${detailTable.table} (${row[tableDefinition.primaryKey[0]]})`;
+                                    // Título descriptivo: "TablaHija (F1:V1, F2:V2...)"
+                                    const filterDescription = fixedFields
+                                        .map(ff => `${cambiarGuionesBajosPorEspacios(ff.fieldName)}: ${ff.value}`)
+                                        .join(', ');
                                     
-                                    onOpenDetail(detailTable.table!, fixedFields, label);
+                                    const label = `${cambiarGuionesBajosPorEspacios(detailTable.table!).toUpperCase()} (${filterDescription})`;
+                                    
+                                    // Agregamos el registro actual a la cadena de ancestros
+                                    const newAncestors = [...ancestors, { tableName: tableDefinition.name, row }];
+
+                                    onOpenDetail(detailTable.table!, fixedFields, label, newAncestors);
                                 }
                             }}
                             

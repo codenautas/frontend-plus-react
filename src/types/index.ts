@@ -43,9 +43,19 @@ export interface InputRendererProps<R extends Record<string, any>, S> {
 
 // ------------------------------------
 
-export interface GenericDataGridProps {
-    // tableName: string; // Comentado según tu código original
+export interface Ancestor {
+    tableName: string;
+    row: any;
 }
+
+export interface GenericDataGridProps {
+    tableName: string;
+    fixedFields?: FixedField[];
+    onOpenDetail?: (tableName: string, fixedFields: FixedField[], label: string, ancestors: Ancestor[]) => void;
+    gridStyles?: React.CSSProperties;
+    ancestors?: Ancestor[];
+}
+
 export interface FixedField {
     fieldName: string;
     value: any;

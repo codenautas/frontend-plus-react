@@ -9,7 +9,7 @@ import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 
 import { useSnackbar } from '../../contexts/SnackbarContext';
 
-import { CellFeedback, FieldDefinition, FixedField, TableDefinition } from '../../types';
+import { CellFeedback, FieldDefinition, FixedField, TableDefinition, Ancestor } from '../../types';
 
 import { ConfirmDialog } from '../ConfirmDialog';
 import { DataGridOptionsDialog } from './DataGridOptionsDialog';
@@ -30,8 +30,9 @@ import { ExportDialog } from './ExportDialog';
 interface GenericDataGridProps {
     tableName: string;
     fixedFields?: FixedField[];
-    onOpenDetail?: (tableName: string, fixedFields: FixedField[], label: string) => void;
-    gridStyles?: React.CSSProperties
+    onOpenDetail?: (tableName: string, fixedFields: FixedField[], label: string, ancestors: Ancestor[]) => void;
+    gridStyles?: React.CSSProperties;
+    ancestors?: Ancestor[];
 }
 
 export const NEW_ROW_INDICATOR = '$new';
@@ -78,7 +79,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     tableName,
     fixedFields,
     gridStyles,
-    onOpenDetail
+    onOpenDetail,
+    ancestors = []
 }) => {
     const [tableDefinition, setTableDefinition] = useState<TableDefinition | null>(null);
     const [tableData, setTableData] = useState<any[]>([]);
@@ -386,7 +388,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             ...col,
             editorOptions: { closeOnExternalRowChange: false }, //con esto no se pierde el foco
             renderEditCell: (props) => allColumnsEditCellRenderer(props, allColumns),
-            renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props, onOpenDetail),
+            renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props, onOpenDetail, ancestors),
         }));
     }, [
         tableDefinition, isFilterRowVisible, filters, toggleFilterVisibility,
@@ -444,6 +446,40 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     }
                 </Typography>
             </Box>
+
+            {/* Ancestor Breadcrumbs */}
+            {ancestors && ancestors.length > 0 && (
+                <Box sx={{ px: 2, pt: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {ancestors.map((ancestor, index) => {
+                        const pkNames = ancestor.tableName === '???' ? ['id'] : []; // Placeholder logic if PK is unknown, but we usually have the row with data
+                        // For display, we show the table name and the row's values
+                        const values = Object.entries(ancestor.row)
+                            .filter(([key]) => !key.startsWith('$')) // ignore internal flags
+                            .slice(0, 3) // show first 3 fields as context
+                            .map(([k, v]) => `${cambiarGuionesBajosPorEspacios(k)}: ${v}`)
+                            .join(', ');
+
+                        return (
+                            <Box key={index} sx={{ display: 'flex', alignItems: 'center', opacity: 0.8 }}>
+                                <Typography variant="caption" sx={{ 
+                                    bgcolor: 'action.hover', 
+                                    px: 1, 
+                                    py: 0.5, 
+                                    borderRadius: 1,
+                                    border: '1px solid',
+                                    borderColor: 'divider'
+                                }}>
+                                    <strong>{cambiarGuionesBajosPorEspacios(ancestor.tableName).toUpperCase()}</strong>: {values}
+                                </Typography>
+                                {index < ancestors.length - 1 && (
+                                    <Typography variant="caption" sx={{ mx: 0.5 }}>/</Typography>
+                                )}
+                            </Box>
+                        );
+                    })}
+                </Box>
+            )}
+
             <Box
                 sx={{
                     height: `min(${gridHeight}px, 100%)`, // Altura dinámica aquí
