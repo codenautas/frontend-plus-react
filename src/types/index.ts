@@ -46,6 +46,8 @@ export interface InputRendererProps<R extends Record<string, any>, S> {
 export interface Ancestor {
     tableName: string;
     row: any;
+    tableDefinition: TableDefinition;
+    fixedFields?: FixedField[];
 }
 
 export interface GenericDataGridProps {

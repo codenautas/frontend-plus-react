@@ -23,8 +23,9 @@ type ActionButtonDefinition = {
 
 export const allColumnsCellRenderer = (
     props: RenderCellProps<any, unknown>,
-    onOpenDetail?: (tableName: string, fixedFields: any[], label: string, ancestors: Ancestor[]) => void,
-    ancestors: Ancestor[] = []
+    onOpenDetail?: (tableName: string, fixedFields: FixedField[], label: string, ancestors: Ancestor[]) => void,
+    ancestors: Ancestor[] = [],
+    currentFixedFields: FixedField[] = []
 ) => {
     const theme = useTheme();
     const column = props.column as unknown as CustomColumn<any, unknown>;
@@ -93,28 +94,40 @@ export const allColumnsCellRenderer = (
                 <Tooltip title={detailTable.label}>
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
                         <IconButton
-                            onClick={(event) => {
+                            onClick={() => {
                                 if (detailTable && onOpenDetail) {
-                                    const fixedFields = detailTable.fields.map(f => {
+                                    // 1. Calculamos los filtros específicos de este detalle
+                                    const detailFixedFields: FixedField[] = detailTable.fields.map(f => {
                                         if (typeof f === 'string') return { fieldName: f, value: row[f] };
                                         if ('source' in f) return { fieldName: f.target, value: row[f.source] };
-                                        return { fieldName: f.target, value: f.value };
+                                        return { fieldName: f.target as string, value: f.value };
                                     });
 
-                                    // Título descriptivo: "TablaHija (F1:V1, F2:V2...)"
-                                    const filterDescription = fixedFields
+                                    // 2. Acumulamos con los filtros que ya tiene la grilla actual (heredados de arriba)
+                                    // Deduplicamos por nombre de campo para evitar redundancia en el título y filtros
+                                    const rawFixedFields: FixedField[] = [...currentFixedFields, ...detailFixedFields];
+                                    const deduplicatedMap = new Map<string, FixedField>();
+                                    rawFixedFields.forEach(ff => deduplicatedMap.set(ff.fieldName, ff));
+                                    const allFixedFields = Array.from(deduplicatedMap.values());
+
+                                    // 3. Generamos el título descriptivo (acumulativo)
+                                    const filterDescription = allFixedFields
                                         .map(ff => `${cambiarGuionesBajosPorEspacios(ff.fieldName)}: ${ff.value}`)
                                         .join(', ');
                                     
                                     const label = `${cambiarGuionesBajosPorEspacios(detailTable.table!).toUpperCase()} (${filterDescription})`;
                                     
-                                    // Agregamos el registro actual a la cadena de ancestros
-                                    const newAncestors = [...ancestors, { tableName: tableDefinition.name, row }];
+                                    // 4. Creamos la nueva cadena de ancestros, guardando estos filtros para el hijo
+                                    const newAncestors: Ancestor[] = [...ancestors, { 
+                                        tableName: tableDefinition.name, 
+                                        row, 
+                                        tableDefinition, 
+                                        fixedFields: allFixedFields 
+                                    }];
 
-                                    onOpenDetail(detailTable.table!, fixedFields, label, newAncestors);
+                                    onOpenDetail(detailTable.table!, allFixedFields, label, newAncestors);
                                 }
                             }}
-                            
                         >
                             <KeyboardArrowRightIcon />
                         </IconButton>

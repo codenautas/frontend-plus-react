@@ -75,6 +75,89 @@ export type CustomColumn<TRow, TSummaryRow = unknown> =
     | DetailColumn<TRow, TSummaryRow>
     | ActionColumn<TRow, TSummaryRow>;
 
+/** Componente auxiliar para mostrar un registro padre como una grilla estática y editable */
+const StaticAncestorGrid: React.FC<{ 
+    ancestor: Ancestor, 
+    index: number,
+    fieldsToHide?: FixedField[],
+    callApi: (proc: string, params: Record<string, any>, options?: { isCritical?: boolean }) => Promise<any>,
+    showSuccess: (msg: string) => void,
+    showError: (msg: string) => void
+}> = ({ ancestor, index, fieldsToHide, callApi, showSuccess, showError }) => {
+    const theme = useTheme();
+    const { tableDefinition, row } = ancestor; // ya no usamos fixedFields del propio objeto para filtrar SE a sí mismo
+    const [rowData, setRowData] = useState(row);
+
+    const columns: Column<any>[] = useMemo(() => {
+        // Ocultamos los campos que el nivel SUPERIOR usó para filtrar a ESTE ancestro
+        const filteredFields = tableDefinition.fields.filter(field => 
+            !fieldsToHide?.some(ff => ff.fieldName === field.name)
+        );
+
+        return filteredFields.map(field => ({
+            key: field.name,
+            name: field.label || cambiarGuionesBajosPorEspacios(field.name),
+            width: 150,
+            editable: field.editable !== false,
+            renderCell: (props: RenderCellProps<any>) => (
+                <Box sx={{ px: 1, height: '100%', display: 'flex', alignItems: 'center' }}>
+                    <Typography variant="caption" noWrap>
+                        {String(props.row[field.name] ?? '')}
+                    </Typography>
+                </Box>
+            )
+        }));
+    }, [tableDefinition, fieldsToHide]);
+
+    const handleRowsChange = async (newRows: any[]) => {
+        const updatedRow = newRows[0];
+        setRowData(updatedRow);
+
+        try {
+            await callApi('table_data_save', {
+                table: ancestor.tableName,
+                row: updatedRow
+            });
+            showSuccess(`Registro de ${cambiarGuionesBajosPorEspacios(ancestor.tableName)} actualizado.`);
+        } catch (err: any) {
+            showError(`Error al actualizar padre: ${err.message}`);
+            setRowData(row); // Revertir si hay error
+        }
+    };
+
+    return (
+        <Box sx={{
+            mb: 1.5,
+            ml: index * 4, // El primer ancestro (index 0) no tiene margen, los siguientes sí
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            overflow: 'hidden',
+            boxShadow: theme.shadows[1],
+            bgcolor: 'background.paper'
+        }}>
+            <Box sx={{ bgcolor: 'action.hover', px: 1.5, py: 0.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.7rem', color: 'primary.main' }}>
+                    {cambiarGuionesBajosPorEspacios(ancestor.tableName).toUpperCase()}
+                </Typography>
+                <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                    (Registro Padre)
+                </Typography>
+            </Box>
+            <DataGrid
+                className='rdg-light'
+                columns={columns}
+                rows={[rowData]}
+                onRowsChange={handleRowsChange}
+                headerRowHeight={28}
+                rowHeight={32}
+                rowKeyGetter={() => 'single-row'}
+                style={{ height: 62 }} // Header + 1 fila + bordes
+            />
+        </Box>
+    );
+};
+
 const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     tableName,
     fixedFields,
@@ -188,9 +271,15 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             try {
                 const definition: TableDefinition = await callApi('table_structure', { table: tableName }, { isCritical: true });
                 setTableDefinition(definition);
+                
+                // Manejo defensivo: solo enviamos los fixedFields que existen en la definición de la tabla actual
+                const validFixedFields = fixedFields?.filter(ff => 
+                    definition.fields.some(field => field.name === ff.fieldName)
+                );
+
                 const data = await callApi('table_data', {
                     table: tableName,
-                    fixedFields: fixedFields
+                    fixedFields: validFixedFields // Usamos los campos validados
                 }, { isCritical: true });
                 setTableData(data);
             } catch (err: any) {
@@ -263,10 +352,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     const columns: CustomColumn<any>[] = useMemo(() => {
         if (!tableDefinition) return [];
-        const fieldsToShow = tableDefinition.fields/*.filter((field: FieldDefinition) => {
-            const fixedFieldEntry = fixedFields?.find(f => f.fieldName === field.name);
-            return !(fixedFieldEntry && fixedFieldEntry.until === undefined);
-        })*/;
+        const fieldsToShow = tableDefinition.fields.filter((field: FieldDefinition) => {
+            const isFixedField = fixedFields?.some(f => f.fieldName === field.name);
+            return !isFixedField;
+        });
         // Estimación simple de ancho en px por carácter según fuente (~8px para body2/caption)
         const estimateTextWidth = (text: string): number => text.length * 8 + 16;
 
@@ -388,7 +477,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             ...col,
             editorOptions: { closeOnExternalRowChange: false }, //con esto no se pierde el foco
             renderEditCell: (props) => allColumnsEditCellRenderer(props, allColumns),
-            renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props, onOpenDetail, ancestors),
+            renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props, onOpenDetail, ancestors, fixedFields),
         }));
     }, [
         tableDefinition, isFilterRowVisible, filters, toggleFilterVisibility,
@@ -426,6 +515,24 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     return (
         <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
+            {/* Primero los ancestros jerárquicos */}
+            {ancestors && ancestors.length > 0 && (
+                <Box sx={{ px: 2, pt: 0, pb: 1, display: 'flex', flexDirection: 'column' }}>
+                    {ancestors.map((ancestor, index) => (
+                        <StaticAncestorGrid 
+                            key={index} 
+                            ancestor={ancestor} 
+                            index={index} 
+                            fieldsToHide={index > 0 ? ancestors[index - 1].fixedFields : []}
+                            callApi={callApi} 
+                            showSuccess={showSuccess}
+                            showError={showError}
+                        />
+                    ))}
+                </Box>
+            )}
+
+            {/* Luego el título de la grilla actual */}
             <Box
                 sx={{
                     backgroundColor: theme.palette.primary.main,
@@ -436,7 +543,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     borderBottom: `1px solid ${theme.palette.divider}`,
                     borderTopLeftRadius: theme.shape.borderRadius,
                     borderTopRightRadius: theme.shape.borderRadius,
-                    ml: 2,
+                    ml: 2 + (ancestors.length * 4), // Margen dinámico basado en jerarquía
                     mr: 2
                 }}
             >
@@ -447,39 +554,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 </Typography>
             </Box>
 
-            {/* Ancestor Breadcrumbs */}
-            {ancestors && ancestors.length > 0 && (
-                <Box sx={{ px: 2, pt: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {ancestors.map((ancestor, index) => {
-                        const pkNames = ancestor.tableName === '???' ? ['id'] : []; // Placeholder logic if PK is unknown, but we usually have the row with data
-                        // For display, we show the table name and the row's values
-                        const values = Object.entries(ancestor.row)
-                            .filter(([key]) => !key.startsWith('$')) // ignore internal flags
-                            .slice(0, 3) // show first 3 fields as context
-                            .map(([k, v]) => `${cambiarGuionesBajosPorEspacios(k)}: ${v}`)
-                            .join(', ');
-
-                        return (
-                            <Box key={index} sx={{ display: 'flex', alignItems: 'center', opacity: 0.8 }}>
-                                <Typography variant="caption" sx={{ 
-                                    bgcolor: 'action.hover', 
-                                    px: 1, 
-                                    py: 0.5, 
-                                    borderRadius: 1,
-                                    border: '1px solid',
-                                    borderColor: 'divider'
-                                }}>
-                                    <strong>{cambiarGuionesBajosPorEspacios(ancestor.tableName).toUpperCase()}</strong>: {values}
-                                </Typography>
-                                {index < ancestors.length - 1 && (
-                                    <Typography variant="caption" sx={{ mx: 0.5 }}>/</Typography>
-                                )}
-                            </Box>
-                        );
-                    })}
-                </Box>
-            )}
-
             <Box
                 sx={{
                     height: `min(${gridHeight}px, 100%)`, // Altura dinámica aquí
@@ -489,6 +563,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     overflowX: 'auto',
                     overflowY: 'auto',
                     px: 2,
+                    ml: ancestors.length * 4, // Indentación de la grilla principal
                     pb: 3,
                 }}
             >
