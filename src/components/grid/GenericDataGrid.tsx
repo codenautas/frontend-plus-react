@@ -146,7 +146,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
         // Añadimos 30px extra para margen/bordes y mejorar el espaciado visual
         // La altura total incluye: Filas + Header + Filtros(top) + Resumen(bottom) + Margen Visual
-        let calculatedHeight = (filteredRows.length * rowHeight) + headerHeight + filterHeight + bottomSummaryHeight + 30;
+        let calculatedHeight = (filteredRows.length * rowHeight) + headerHeight + filterHeight + bottomSummaryHeight + 41;
 
         // Si hay datos pero no coinciden los filtros, forzamos un mínimo para el mensaje de "Sin resultados"
         // El mínimo debe cubrir Header(30) + Filtros(30) + Resumen(30) + Mensaje + Margen
@@ -265,29 +265,40 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             const fixedFieldEntry = fixedFields?.find(f => f.fieldName === field.name);
             return !(fixedFieldEntry && fixedFieldEntry.until === undefined);
         })*/;
-        const getColumnWidthFromMetadata = (fieldDef: FieldDefinition) => {
-            const titleWidth = (fieldDef.label || fieldDef.name).length * 8 + 35;
+        // Estimación simple de ancho en px por carácter según fuente (~8px para body2/caption)
+        const estimateTextWidth = (text: string): number => text.length * 8 + 16;
+
+        const getColumnWidthFromData = (fieldDef: FieldDefinition): number => {
+            const headerLabel = fieldDef.label || fieldDef.name;
             const type = fieldDef.typeName?.toLowerCase() || '';
-            const baseLength = (fieldDef as any).length || 0;
 
-            // Anchos mínimos sugeridos por tipo para que no se vea feo al inicio
-            let minWidth = 60;
-            if (type.includes('boolean') || type.includes('checkbox')) minWidth = 60;
-            else if (type.includes('date') || type.includes('timestamp')) minWidth = 110;
-            else if (type.includes('integer') || type.includes('numeric')) minWidth = 80;
+            // Ancho mínimo base según tipo
+            let typeMinWidth = 60;
+            if (type.includes('boolean') || type.includes('checkbox')) typeMinWidth = 60;
+            else if (type.includes('date') || type.includes('timestamp')) typeMinWidth = 110;
+            else if (type.includes('integer') || type.includes('numeric')) typeMinWidth = 80;
 
-            // Si es un campo muy largo, permitimos que sea flexible o usamos max-content
-            // RDG v7 soporta 'max-content' como string.
-            return {
-                width: 'max-content',
-                minWidth: Math.max(titleWidth, minWidth)
-            };
+            // Ancho del encabezado (texto + ícono de sort ~20px)
+            const headerWidth = estimateTextWidth(headerLabel) + 20;
+
+            // Ancho máximo encontrado en las primeras 50 filas
+            const sampleRows = tableData.slice(0, 50);
+            const maxDataWidth = sampleRows.reduce((maxW, row) => {
+                const cellValue = row[fieldDef.name];
+                if (cellValue === null || cellValue === undefined) return maxW;
+                const valueStr = String(cellValue);
+                return Math.max(maxW, estimateTextWidth(valueStr));
+            }, 0);
+
+            // El ancho final es el máximo entre: ancho del header, ancho del dato, mínimo por tipo
+            // Con un límite máximo de 500px para no exagerar en campos muy largos
+            return Math.min(Math.max(headerWidth, maxDataWidth, typeMinWidth), 500);
         };
 
         const defaultColumns: CustomColumn<any>[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
             const isFixedField = fixedFields?.some(f => f.fieldName === fieldDef.name);
             const isFieldEditable = fieldDef.editable !== false && !isFixedField;
-            const { width, minWidth } = getColumnWidthFromMetadata(fieldDef);
+            const colWidth = getColumnWidthFromData(fieldDef);
 
             return {
                 key: fieldDef.name,
@@ -306,8 +317,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 sortable: true,
                 editable: isFieldEditable,
                 handleKeyPressInEditor,
-                width,
-                minWidth,
+                width: colWidth,
+                minWidth: colWidth,
                 renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
                 renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => defaultColumnSummaryCellRenderer(props, fixedFields, isFilterRowVisible, filters, setFilters),
             };
@@ -476,7 +487,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     onCellClick={handleCellClick}
                     onCellKeyDown={handleCellKeyDown}
                 />
-                
+
                 {/* Fallback cuando no hay datos en la base de datos */}
                 {tableData.length === 0 && (
                     <Box
