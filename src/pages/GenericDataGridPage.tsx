@@ -1,6 +1,6 @@
 // src/pages/GenericDataGridPage.tsx
 import React, { useState, useCallback, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { Box, Alert, Typography, Tabs, Tab, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import GenericDataGrid from '../components/grid/GenericDataGrid';
@@ -34,6 +34,7 @@ const GenericDataGridPage: React.FC<GenericDataGridPageProps> = ({
     // o si los parámetros de filtrado base cambian.
     const ffKey = JSON.stringify(initialFixedFields);
 
+    const location = useLocation();
     React.useEffect(() => {
         if (effectiveTableName) {
             // Cada vez que cambia la tabla base (por menú o URL), reseteamos las pestañas
@@ -46,7 +47,7 @@ const GenericDataGridPage: React.FC<GenericDataGridPageProps> = ({
             }]);
             setActiveTabIdx(0);
         }
-    }, [effectiveTableName, ffKey]);
+    }, [effectiveTableName, ffKey, location.key]);
 
     const handleOpenDetail = useCallback((tableName: string, fixedFields: FixedField[], label: string, ancestors: Ancestor[]) => {
         const tabId = `${tableName}-${JSON.stringify(fixedFields)}`;

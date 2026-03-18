@@ -76,8 +76,8 @@ export type CustomColumn<TRow, TSummaryRow = unknown> =
     | ActionColumn<TRow, TSummaryRow>;
 
 /** Componente auxiliar para mostrar un registro padre como una grilla estática y editable */
-const StaticAncestorGrid: React.FC<{ 
-    ancestor: Ancestor, 
+const StaticAncestorGrid: React.FC<{
+    ancestor: Ancestor,
     index: number,
     fieldsToHide?: FixedField[],
     callApi: (proc: string, params: Record<string, any>, options?: { isCritical?: boolean }) => Promise<any>,
@@ -90,23 +90,40 @@ const StaticAncestorGrid: React.FC<{
 
     const columns: Column<any>[] = useMemo(() => {
         // Ocultamos los campos que el nivel SUPERIOR usó para filtrar a ESTE ancestro
-        const filteredFields = tableDefinition.fields.filter(field => 
+        const filteredFields = tableDefinition.fields.filter(field =>
             !fieldsToHide?.some(ff => ff.fieldName === field.name)
         );
 
-        return filteredFields.map(field => ({
-            key: field.name,
-            name: field.label || cambiarGuionesBajosPorEspacios(field.name),
-            width: 150,
-            editable: field.editable !== false,
-            renderCell: (props: RenderCellProps<any>) => (
-                <Box sx={{ px: 1, height: '100%', display: 'flex', alignItems: 'center' }}>
-                    <Typography variant="caption" noWrap>
-                        {String(props.row[field.name] ?? '')}
-                    </Typography>
-                </Box>
-            )
-        }));
+        return filteredFields.map(field => {
+            const isPrimaryKey = tableDefinition.primaryKey.includes(field.name);
+            return {
+                key: field.name,
+                name: field.label || cambiarGuionesBajosPorEspacios(field.name),
+                width: 150,
+                editable: field.editable !== false,
+                renderHeaderCell: () => (
+                    <Box sx={{ p: 0.5, height: '100%', display: 'flex', alignItems: 'center' }}>
+                        <Typography
+                            variant="caption"
+                            sx={{
+                                fontWeight: 'bold',
+                                textDecoration: isPrimaryKey ? 'underline' : 'none',
+                                fontSize: '0.930rem'
+                            }}
+                        >
+                            {field.label || cambiarGuionesBajosPorEspacios(field.name)}
+                        </Typography>
+                    </Box>
+                ),
+                renderCell: (props: RenderCellProps<any>) => (
+                    <Box sx={{ px: 1, height: '100%', display: 'flex', alignItems: 'center' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem' }} noWrap>
+                            {String(props.row[field.name] ?? '')}
+                        </Typography>
+                    </Box>
+                )
+            };
+        });
     }, [tableDefinition, fieldsToHide]);
 
     const handleRowsChange = async (newRows: any[]) => {
@@ -136,12 +153,20 @@ const StaticAncestorGrid: React.FC<{
             boxShadow: theme.shadows[1],
             bgcolor: 'background.paper'
         }}>
-            <Box sx={{ bgcolor: 'action.hover', px: 1.5, py: 0.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.7rem', color: 'primary.main' }}>
-                    {cambiarGuionesBajosPorEspacios(ancestor.tableName).toUpperCase()}
-                </Typography>
-                <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary', fontStyle: 'italic' }}>
-                    (Registro Padre)
+            <Box sx={{
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                px: 1.5,
+                py: 0.5,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                display: 'flex',
+                alignItems: 'center',
+                fontWeight: 'bold',
+                gap: 1
+            }}>
+                <Typography variant="subtitle2" component="div">
+                    {cambiarGuionesBajosPorEspacios(ancestor.tableName)}
                 </Typography>
             </Box>
             <DataGrid
@@ -149,10 +174,10 @@ const StaticAncestorGrid: React.FC<{
                 columns={columns}
                 rows={[rowData]}
                 onRowsChange={handleRowsChange}
-                headerRowHeight={28}
-                rowHeight={32}
+                headerRowHeight={30}
+                rowHeight={30}
                 rowKeyGetter={() => 'single-row'}
-                style={{ height: 62 }} // Header + 1 fila + bordes
+                style={{ height: 78 }}
             />
         </Box>
     );
@@ -271,9 +296,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             try {
                 const definition: TableDefinition = await callApi('table_structure', { table: tableName }, { isCritical: true });
                 setTableDefinition(definition);
-                
+
                 // Manejo defensivo: solo enviamos los fixedFields que existen en la definición de la tabla actual
-                const validFixedFields = fixedFields?.filter(ff => 
+                const validFixedFields = fixedFields?.filter(ff =>
                     definition.fields.some(field => field.name === ff.fieldName)
                 );
 
@@ -519,12 +544,12 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             {ancestors && ancestors.length > 0 && (
                 <Box sx={{ px: 2, pt: 0, pb: 1, display: 'flex', flexDirection: 'column' }}>
                     {ancestors.map((ancestor, index) => (
-                        <StaticAncestorGrid 
-                            key={index} 
-                            ancestor={ancestor} 
-                            index={index} 
+                        <StaticAncestorGrid
+                            key={index}
+                            ancestor={ancestor}
+                            index={index}
                             fieldsToHide={index > 0 ? ancestors[index - 1].fixedFields : []}
-                            callApi={callApi} 
+                            callApi={callApi}
                             showSuccess={showSuccess}
                             showError={showError}
                         />
@@ -537,7 +562,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 sx={{
                     backgroundColor: theme.palette.primary.main,
                     color: theme.palette.primary.contrastText,
-                    padding: theme.spacing(1),
+                    px: 1.5,
+                    py: 0.5,
                     textAlign: 'left',
                     fontWeight: 'bold',
                     borderBottom: `1px solid ${theme.palette.divider}`,
@@ -604,9 +630,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     <Box
                         sx={{
                             position: 'absolute',
-                            top: 30, // Debajo del header
-                            bottom: 30, // Arriba del resumen inferior
-                            left: 0,
+                            top: 32, // Debajo del header
+                            bottom: 55, // Arriba del resumen inferior
+                            left: 18,
                             right: 0,
                             display: 'flex',
                             justifyContent: 'center',
