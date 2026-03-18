@@ -12,6 +12,7 @@ import { fetchClientContext } from '../store/clientContextSlice'; // Importa el 
 
 import { useApp } from '../contexts/AppContext'; // Sigue importando useApp para setIsLoggedIn y checkSession
 import { fetchApi } from '../utils/fetchApi'; // Tu utilidad fetchApi
+import { envConfig } from '../env';
 
 // Define el esquema de validación con Zod
 const loginSchema = z.object({
@@ -107,7 +108,14 @@ const LoginPage = () => {
                 borderRadius={8}
                 boxShadow={3}
             >
-                <Typography variant="h5" align="center" gutterBottom>
+                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                    <img 
+                        src={`${envConfig.backendUrl}/img/login-logo-icon.png`} 
+                        alt="Logo" 
+                        style={{ height: '80px', maxWidth: '100%', objectFit: 'contain' }} 
+                    />
+                </Box>
+                <Typography variant="h5" align="center" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
                     Iniciar Sesión
                 </Typography>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

@@ -12,6 +12,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import SideMenu from './SideMenu';
 import useLogout from '../hooks/useLogout';
+import { envConfig } from '../env';
 
 // Importamos los hooks de Redux y las acciones del nuevo slice
 import { useAppDispatch, useIsDrawerOpen } from '../store';
@@ -88,11 +89,18 @@ const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como 
                         onClick={handleToggleDrawer}
                         edge="start"
                         sx={{
-                            marginRight: 2.2,
+                            marginRight: 2,
                         }}
                     >
                         {isDrawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
                     </IconButton>
+                    {!isDrawerOpen && (
+                         <img 
+                         src={`${envConfig.backendUrl}/img/logo-128.png`} 
+                         alt="logo" 
+                         style={{ height: '32px', marginRight: '12px', objectFit: 'contain' }} 
+                     />
+                    )}
                     <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
                         {isDrawerOpen ? '' : clientContext.config.title}
                     </Typography>
@@ -127,13 +135,21 @@ const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como 
                     sx={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'flex-end',
+                        justifyContent: 'flex-start',
                         px: 1,
                         fontSize: '1.3rem',
                         minHeight: theme.mixins.toolbar.minHeight,
+                        gap: 1.5
                     }}
                 >
-                    {isDrawerOpen ? clientContext.config.title : ''}
+                    <img 
+                        src={`${envConfig.backendUrl}/img/logo-128.png`} 
+                        alt="logo" 
+                        style={{ height: '32px', objectFit: 'contain' }} 
+                    />
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                        {clientContext.config.title}
+                    </Typography>
                 </Toolbar>
                 {/* Pasamos la función para cerrar el drawer al SideMenu */}
                 <SideMenu onMenuItemClick={handleDrawerCloseMobile} />

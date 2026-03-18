@@ -24,14 +24,15 @@ import { SnackbarProvider } from './contexts/SnackbarContext';
 import GenericDataGridPage from './pages/GenericDataGridPage';
 import MenuTablePage from './pages/MenuTablePage';
 
-import { WScreenProps, wScreens, FallbackWScreen, extendWScreens} from './pages/WScreens';
+import { WScreenProps, wScreens, FallbackWScreen, extendWScreens } from './pages/WScreens';
 
 
-import { extendClientSides, ClientSideProps} from './components/grid/clientSides'; 
-import { extendResultsOk, ResultOkProps} from './pages/procedure-results/resultsOk'; // Ajusta la ruta
+import { extendClientSides, ClientSideProps } from './components/grid/clientSides';
+import { extendResultsOk, ResultOkProps } from './pages/procedure-results/resultsOk'; // Ajusta la ruta
 import { Box } from '@mui/material';
 
 import { extractPathsFromRoutes } from './utils/routeUtils';
+import { envConfig } from './env';
 
 const LocationTracker: React.FC = () => {
     const location = useLocation();
@@ -57,11 +58,11 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
                 <Route path="/logout" element={<LogoutPage />} />
                 {myUnloggedRoutes}
             </Route>
-            
+
             <Route element={
                 <PrivateRoute>
                     <InitialRedirectHandler />
-                    <Layout/>
+                    <Layout />
                 </PrivateRoute>
             }>
                 <Route path="/" element={<HomePage />} />
@@ -75,7 +76,7 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
                         path={`/wScreens/${screenName}`}
                         element={React.createElement(
                             Box,
-                            { 
+                            {
                                 sx: { pt: 3, pl: 4 },
                             },
                             React.createElement(wScreens[screenName], { screenName } as WScreenProps)
@@ -88,10 +89,10 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
                 />
 
                 {myRoutes}
-                
+
                 <Route path="*" element={<div style={{ marginTop: '20px', marginLeft: "10px" }}>404 - Recurso No Encontrado</div>} />
-            </Route>          
-            
+            </Route>
+
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );
@@ -110,7 +111,7 @@ export interface AppProps {
     myResultsOk?: ResultsOksMap;
 }
 
-export const FrontendPlusProviders: React.FC<{ children: React.ReactNode, publicPaths: string[]}> = ({ children, publicPaths }) => {
+export const FrontendPlusProviders: React.FC<{ children: React.ReactNode, publicPaths: string[] }> = ({ children, publicPaths }) => {
     return (
         <Provider store={store}>
             <PersistGate loading={null} persistor={persistor}>
@@ -118,8 +119,8 @@ export const FrontendPlusProviders: React.FC<{ children: React.ReactNode, public
                     <LocationTracker /> {/* El tracker necesita estar dentro del Router */}
                     <AppProvider publicPaths={publicPaths}>
                         <SnackbarProvider>
-                             {children}
-                             <SessionExpiredMessage />
+                            {children}
+                            <SessionExpiredMessage />
                         </SnackbarProvider>
                     </AppProvider>
                 </BrowserRouter>
@@ -146,6 +147,13 @@ const App = ({
         if (myWScreens) {
             extendWScreens(myWScreens);
         }
+
+        // --- DINAMICO: Favicon desde el Backend ---
+        const link = (document.querySelector("link[rel*='icon']") || document.createElement('link')) as HTMLLinkElement;
+        link.type = 'image/png';
+        link.rel = 'shortcut icon';
+        link.href = `${envConfig.backendUrl}/img/logo-128.png`;
+        document.getElementsByTagName('head')[0].appendChild(link);
     }, [myClientSides, myResultsOk, myWScreens]);
 
     const safePaths = React.useMemo(() => {
@@ -155,9 +163,9 @@ const App = ({
     }, [myUnloggedRoutes]);
     return (
         <FrontendPlusProviders publicPaths={safePaths}>
-            <FrontendPlusReactRoutes 
-                myRoutes={myRoutes} 
-                myUnloggedRoutes={myUnloggedRoutes} 
+            <FrontendPlusReactRoutes
+                myRoutes={myRoutes}
+                myUnloggedRoutes={myUnloggedRoutes}
                 unloggedLayout={unloggedLayout} // Pasamos el layout
             />
         </FrontendPlusProviders>
