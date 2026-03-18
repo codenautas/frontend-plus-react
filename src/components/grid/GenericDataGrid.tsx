@@ -347,6 +347,51 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             }
         };
     }, [cellFeedbackMap]);
+    
+    // Cálculo de agregadores para la fila de resumen inferior
+    const bottomSummaryRow = useMemo(() => {
+        if (!tableDefinition) return { id: 'bottomSummaryRow' };
+        
+        const summary: any = { id: 'bottomSummaryRow' };
+        
+        tableDefinition.fields.forEach(field => {
+            const agg = (field as any).aggregate;
+            if (!agg) return;
+            
+            const values = filteredRows
+                .map(r => r[field.name])
+                .filter(v => v !== null && v !== undefined);
+                
+            if (values.length === 0 && agg !== 'count' && agg !== 'countTrue') {
+                return;
+            }
+            
+            switch (agg) {
+                case 'sum':
+                    summary[field.name] = { type: 'sum', value: values.reduce((a, b) => Number(a) + Number(b), 0) };
+                    break;
+                case 'avg':
+                    const sum = values.reduce((a, b) => Number(a) + Number(b), 0);
+                    summary[field.name] = { type: 'avg', value: sum / values.length };
+                    break;
+                case 'min':
+                    summary[field.name] = { type: 'min', value: Math.min(...values.map(v => Number(v))) };
+                    break;
+                case 'max':
+                    summary[field.name] = { type: 'max', value: Math.max(...values.map(v => Number(v))) };
+                    break;
+                case 'count':
+                    summary[field.name] = { type: 'count', value: values.length };
+                    break;
+                case 'countTrue':
+                    summary[field.name] = { type: 'countTrue', value: filteredRows.filter(r => r[field.name] === true).length };
+                    break;
+            }
+        });
+        
+        return summary;
+    }, [tableDefinition, filteredRows]);
+
 
     const toggleFilterVisibility = useCallback(() => {
         setIsFilterRowVisible(prev => {
@@ -616,7 +661,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     style={{ ...{ height: '100%', width: '100%', boxSizing: 'border-box' }, ...gridStyles }}
                     headerRowHeight={30}
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
-                    bottomSummaryRows={[{ id: 'bottomSummaryRow' }]}
+                    bottomSummaryRows={[bottomSummaryRow]}
                     summaryRowHeight={30}
                     renderers={undefined}
                     onCellMouseDown={handleCellMouseDown}

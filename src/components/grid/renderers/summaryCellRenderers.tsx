@@ -12,7 +12,7 @@ export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<a
         const fixedFieldEntry = fixedFields?.find(f => f.fieldName === column.key);
         // El filtro solo se muestra si NO es un campo fijo O si es un campo fijo que sí tiene 'until' o bien si el filtro está deshabilitado
         if ((fixedFieldEntry && fixedFieldEntry.until === undefined) || !isFilterRowVisible) return null;
-        
+
         return (
             <Box>
                 <FilterInputRenderer
@@ -25,8 +25,45 @@ export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<a
     }
 
     // Para la fila de resumen inferior (bottomSummaryRow) o cualquier otra que no sea de filtros:
-    // Por ahora devolvemos null, permitiendo que sea configurada independientemente en el futuro.
-    return null;
+    const summaryData = row[column.key];
+    if (!summaryData || typeof summaryData !== 'object') return null;
+
+    const { type, value } = summaryData;
+    let label = '';
+    let formattedValue = value;
+
+    // Formateo básico para números
+    if (typeof value === 'number') {
+        if (type === 'avg') {
+            formattedValue = value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            formattedValue = value.toLocaleString();
+        }
+    }
+
+    switch (type) {
+        case 'sum': label = 'Tot: '; break;
+        case 'avg': label = 'Prom: '; break;
+        case 'min': label = 'Min: '; break;
+        case 'max': label = 'Max: '; break;
+        case 'count': label = 'Cant: '; break;
+        case 'countTrue': label = 'Cant Sí: '; break;
+    }
+
+    return (
+        <Box sx={{
+            px: 0,
+            fontWeight: 'bold',
+            fontSize: '0.875rem',
+            color: 'text.primary',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            textAlign: 'right'
+        }}>
+            {label}{formattedValue}
+        </Box>
+    );
 }
 
 export const actionsColumnSummaryCellRenderer = (props: RenderSummaryCellProps<any, unknown>) => null
