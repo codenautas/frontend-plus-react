@@ -1,4 +1,7 @@
 // src/components/grid/utils/helpers.ts
+// @ts-ignore
+import typeStore from 'type-store';
+import { FieldDefinition } from '../../../types';
 
 /**
  * Indicadores especiales para filas
@@ -28,7 +31,7 @@ export const getPrimaryKeyValues = (row: Record<string, any>, primaryKey: string
  * @returns Clave única de la celda (ej: "pkValue1|pkValue2|columnKey").
  */
 export const getCellKey = (row: Record<string, any>, columnKey: string, primaryKey: string[]): string => {
-    return `${getPrimaryKeyValues(row, primaryKey)}|${columnKey}`;
+    return `${getPrimaryKeyValues(row, primaryKey)}|${columnKey}`;
 };
 
 /**
@@ -38,4 +41,22 @@ export const getCellKey = (row: Record<string, any>, columnKey: string, primaryK
  */
 export const isNumericType = (typeName?: string): boolean => {
     return ['integer', 'bigint', 'decimal', 'double', 'float', 'number'].includes(typeName || '');
+};
+
+/**
+ * Convierte una fila plana (tal como viene del backend en JSON) a valores tipados
+ * usando type-store. Los campos null/undefined se dejan intactos.
+ * @param row - Fila cruda del backend
+ * @param fields - Definición de campos de la tabla
+ * @returns Nueva fila con valores tipados
+ */
+export const typifyRow = (row: Record<string, any>, fields: FieldDefinition[]): Record<string, any> => {
+    const typedRow = { ...row };
+    fields.forEach((field) => {
+        if (typedRow[field.name] !== undefined && typedRow[field.name] !== null) {
+            const typer = typeStore.typerFrom(field);
+            typedRow[field.name] = typer.fromLocalString(typedRow[field.name]);
+        }
+    });
+    return typedRow;
 };

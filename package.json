@@ -57,7 +57,8 @@
     "zod": ">=3.24.4",
     "type-store": "*",
     "xlsx": "*",
-    "like-ar": "*"
+    "like-ar": "*",
+    "json4all": "^1.4.2"
   },
   "devDependencies": {
     "@types/express-useragent": "^1.0.5",

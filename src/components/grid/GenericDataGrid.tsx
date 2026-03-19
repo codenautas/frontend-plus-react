@@ -21,8 +21,9 @@ import { allColumnsEditCellRenderer } from './renderers/editCellRenderers';
 import { DetailTable } from 'backend-plus';
 import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
 import { buildMenuOptions } from './menu/options';
-import { getPrimaryKeyValues } from './utils/helpers';
+import { getPrimaryKeyValues, typifyRow } from './utils/helpers';
 import { useGridActions } from '../../hooks/grid/useGridActions';
+
 import { useGridEvents } from '../../hooks/grid/useGridEvents';
 import { ImportDialog, ImportOptions } from './ImportDialog';
 import { ExportDialog } from './ExportDialog';
@@ -306,7 +307,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     table: tableName,
                     fixedFields: validFixedFields // Usamos los campos validados
                 }, { isCritical: true });
+
+                //const typedData = data.map((row: any) => typifyRow(row, definition.fields));
                 setTableData(data);
+
             } catch (err: any) {
                 setTableDefinition(null);
                 setTableData([]);
@@ -347,25 +351,25 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             }
         };
     }, [cellFeedbackMap]);
-    
+
     // Cálculo de agregadores para la fila de resumen inferior
     const bottomSummaryRow = useMemo(() => {
         if (!tableDefinition) return { id: 'bottomSummaryRow' };
-        
+
         const summary: any = { id: 'bottomSummaryRow' };
-        
+
         tableDefinition.fields.forEach(field => {
             const agg = (field as any).aggregate;
             if (!agg) return;
-            
+
             const values = filteredRows
                 .map(r => r[field.name])
                 .filter(v => v !== null && v !== undefined);
-                
+
             if (values.length === 0 && agg !== 'count' && agg !== 'countTrue') {
                 return;
             }
-            
+
             switch (agg) {
                 case 'sum':
                     summary[field.name] = { type: 'sum', value: values.reduce((a, b) => Number(a) + Number(b), 0) };
@@ -388,7 +392,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     break;
             }
         });
-        
+
         return summary;
     }, [tableDefinition, filteredRows]);
 
@@ -424,7 +428,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         if (!tableDefinition) return [];
         const fieldsToShow = tableDefinition.fields.filter((field: FieldDefinition) => {
             const isFixedField = fixedFields?.some(f => f.fieldName === field.name);
-            return !isFixedField;
+            return !isFixedField && field.visible !== false;
         });
         // Estimación simple de ancho en px por carácter según fuente (~8px para body2/caption)
         const estimateTextWidth = (text: string): number => text.length * 8 + 16;

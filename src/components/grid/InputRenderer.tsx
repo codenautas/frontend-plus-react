@@ -4,21 +4,24 @@ import { useSnackbar } from "../../contexts/SnackbarContext";
 import { useApiCall } from "../../hooks/useApiCall";
 import InputBase from "@mui/material/InputBase";
 // Importamos CellFeedbackMap junto con InputRendererProps
-import { InputRendererProps, CellFeedback, CellFeedbackMap } from "../../types"; 
+import { InputRendererProps, CellFeedback, CellFeedbackMap } from "../../types";
 // getCellKey deben provenir de tu archivo GenericDataGrid
-import {NEW_ROW_INDICATOR } from "./GenericDataGrid"; 
+import { NEW_ROW_INDICATOR } from "./GenericDataGrid";
 import { useTheme } from "@mui/material";
-import { getPrimaryKeyValues, getCellKey, isNumericType } from "./utils/helpers";
+import { getPrimaryKeyValues, getCellKey, isNumericType, typifyRow } from "./utils/helpers";
+// @ts-ignore
+import typeStore from 'type-store';
 
-function findChangedValues(oldRowData:any, newRowData:any, isNewRow: boolean) {
-  let changes: string[] = [];
-  for (const key in newRowData) {
-    // Si la propiedad existe en ambos Y el valor es diferente, O es una nueva fila
-    if (Object.prototype.hasOwnProperty.call(oldRowData, key) && oldRowData[key] !== newRowData[key] || isNewRow ) {
-      changes.push(key);
+
+function findChangedValues(oldRowData: any, newRowData: any, isNewRow: boolean) {
+    let changes: string[] = [];
+    for (const key in newRowData) {
+        // Si la propiedad existe en ambos Y el valor es diferente, O es una nueva fila
+        if (Object.prototype.hasOwnProperty.call(oldRowData, key) && oldRowData[key] !== newRowData[key] || isNewRow) {
+            changes.push(key);
+        }
     }
-  }
-  return changes;
+    return changes;
 }
 
 function InputRenderer<R extends Record<string, any>, S>({
@@ -36,31 +39,45 @@ function InputRenderer<R extends Record<string, any>, S>({
     localCellChanges,
     primaryKey
 }: InputRendererProps<R, S>) {
-    const tableName = tableDefinition.tableName!;
-    const [editingValue, setEditingValue] = useState(row[column.key]);
+    const fieldDefinition = tableDefinition.fields.find(f => f.name === column.key);
+    const typer = useMemo(() => typeStore.typerFrom(fieldDefinition), [fieldDefinition]);
+    const [editingValue, setEditingValue] = useState(() => typer.toLocalString(row[column.key]));
+
     const theme = useTheme();
     const { showSuccess, showError } = useSnackbar();
-    
+    const tableName = tableDefinition.tableName!;
+
+
+
     // Generamos la clave única usando la función importada
     const cellKey = getCellKey(row, column.key, primaryKey);
-    
+
     // --- LÍNEA CORREGIDA ---
     // Asumimos que cellFeedbackMap es un Map<string, CellFeedback>
     const currentCellFeedback = cellFeedbackMap.get(cellKey);
     // ------------------------
-    
+
     let cellBackgroundColor;
     if (currentCellFeedback) {
         cellBackgroundColor = currentCellFeedback.type === 'error' ? theme.palette.error.light : theme.palette.success.light;
     }
-    
+
     const initialRowId = useMemo(() => getPrimaryKeyValues(row, primaryKey), [row, primaryKey]);
     const { callApi } = useApiCall();
 
     const handleCommit = useCallback(async (currentValue: any, closeEditor: boolean, focusNextCell: boolean) => {
-        const processedNewValue = typeof currentValue === 'string'
-            ? (currentValue.trim() === '' ? null : currentValue.trim())
-            : currentValue;
+        let processedNewValue;
+        try {
+            const typedValue = typer.fromLocalString(currentValue);
+            typer.validateTypedData(typedValue);
+            processedNewValue = typedValue;
+        } catch (err: any) {
+            showError(err.message);
+            // Si el valor es inválido, no hacemos commit y mantenemos el editor abierto si es blur
+            // Opcionalmente podemos resetear el valor, pero mejor dejar que el usuario corrija.
+            return;
+        }
+
 
         const potentialUpdatedRow = { ...row, [column.key]: processedNewValue } as R;
 
@@ -79,10 +96,10 @@ function InputRenderer<R extends Record<string, any>, S>({
 
         const oldRowData = { ...row };
         const primaryKeyValuesForBackend = tableDefinition.primaryKey.map(key => potentialUpdatedRow[key]);
-        const currentRowIdBeforeUpdate = getPrimaryKeyValues(oldRowData, tableDefinition.primaryKey); 
+        const currentRowIdBeforeUpdate = getPrimaryKeyValues(oldRowData, tableDefinition.primaryKey);
 
         onRowChange({ ...row, [column.key]: processedNewValue } as R, true);
-        
+
         if (isNewRow) {
             const areAllMandatoryFieldsFilled = tableDefinition.fields.every(fieldDef => {
                 const isMandatory = (fieldDef.nullable === false || fieldDef.isPk);
@@ -119,7 +136,7 @@ function InputRenderer<R extends Record<string, any>, S>({
                 });
             }
         }
-        
+
         const status = isNewRow ? 'new' : 'update';
         let rowToSend: Record<string, any> = {};
         if (isNewRow) {
@@ -145,21 +162,23 @@ function InputRenderer<R extends Record<string, any>, S>({
                 rowToSend[pkField] = potentialUpdatedRow[pkField];
             });
         }
-        
+
         try {
-            const response = await callApi('table_record_save',{
-                table:tableName,
+            const response = await callApi('table_record_save', {
+                table: tableName,
                 primaryKeyValues: primaryKeyValuesForBackend,
                 newRow: rowToSend,
                 oldRow: oldRowData,
                 status
             });
 
+            const typedResponseRow = typifyRow(response.row, tableDefinition.fields);
+
             let finalRowIdForFeedback: string;
             let persistedRowData: R;
 
             if (response.row && isNewRow) {
-                persistedRowData = { ...response.row };
+                persistedRowData = { ...typedResponseRow } as R;
                 setTableData(prevData => {
                     const newData = [...prevData];
                     const originalRowId = getPrimaryKeyValues(oldRowData, tableDefinition.primaryKey);
@@ -177,23 +196,23 @@ function InputRenderer<R extends Record<string, any>, S>({
                 });
                 finalRowIdForFeedback = getPrimaryKeyValues(persistedRowData, tableDefinition.primaryKey);
             } else {
-                persistedRowData = response.row;
+                persistedRowData = typedResponseRow as R;
                 const isPrimaryKeyColumn = tableDefinition.primaryKey.includes(column.key);
                 finalRowIdForFeedback = isPrimaryKeyColumn
                     ? getPrimaryKeyValues(potentialUpdatedRow, tableDefinition.primaryKey)
                     : currentRowIdBeforeUpdate;
-                onRowChange({ ...response.row } as R, true);
+                onRowChange({ ...typedResponseRow } as R, true);
             }
 
             // --- MULTI-FEEDBACK DE ÉXITO ---
-            const changes = findChangedValues(oldRowData, response.row, isNewRow);
+            const changes = findChangedValues(oldRowData, typedResponseRow, isNewRow);
             setCellFeedbackMap(prevFeedback => {
                 // Siempre usamos new Map(prevFeedback) para garantizar inmutabilidad
                 const newFeedback = new Map(prevFeedback);
-                
+
                 changes.forEach((key) => {
                     // Creamos la clave única de forma más robusta (idealmente usando getCellKey)
-                    const keyForMap = `${finalRowIdForFeedback}-${key}`; 
+                    const keyForMap = `${finalRowIdForFeedback}-${key}`;
                     newFeedback.set(keyForMap, { rowId: finalRowIdForFeedback, columnKey: key, type: 'success' } as CellFeedback);
                 });
 
@@ -203,17 +222,17 @@ function InputRenderer<R extends Record<string, any>, S>({
 
         } catch (err: any) {
             console.error('Error al guardar el registro:', err);
-            
+
             // --- MULTI-FEEDBACK DE ERROR ---
             const keyForMap = `${currentRowIdBeforeUpdate}-${column.key}`;
             setCellFeedbackMap(prevFeedback => {
                 // Siempre usamos new Map(prevFeedback) para garantizar inmutabilidad
-                const newFeedback = new Map(prevFeedback); 
-                newFeedback.set(keyForMap, { 
-                    rowId: currentRowIdBeforeUpdate, 
-                    columnKey: column.key, 
-                    type: 'error', 
-                    message: err.message 
+                const newFeedback = new Map(prevFeedback);
+                newFeedback.set(keyForMap, {
+                    rowId: currentRowIdBeforeUpdate,
+                    columnKey: column.key,
+                    type: 'error',
+                    message: err.message
                 } as CellFeedback);
                 return newFeedback;
             });
@@ -221,12 +240,13 @@ function InputRenderer<R extends Record<string, any>, S>({
         }
     }, [
         column, row, onRowChange, tableName, tableDefinition.primaryKey,
-        tableDefinition.fields, showSuccess, showError, setCellFeedbackMap, onClose, 
-        setTableData, setLocalCellChanges, localCellChanges, initialRowId
+        tableDefinition.fields, showSuccess, showError, setCellFeedbackMap, onClose,
+        setTableData, setLocalCellChanges, localCellChanges, initialRowId, typer
     ]);
 
-    const handleKeyDown = useCallback(async(event: React.KeyboardEvent) => {
-        if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp','ArrowRight', 'ArrowLeft', 'F4'].includes(event.key)) {
+
+    const handleKeyDown = useCallback(async (event: React.KeyboardEvent) => {
+        if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'F4'].includes(event.key)) {
             await handleCommit(editingValue, true, true);
             if (onKeyPress) {
                 onKeyPress(rowIdx, column.key, event, handleCommit);
@@ -238,17 +258,19 @@ function InputRenderer<R extends Record<string, any>, S>({
         handleCommit(editingValue, true, false);
     }, [handleCommit, editingValue]);
 
-    const fieldDefinition = tableDefinition.fields.find(f => f.name === column.key);
     const isFieldEditable = fieldDefinition?.editable !== false;
+
     const isNumeric = isNumericType(fieldDefinition?.typeName);
 
     return (
         <InputBase
-            value={editingValue === null ? '' : editingValue}
+            autoFocus
+            value={editingValue}
             onChange={(e) => setEditingValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
             placeholder={''}
+            className={editingValue === '--' ? 'typed-controls-signal-no-data' : editingValue === '//' ? 'typed-controls-signal-unknown-data' : ''}
             sx={{
                 width: '100%',
                 margin: '0',
@@ -263,9 +285,9 @@ function InputRenderer<R extends Record<string, any>, S>({
                 }
             }}
             onClick={(e) => e.stopPropagation()}
-            autoFocus
             disabled={!isFieldEditable}
         />
+
     );
 }
 

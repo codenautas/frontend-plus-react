@@ -1,16 +1,41 @@
 import { AppConfigClientSetup, DetailTable, MenuInfoBase, ProcedureDef, TableDefinition, FieldDefinition } from "backend-plus";
 import { Details } from "express-useragent";
-import { ReactNode } from "react";
+import { ReactNode, FC, KeyboardEvent, Dispatch, SetStateAction } from "react";
 import { Column, RenderCellProps, RenderHeaderCellProps } from "react-data-grid";
-import { wScreens } from "../pages/WScreens";
-export type {AppProps} from "../App";
+
+export type { FieldDefinition, TableDefinition };
+
+export interface WScreenProps {
+    screenName: string;
+}
+
+export interface ClientSideProps extends RenderCellProps<any, any> {
+    fieldDefinition: FieldDefinition;
+    tableDefinition: TableDefinition;
+    primaryKey: string[];
+}
+
+export interface ResultOkProps {
+    data: any;
+}
+
+export type WScreenMap = Record<string, FC<WScreenProps>>;
+export type ClientSidesMap = Record<string, FC<ClientSideProps>>;
+export type ResultsOksMap = Record<string, FC<ResultOkProps>>;
+
+export interface AppProps {
+    myRoutes?: ReactNode;
+    myUnloggedRoutes?: ReactNode;
+    unloggedLayout?: React.ComponentType;
+    myWScreens?: WScreenMap;
+    myClientSides?: ClientSidesMap;
+    myResultsOk?: ResultsOksMap;
+}
 
 export {extractPathsFromRoutes} from "../utils/routeUtils";
 
-// Exportamos los tipos de backend-plus para que el código no dé error
-export type {FieldDefinition, TableDefinition}; 
-
 // --- MODIFICACIONES DE FEEDBACK ---
+
 
 export interface CellFeedback {
     rowId: string;

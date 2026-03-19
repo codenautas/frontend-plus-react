@@ -24,14 +24,25 @@ import { SnackbarProvider } from './contexts/SnackbarContext';
 import GenericDataGridPage from './pages/GenericDataGridPage';
 import MenuTablePage from './pages/MenuTablePage';
 
-import { WScreenProps, wScreens, FallbackWScreen, extendWScreens } from './pages/WScreens';
-
-
-import { extendClientSides, ClientSideProps } from './components/grid/clientSides';
-import { extendResultsOk, ResultOkProps } from './pages/procedure-results/resultsOk'; // Ajusta la ruta
+import { wScreens, FallbackWScreen, extendWScreens } from './pages/WScreens';
+import { extendClientSides } from './components/grid/clientSides';
+import { extendResultsOk } from './pages/procedure-results/resultsOk';
 import { Box } from '@mui/material';
+// @ts-ignore
+import typeStore from 'type-store';
 
-import { extractPathsFromRoutes } from './utils/routeUtils';
+import { 
+    extractPathsFromRoutes, 
+    AppProps, 
+    WScreenMap, 
+    ClientSidesMap, 
+    ResultsOksMap,
+    WScreenProps,
+    ClientSideProps,
+    ResultOkProps
+} from './types';
+
+
 import { envConfig } from './env';
 
 const LocationTracker: React.FC = () => {
@@ -79,7 +90,8 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
                             {
                                 sx: { pt: 3, pl: 4 },
                             },
-                            React.createElement(wScreens[screenName], { screenName } as WScreenProps)
+                            React.createElement(wScreens[screenName], ({ screenName } as WScreenProps))
+
                         )}
                     />
                 ))}
@@ -98,18 +110,9 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
     );
 }
 
-export type WScreenMap = Record<string, React.FC<WScreenProps>>;
-export type ClientSidesMap = Record<string, React.FC<ClientSideProps>>;
-export type ResultsOksMap = Record<string, React.FC<ResultOkProps>>;
 
-export interface AppProps {
-    myRoutes?: React.ReactNode;
-    myUnloggedRoutes?: React.ReactNode;
-    unloggedLayout?: React.ComponentType;
-    myWScreens?: WScreenMap;
-    myClientSides?: ClientSidesMap;
-    myResultsOk?: ResultsOksMap;
-}
+// Los tipos WScreenMap, ClientSidesMap, ResultsOksMap y AppProps ahora se importan de ./types
+
 
 export const FrontendPlusProviders: React.FC<{ children: React.ReactNode, publicPaths: string[] }> = ({ children, publicPaths }) => {
     return (
@@ -138,7 +141,12 @@ const App = ({
     myResultsOk
 }: AppProps) => {
     useEffect(() => {
+        // --- DINAMICO: Configuración de TypeStore en español ---
+        typeStore.messages = typeStore.i18n.messages.es;
+        typeStore.locale = typeStore.i18n.locale.es;
+
         if (myClientSides) {
+
             extendClientSides(myClientSides);
         }
         if (myResultsOk) {

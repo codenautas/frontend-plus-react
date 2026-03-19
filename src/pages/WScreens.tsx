@@ -3,9 +3,8 @@ import { Box, Typography, Paper } from '@mui/material';
 import ConstructionIcon from '@mui/icons-material/Construction';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'; // Asegúrate de importar el icono de advertencia
 
-export interface WScreenProps {
-    screenName: string; // Renombramos de pageName a screenName
-}
+import { WScreenProps } from '../types';
+
 
 // Ejemplo de un componente de wScreen personalizado
 const MyCustomDashboard: React.FC<WScreenProps> = ({ screenName }) => {

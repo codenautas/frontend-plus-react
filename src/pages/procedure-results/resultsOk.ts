@@ -2,8 +2,10 @@ import React from 'react';
 
 import SuccessDisplay from './SuccessDisplay';
 
-export interface ResultOkProps { 
-    data: any; }
+import { ResultOkProps } from '../../types';
+
+// La definición de ResultOkProps se movió a ../../types
+
 
 type ResultComponentMap = {
     [key: string]: React.FC<ResultOkProps>; 

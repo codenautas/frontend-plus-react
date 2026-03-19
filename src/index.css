@@ -23,4 +23,17 @@
   
   /* Asegúrate de que no haya otros estilos globales que anulen estas propiedades
      o que añadan márgenes/rellenos inesperados a html, body o #root. */
+
+  .typed-controls-signal-no-data {
+    background-color: #fff9c4 !important; /* lightyellow */
+    color: #fbc02d;
+    font-weight: bold;
+  }
+  
+  .typed-controls-signal-unknown-data {
+    background-color: #ffe0b2 !important; /* lightorange */
+    color: #fb8c00;
+    font-weight: bold;
+  }
+
   

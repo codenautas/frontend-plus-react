@@ -4,7 +4,8 @@ export { ConfirmDialog } from './components/ConfirmDialog';
 
 // Componente de rutas genérico
 export { FrontendPlusReactRoutes, FrontendPlusProviders, default as App } from './App';
-export type { WScreenMap, ResultsOksMap, ClientSidesMap } from './App';
+export type { WScreenMap, ResultsOksMap, ClientSidesMap, AppProps } from './types';
+
 export { default as MainLayout } from './components/MainLayout';
 
 // Contextos
@@ -23,8 +24,8 @@ export { cambiarGuionesBajosPorEspacios } from './utils/functions';
 
 //pages
 export { wScreens, extendWScreens } from './pages/WScreens';
-export { resultsOk as resultComponents, extendResultsOk} from './pages/procedure-results/resultsOk';
+export { resultsOk as resultComponents, extendResultsOk } from './pages/procedure-results/resultsOk';
 
-export type { WScreenProps } from './pages/WScreens';
-export type { ResultOkProps } from './pages/procedure-results/resultsOk';
-export type { ClientSideProps } from './components/grid/clientSides';
+export type { WScreenProps } from './types/index';
+export type { ResultOkProps } from './types/index';
+export type { ClientSideProps } from './types/index';
