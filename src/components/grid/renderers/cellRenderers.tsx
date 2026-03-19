@@ -78,14 +78,7 @@ export const allColumnsCellRenderer = (
             // Usamos TypeStore para el formateo de visualización
             const value = row[props.column.key];
             const typer = typeStore.typerFrom(fieldDef);
-            const safeToPlain = (val: any): string => {
-                try {
-                    return typer.toPlainJson(val);
-                } catch (e) {
-                    return 'ERR: ' + JSON.stringify(val)
-                }
-            };
-            const displayValue = value ? safeToPlain(value) : '';
+            const displayValue = value !== null && typer.toLocalString(value);
             const isNumeric = isNumericType(fieldDef?.typeName);
 
 

@@ -21,12 +21,14 @@ import { allColumnsEditCellRenderer } from './renderers/editCellRenderers';
 import { DetailTable } from 'backend-plus';
 import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
 import { buildMenuOptions } from './menu/options';
-import { getPrimaryKeyValues, typifyRow } from './utils/helpers';
+import { getPrimaryKeyValues } from './utils/helpers';
 import { useGridActions } from '../../hooks/grid/useGridActions';
 
 import { useGridEvents } from '../../hooks/grid/useGridEvents';
 import { ImportDialog, ImportOptions } from './ImportDialog';
 import { ExportDialog } from './ExportDialog';
+// @ts-ignore
+import typeStore from 'type-store';
 
 interface GenericDataGridProps {
     tableName: string;
@@ -307,8 +309,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     table: tableName,
                     fixedFields: validFixedFields // Usamos los campos validados
                 }, { isCritical: true });
-
-                //const typedData = data.map((row: any) => typifyRow(row, definition.fields));
                 setTableData(data);
 
             } catch (err: any) {
@@ -449,7 +449,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             // Ancho máximo encontrado en las primeras 50 filas
             const sampleRows = tableData.slice(0, 50);
             const maxDataWidth = sampleRows.reduce((maxW, row) => {
-                const cellValue = row[fieldDef.name];
+                const typer = typeStore.typerFrom(fieldDef);
+                const cellValue = row[fieldDef.name] !== null && typer.toLocalString(row[fieldDef.name]);
                 if (cellValue === null || cellValue === undefined) return maxW;
                 const valueStr = String(cellValue);
                 return Math.max(maxW, estimateTextWidth(valueStr));

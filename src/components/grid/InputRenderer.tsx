@@ -8,7 +8,7 @@ import { InputRendererProps, CellFeedback, CellFeedbackMap } from "../../types";
 // getCellKey deben provenir de tu archivo GenericDataGrid
 import { NEW_ROW_INDICATOR } from "./GenericDataGrid";
 import { useTheme } from "@mui/material";
-import { getPrimaryKeyValues, getCellKey, isNumericType, typifyRow } from "./utils/helpers";
+import { getPrimaryKeyValues, getCellKey, isNumericType } from "./utils/helpers";
 // @ts-ignore
 import typeStore from 'type-store';
 
@@ -172,13 +172,13 @@ function InputRenderer<R extends Record<string, any>, S>({
                 status
             });
 
-            const typedResponseRow = typifyRow(response.row, tableDefinition.fields);
+            const responseRow = response.row;
 
             let finalRowIdForFeedback: string;
             let persistedRowData: R;
 
             if (response.row && isNewRow) {
-                persistedRowData = { ...typedResponseRow } as R;
+                persistedRowData = { ...responseRow } as R;
                 setTableData(prevData => {
                     const newData = [...prevData];
                     const originalRowId = getPrimaryKeyValues(oldRowData, tableDefinition.primaryKey);
@@ -196,16 +196,16 @@ function InputRenderer<R extends Record<string, any>, S>({
                 });
                 finalRowIdForFeedback = getPrimaryKeyValues(persistedRowData, tableDefinition.primaryKey);
             } else {
-                persistedRowData = typedResponseRow as R;
+                persistedRowData = responseRow as R;
                 const isPrimaryKeyColumn = tableDefinition.primaryKey.includes(column.key);
                 finalRowIdForFeedback = isPrimaryKeyColumn
                     ? getPrimaryKeyValues(potentialUpdatedRow, tableDefinition.primaryKey)
                     : currentRowIdBeforeUpdate;
-                onRowChange({ ...typedResponseRow } as R, true);
+                onRowChange({ ...responseRow } as R, true);
             }
 
             // --- MULTI-FEEDBACK DE ÉXITO ---
-            const changes = findChangedValues(oldRowData, typedResponseRow, isNewRow);
+            const changes = findChangedValues(oldRowData, responseRow, isNewRow);
             setCellFeedbackMap(prevFeedback => {
                 // Siempre usamos new Map(prevFeedback) para garantizar inmutabilidad
                 const newFeedback = new Map(prevFeedback);

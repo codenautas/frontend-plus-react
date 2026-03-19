@@ -31,11 +31,11 @@ import { Box } from '@mui/material';
 // @ts-ignore
 import typeStore from 'type-store';
 
-import { 
-    extractPathsFromRoutes, 
-    AppProps, 
-    WScreenMap, 
-    ClientSidesMap, 
+import {
+    extractPathsFromRoutes,
+    AppProps,
+    WScreenMap,
+    ClientSidesMap,
     ResultsOksMap,
     WScreenProps,
     ClientSideProps,
