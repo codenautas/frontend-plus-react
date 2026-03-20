@@ -27,13 +27,20 @@ export const useGridActions = ({
     const [rowToDelete, setRowToDelete] = useState<any | null>(null);
     const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
 
+    // Estado para Vertical Editor
+    const [openVerticalEditDialog, setOpenVerticalEditDialog] = useState(false);
+    const [rowToEditVertical, setRowToEditVertical] = useState<any | null>(null);
+
     const { showSuccess, showError, showWarning, showInfo } = useSnackbar();
 
     useEffect(() => {
         setLocalCellChanges(new Map());
         setOpenConfirmDialog(false);
         setRowToDelete(null);
+        setOpenVerticalEditDialog(false);
+        setRowToEditVertical(null);
     }, [tableName, setLocalCellChanges]);
+
 
     const handleAddRow = useCallback((currentRow?: any) => {
         if (!tableDefinition) {
@@ -90,6 +97,12 @@ export const useGridActions = ({
         setRowToDelete(row);
         setOpenConfirmDialog(true);
     }, []);
+
+    const handleVerticalEditRow = useCallback((row: any) => {
+        setRowToEditVertical(row);
+        setOpenVerticalEditDialog(true);
+    }, []);
+
 
     const handleConfirmDelete = useCallback(async (confirm: boolean) => {
         setOpenConfirmDialog(false);
@@ -220,7 +233,13 @@ export const useGridActions = ({
         handleConfirmDelete,
         handleAddRow,
         handleImportFile,
+        handleVerticalEditRow,
         openConfirmDialog,
         rowToDelete,
+        openVerticalEditDialog,
+        setOpenVerticalEditDialog,
+        rowToEditVertical,
+        setRowToEditVertical
     };
-};
+
+};

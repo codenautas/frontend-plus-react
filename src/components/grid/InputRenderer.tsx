@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Column } from "react-data-grid";
 import { useSnackbar } from "../../contexts/SnackbarContext";
 import { useApiCall } from "../../hooks/useApiCall";
+import { useTableRecordSave } from "../../hooks/useTableRecordSave";
 import InputBase from "@mui/material/InputBase";
 // Importamos CellFeedbackMap junto con InputRendererProps
 import { InputRendererProps, CellFeedback, CellFeedbackMap } from "../../types";
@@ -45,8 +46,8 @@ function InputRenderer<R extends Record<string, any>, S>({
 
     const theme = useTheme();
     const { showSuccess, showError } = useSnackbar();
+    const { saveRecord } = useTableRecordSave();
     const tableName = tableDefinition.tableName!;
-
 
 
     // Generamos la clave única usando la función importada
@@ -137,40 +138,16 @@ function InputRenderer<R extends Record<string, any>, S>({
             }
         }
 
-        const status = isNewRow ? 'new' : 'update';
-        let rowToSend: Record<string, any> = {};
-        if (isNewRow) {
-            tableDefinition.fields.forEach(fieldDef => {
-                const fieldValue = potentialUpdatedRow[fieldDef.name];
-                if (fieldValue !== undefined && fieldValue !== null && String(fieldValue).trim() !== '') {
-                    rowToSend[fieldDef.name] = fieldValue;
-                } else if (tableDefinition.primaryKey.includes(fieldDef.name) && (fieldValue === null || fieldValue === undefined || String(fieldValue).trim() === '')) {
-                    rowToSend[fieldDef.name] = fieldValue;
-                }
-            });
-            if (localCellChanges.has(initialRowId)) {
-                localCellChanges.get(initialRowId)?.forEach((colKey: string) => {
-                    if (!rowToSend.hasOwnProperty(colKey)) {
-                        rowToSend[colKey] = potentialUpdatedRow[colKey];
-                    }
-                });
-            }
-            delete rowToSend[NEW_ROW_INDICATOR];
-        } else {
-            rowToSend[column.key] = processedNewValue;
-            tableDefinition.primaryKey.forEach(pkField => {
-                rowToSend[pkField] = potentialUpdatedRow[pkField];
-            });
-        }
-
         try {
-            const response = await callApi('table_record_save', {
-                table: tableName,
-                primaryKeyValues: primaryKeyValuesForBackend,
-                newRow: rowToSend,
-                oldRow: oldRowData,
-                status
+            const response = await saveRecord({
+                tableName,
+                tableDefinition,
+                isNewRow,
+                formData: potentialUpdatedRow,
+                initialData: oldRowData,
+                targetFieldName: column.key
             });
+
 
             const responseRow = response.row;
 

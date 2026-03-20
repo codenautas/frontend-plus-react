@@ -4,7 +4,7 @@ import { DataGrid, Column, DataGridHandle, CellMouseArgs, RenderCellProps, Rende
 import 'react-data-grid/lib/styles.css';
 
 import { useApiCall } from '../../hooks/useApiCall';
-import { CircularProgress, Typography, Box, Alert, useTheme, Button } from '@mui/material';
+import { CircularProgress, Typography, Box, Alert, useTheme, Button, Dialog } from '@mui/material';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 
 import { useSnackbar } from '../../contexts/SnackbarContext';
@@ -27,6 +27,8 @@ import { useGridActions } from '../../hooks/grid/useGridActions';
 import { useGridEvents } from '../../hooks/grid/useGridEvents';
 import { ImportDialog, ImportOptions } from './ImportDialog';
 import { ExportDialog } from './ExportDialog';
+import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
+
 // @ts-ignore
 import typeStore from 'type-store';
 
@@ -71,7 +73,9 @@ export interface ActionColumn<TRow, TSummaryRow = unknown> extends BaseCustomCol
     customType: 'action';
     handleDeleteRow: (row: any) => void;
     handleAddRow: (row?: any) => void;
+    handleVerticalEditRow: (row: any) => void;
 }
+
 
 export type CustomColumn<TRow, TSummaryRow = unknown> =
     | DefaultColumn<TRow, TSummaryRow>
@@ -210,6 +214,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     const [exitingRowIds, setExitingRowIds] = useState<Set<string>>(new Set());
 
+    // Estado para Vertical Editor Modal ahora en useGridActions
+
+
     const { showSuccess, showError, showWarning, showInfo } = useSnackbar();
     const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
     const dataGridRef = useRef<DataGridHandle>(null);
@@ -228,8 +235,13 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     const {
         handleAddRow, handleConfirmDelete, handleDeleteRow,
-        openConfirmDialog, rowToDelete, handleImportFile
+        openConfirmDialog, rowToDelete, handleImportFile,
+        handleVerticalEditRow, openVerticalEditDialog,
+        setOpenVerticalEditDialog, rowToEditVertical,
+        setRowToEditVertical
     } = useGridActions({
+
+
         tableDefinition, tableName, primaryKey,
         fixedFields, setExitingRowIds, setLocalCellChanges,
         setSelectedRows, setTableData, callApi, callApiUpload
@@ -239,27 +251,36 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         let rows = tableData;
         if (isFilterRowVisible) {
             Object.keys(filters).forEach(key => {
-                const filterValue = filters[key].toLowerCase();
+                const fieldDef = tableDefinition?.fields.find(f => f.name === key);
+                const typer = typeStore.typerFrom(fieldDef)
+                const filterValue = filters[key] !== null ? typer.toLocalString(filters[key]).toLowerCase() : '';
                 if (filterValue) {
                     rows = rows.filter(row => {
-                        const cellValue = String(row[key] || '').toLowerCase();
+                        const rawValue = row[key];
+                        // Si tenemos un typer, usamos toLocalString para comparar contra lo que el usuario ve/busca
+                        let cellValue = '';
+                        if (rawValue !== null && rawValue !== undefined) {
+                            cellValue = typer.toLocalString(rawValue).toLowerCase();
+                        }
                         return cellValue.includes(filterValue);
                     });
                 }
             });
         }
         return rows;
-    }, [tableData, filters, isFilterRowVisible]);
+    }, [tableData, filters, isFilterRowVisible, tableDefinition]);
+
 
     const gridHeight = useMemo(() => {
         const rowHeight = 30;
-        const headerHeight = 30; // Altura de la cabecera (headerRowHeight)
-        const filterHeight = isFilterRowVisible ? 30 : 0; // Altura de filtros (summaryRowHeight top)
+        const headerHeight = 45; // Aumentado de 30 a 45
+        const filterHeight = isFilterRowVisible ? 30 : 0; // Aumentado de 30 a 45
         const bottomSummaryHeight = 30; // Altura de la fila de resumen inferior
 
         // Añadimos 30px extra para margen/bordes y mejorar el espaciado visual
         // La altura total incluye: Filas + Header + Filtros(top) + Resumen(bottom) + Margen Visual
         let calculatedHeight = (filteredRows.length * rowHeight) + headerHeight + filterHeight + bottomSummaryHeight + 41;
+
 
         // Si hay datos pero no coinciden los filtros, forzamos un mínimo para el mensaje de "Sin resultados"
         // El mínimo debe cubrir Header(30) + Filtros(30) + Resumen(30) + Mensaje + Margen
@@ -507,7 +528,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             tableDefinition,
             handleDeleteRow,
             handleAddRow,
+            handleVerticalEditRow,
             name: 'filterCol',
+
             width: actionColumnWidth,
             editable: false,
             resizable: false,
@@ -588,6 +611,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         );
     }
 
+    const SUMMARY_ROW_HEIGHT = 60;
     return (
         <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
             {/* Primero los ancestros jerárquicos */}
@@ -667,7 +691,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     headerRowHeight={30}
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
                     bottomSummaryRows={[bottomSummaryRow]}
-                    summaryRowHeight={30}
+                    summaryRowHeight={SUMMARY_ROW_HEIGHT}
                     renderers={undefined}
                     onCellMouseDown={handleCellMouseDown}
                     onCellDoubleClick={handleCellDoubleClick}
@@ -711,7 +735,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     <Box
                         sx={{
                             position: 'absolute',
-                            top: isFilterRowVisible ? 60 : 30, // Dinámico según filtros
+                            top: isFilterRowVisible ? SUMMARY_ROW_HEIGHT + 30 : 30, // Dinámico según filtros
                             bottom: 30, // Arriba del resumen inferior
                             left: 0,
                             right: 0,
@@ -760,7 +784,50 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 onImport={handleImportFile}
                 loading={loading}
             />
+
+
+            {/* Modal de Editor Vertical */}
+            {tableDefinition && (
+                <Dialog
+                    open={openVerticalEditDialog}
+                    onClose={() => setOpenVerticalEditDialog(false)}
+                    maxWidth="md"
+                    fullWidth
+                    disableEscapeKeyDown
+                >
+                    {rowToEditVertical && (
+                        <VerticalEditorPage
+                            tableName={tableName}
+                            tableDefinition={tableDefinition}
+                            initialData={rowToEditVertical}
+                            fixedFields={fixedFields}
+                            isNewRow={!!rowToEditVertical[NEW_ROW_INDICATOR]}
+                            onSaveSuccess={(savedRow, isNewItem) => {
+                                // No cerramos el dialog porque es auto-save persistente
+                                setRowToEditVertical(savedRow);
+                                setTableData(prevData => {
+                                    const newData = [...prevData];
+                                    const pK = isNewItem ? getPrimaryKeyValues(rowToEditVertical, primaryKey) : getPrimaryKeyValues(savedRow, primaryKey);
+                                    const index = newData.findIndex(r => getPrimaryKeyValues(r, primaryKey) === pK);
+
+                                    if (index !== -1) {
+                                        newData[index] = savedRow;
+                                    } else {
+                                        newData.unshift(savedRow);
+                                    }
+                                    return newData;
+                                });
+                                // showSuccess es opcional aquí, el vertical editor ya muestra texto "Cambios auto-guardados",
+                                // pero podemos mantenerlo como feedback pasivo.
+                            }}
+
+                            onClose={() => setOpenVerticalEditDialog(false)}
+                        />
+                    )}
+                </Dialog>
+            )}
         </Box>
     );
+
 };
 export default GenericDataGrid;

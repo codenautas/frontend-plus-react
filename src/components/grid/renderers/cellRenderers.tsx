@@ -149,7 +149,8 @@ export const allColumnsCellRenderer = (
 
         case 'action': {
             const actionColumn = column as ActionColumn<any, unknown>;
-            const { tableDefinition, handleDeleteRow, handleAddRow } = actionColumn;
+            const { tableDefinition, handleDeleteRow, handleAddRow, handleVerticalEditRow } = actionColumn;
+
 
             const gridActionButtons: ActionButtonDefinition[] = [
                 {
@@ -168,7 +169,8 @@ export const allColumnsCellRenderer = (
                 },
                 {
                     action: 'vertical-edit',
-                    handler: () => { }, // implementar funcion
+                    handler: handleVerticalEditRow, 
+
                     icon: ViewHeadlineIcon,
                     title: 'Editar registro en forma de ficha',
                     color: 'primary',
