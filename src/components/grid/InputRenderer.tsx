@@ -42,7 +42,7 @@ function InputRenderer<R extends Record<string, any>, S>({
 }: InputRendererProps<R, S>) {
     const fieldDefinition = tableDefinition.fields.find(f => f.name === column.key);
     const typer = useMemo(() => typeStore.typerFrom(fieldDefinition), [fieldDefinition]);
-    const [editingValue, setEditingValue] = useState(() => typer.toLocalString(row[column.key]));
+    const [editingValue, setEditingValue] = useState(() => row[column.key] !== null ? typer.toLocalString(row[column.key]) : null);
 
     const theme = useTheme();
     const { showSuccess, showError } = useSnackbar();
