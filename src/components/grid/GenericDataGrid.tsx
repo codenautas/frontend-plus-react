@@ -32,11 +32,11 @@ import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
 // @ts-ignore
 import typeStore from 'type-store';
 
-const SUMMARY_ROW_HEIGHT = 60;
-const FILTER_ROW_HEIGHT = 60;
-const HEADER_ROW_HEIGHT = 30;
-const ROW_HEIGHT = 30;
-const MIN_BODY_HEIGHT = 260;
+export const SUMMARY_ROW_HEIGHT = 35;
+export const FILTER_ROW_HEIGHT = 35;
+export const HEADER_ROW_HEIGHT = 30;
+export const ROW_HEIGHT = 30;
+export const MIN_BODY_HEIGHT = 260;
 
 interface GenericDataGridProps {
     tableName: string;

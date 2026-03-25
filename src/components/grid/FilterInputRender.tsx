@@ -1,7 +1,7 @@
 import { InputBase, Box } from "@mui/material";
 import React from "react";
 import { FilterRendererProps } from "../../types";
-import { DefaultColumn } from "./GenericDataGrid";
+import { DefaultColumn, FILTER_ROW_HEIGHT } from "./GenericDataGrid";
 import { TypedField } from "../forms/TypedField";
 import { filterOperators, getDefaultOperatorForType } from "./utils/helpers";
 
@@ -44,7 +44,7 @@ function FilterInputRenderer({
                     value={operator}
                     onChange={(e) => handleFilterChange(e.target.value, val)}
                     style={{
-                        height: 30,
+                        height: FILTER_ROW_HEIGHT - 5,
                         minWidth: 40,
                         backgroundColor: 'white',
                         border: '1px solid #ccc',

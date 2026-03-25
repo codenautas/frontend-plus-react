@@ -13,6 +13,7 @@ import { FieldDefinition } from '../../types';
 import typeStore from 'type-store';
 import { isNumericType, isDateTimeType } from '../grid/utils/helpers';
 import { useRef } from 'react';
+import { FILTER_ROW_HEIGHT } from '../grid/GenericDataGrid';
 
 interface TypedFieldProps {
     fieldDef: FieldDefinition;
@@ -25,10 +26,7 @@ interface TypedFieldProps {
 }
 
 export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChange, onCommit, disabled, isFilterMode = false, feedback }) => {
-
-
     const theme = useTheme();
-
 
     const typer = useMemo(() => typeStore.typerFrom(fieldDef), [fieldDef]);
     const isBoolean = fieldDef.typeName === 'boolean';
@@ -176,9 +174,9 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
 
     // Determinar el input type nativo en base a las 3 categorias del helper
     let inputType = 'text';
-    if (isNumericType(fieldDef.typeName) && !isFilterMode) {
+    if (isNumericType(fieldDef.typeName)) {
         inputType = 'number';
-    } 
+    }
     // Las fechas/tiempos y LOS FILTROS se mantienen como "text" por ahora para facilitar filtro parcial
     // sin pickers nativos y sin bloqueo de entrada de caracteres no numéricos parciales.
 
@@ -208,13 +206,14 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
                 }
             }}
             sx={isFilterMode
-                ? { 
-                    '& .MuiOutlinedInput-root': { 
+                ? {
+                    '& .MuiOutlinedInput-root': {
                         backgroundColor: 'background.paper',
-                        height: 30, // Altura fija para alineación
+                        height: FILTER_ROW_HEIGHT - 5,
+                        minWidth: 50,
                         fontSize: '0.8rem',
-                        padding: '0 8px'
-                    } 
+                        padding: '0px'
+                    }
                 }
                 : { '& .MuiOutlinedInput-root': { backgroundColor: cellBackgroundColor, transition: transitionStyle } }}
             onBlur={handleTextCommit}
