@@ -42,3 +42,32 @@ export const getCellKey = (row: Record<string, any>, columnKey: string, primaryK
 export const isNumericType = (typeName?: string): boolean => {
     return ['integer', 'bigint', 'decimal', 'double', 'float', 'number'].includes(typeName || '');
 };
+
+/**
+ * Checks if a given database field type name corresponds to a date or time field.
+ * @param typeName - The string representing the database field type
+ * @returns boolean
+ */
+export const isDateTimeType = (typeName?: string): boolean => {
+    const t = typeName?.toLowerCase() || '';
+    return ['date', 'time', 'timestamp', 'interval', 'tsrange', 'time_range', 'daterange'].some(type => t.includes(type));
+};
+
+export const filterOperators = [
+    { value: '=', label: '=' },
+    { value: '~', label: '~' },
+    { value: '!~', label: '!~' },
+    { value: '\u2205', label: '∅' }, // vacío
+    { value: '!=\u2205', label: '!=∅' }, // no vacío
+    { value: '>', label: '>' },
+    { value: '>=', label: '>=' },
+    { value: '<', label: '<' },
+    { value: '<=', label: '<=' },
+    { value: '!=', label: '!=' }
+];
+
+export const getDefaultOperatorForType = (typeName?: string): string => {
+    const isText = ['text', 'varchar', 'char'].some(t => typeName?.toLowerCase().includes(t)) 
+                 || (!isNumericType(typeName) && !isDateTimeType(typeName) && typeName?.toLowerCase() !== 'boolean');
+    return isText ? '~' : '=';
+};

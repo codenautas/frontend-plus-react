@@ -206,7 +206,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const [tableDefinition, setTableDefinition] = useState<TableDefinition | null>(null);
     const [tableData, setTableData] = useState<any[]>([]);
     const [isFilterRowVisible, setIsFilterRowVisible] = useState<boolean>(false);
-    const [filters, setFilters] = useState<Record<string, string>>({});
+    const [filters, setFilters] = useState<Record<string, any>>({});
     const [selectedRows, setSelectedRows] = useState((): ReadonlySet<string> => new Set());
     const [selectedCell, setSelectedCell] = useState<CellSelectArgs<any, NoInfer<{ id: string }>> | undefined>(undefined);
 
@@ -257,20 +257,75 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         let rows = tableData;
         if (isFilterRowVisible) {
             Object.keys(filters).forEach(key => {
-                const fieldDef = tableDefinition?.fields.find(f => f.name === key);
-                const typer = typeStore.typerFrom(fieldDef)
-                const filterValue = filters[key] !== null ? typer.toLocalString(filters[key]).toLowerCase() : '';
-                if (filterValue) {
-                    rows = rows.filter(row => {
-                        const rawValue = row[key];
-                        // Si tenemos un typer, usamos toLocalString para comparar contra lo que el usuario ve/busca
-                        let cellValue = '';
-                        if (rawValue !== null && rawValue !== undefined) {
-                            cellValue = typer.toLocalString(rawValue).toLowerCase();
-                        }
-                        return cellValue.includes(filterValue);
-                    });
+                const filterObj = filters[key];
+                if (!filterObj) return;
+
+                let operator = '~';
+                let filterValue = '';
+
+                if (typeof filterObj === 'string') {
+                    filterValue = filterObj;
+                } else {
+                    operator = filterObj.operator || '~';
+                    filterValue = filterObj.value || '';
                 }
+
+                if (filterValue === '' && operator !== '\u2205' && operator !== '!=\u2205') return;
+
+                const fieldDef = tableDefinition?.fields.find(f => f.name === key);
+                const typer = fieldDef ? typeStore.typerFrom(fieldDef) : null;
+
+                rows = rows.filter(row => {
+                    const rawValue = row[key];
+                    let cellValue = '';
+                    if (typer && rawValue !== null && rawValue !== undefined) {
+                        try {
+                            cellValue = typer.toLocalString(rawValue).toLowerCase();
+                        } catch (e) {
+                            cellValue = String(rawValue).toLowerCase();
+                        }
+                    } else {
+                        cellValue = String(rawValue || '').toLowerCase();
+                    }
+
+                    const fValLower = String(filterValue).toLowerCase();
+
+                    // numeric comparison helper
+                    const numRaw = Number(rawValue);
+                    const numFilter = Number(filterValue);
+                    const isNumCom = !isNaN(numRaw) && !isNaN(numFilter) && filterValue !== '';
+
+                    switch (operator) {
+                        case '=':
+                            if (isNumCom && rawValue !== null && rawValue !== '') return numRaw === numFilter;
+                            return cellValue === fValLower;
+                        case '!=':
+                            if (isNumCom && rawValue !== null && rawValue !== '') return numRaw !== numFilter;
+                            return cellValue !== fValLower;
+                        case '~':
+                            return cellValue.includes(fValLower);
+                        case '!~':
+                            return !cellValue.includes(fValLower);
+                        case '\u2205':
+                            return rawValue === null || rawValue === undefined || rawValue === '';
+                        case '!=\u2205':
+                            return rawValue !== null && rawValue !== undefined && rawValue !== '';
+                        case '>':
+                            if (isNumCom && rawValue !== null) return numRaw > numFilter;
+                            return rawValue > filterValue;
+                        case '>=':
+                            if (isNumCom && rawValue !== null) return numRaw >= numFilter;
+                            return rawValue >= filterValue;
+                        case '<':
+                            if (isNumCom && rawValue !== null) return numRaw < numFilter;
+                            return rawValue < filterValue;
+                        case '<=':
+                            if (isNumCom && rawValue !== null) return numRaw <= numFilter;
+                            return rawValue <= filterValue;
+                        default:
+                            return cellValue.includes(fValLower);
+                    }
+                });
             });
         }
         return rows;

@@ -3,7 +3,7 @@ import { FixedField } from "../../../types";
 import FilterInputRenderer from "../FilterInputRender";
 import { Box } from "@mui/material";
 
-export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<any, any>, fixedFields: FixedField[] | undefined, isFilterRowVisible: boolean, filters: Record<string, string>, setFilters: React.Dispatch<React.SetStateAction<Record<string, string>>>) => {
+export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<any, any>, fixedFields: FixedField[] | undefined, isFilterRowVisible: boolean, filters: Record<string, any>, setFilters: React.Dispatch<React.SetStateAction<Record<string, any>>>) => {
     const { column, row } = props;
 
     // Solo mostramos filtros en la fila dedicada a filtros

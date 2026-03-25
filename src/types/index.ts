@@ -98,8 +98,8 @@ export interface ConfirmDialogProps {
 
 export interface FilterRendererProps<R extends Record<string, any>, S> {
     column: Column<R, S>;
-    filters: Record<string, string>;
-    setFilters: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+    filters: Record<string, any>;
+    setFilters: React.Dispatch<React.SetStateAction<Record<string, any>>>;
 }
 
 export interface GenericDataGridForDetailProps {

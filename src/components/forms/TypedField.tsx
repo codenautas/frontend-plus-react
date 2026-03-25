@@ -11,7 +11,7 @@ import {
 import { FieldDefinition } from '../../types';
 // @ts-ignore
 import typeStore from 'type-store';
-import { isNumericType } from '../grid/utils/helpers';
+import { isNumericType, isDateTimeType } from '../grid/utils/helpers';
 
 interface TypedFieldProps {
     fieldDef: FieldDefinition;
@@ -156,10 +156,16 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
 
     }
 
-    // Por defecto renderizamos TextField para el resto (numeros, strings, fechas via texto format local)
-    // El typer localString espera el input en formato local, así que usaremos input type="text".
-    // Si queremos usar type="date" nativo de html, deberíamos transformar a YYYY-MM-DD.
-    // Por simplicidad e integración con TypeStore mantendremos type="text" para mantener paridad con el InputRenderer.
+    // Determinar el input type nativo en base a las 3 categorias del helper
+    let inputType = 'text';
+    if (isNumericType(fieldDef.typeName)) {
+        inputType = 'number';
+    } else if (isDateTimeType(fieldDef.typeName)) {
+        const t = fieldDef.typeName?.toLowerCase() || '';
+        if (t === 'time') inputType = 'time';
+        else if (t === 'date') inputType = 'date';
+        else inputType = 'datetime-local';
+    }
 
     // Feedback styling matching GenericDataGrid 
     const cellBackgroundColor = feedback === 'error' ? theme.palette.error.light : feedback === 'success' ? theme.palette.success.light : undefined;
@@ -168,6 +174,7 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
     return (
         <TextField
             fullWidth
+            type={inputType}
             label={isFilterMode ? undefined : fieldDef.name}
             variant="outlined"
             size="small"
