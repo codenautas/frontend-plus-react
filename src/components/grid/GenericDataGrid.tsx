@@ -32,6 +32,12 @@ import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
 // @ts-ignore
 import typeStore from 'type-store';
 
+const SUMMARY_ROW_HEIGHT = 60;
+const FILTER_ROW_HEIGHT = 60;
+const HEADER_ROW_HEIGHT = 30;
+const ROW_HEIGHT = 30;
+const MIN_BODY_HEIGHT = 260;
+
 interface GenericDataGridProps {
     tableName: string;
     fixedFields?: FixedField[];
@@ -181,8 +187,8 @@ const StaticAncestorGrid: React.FC<{
                 columns={columns}
                 rows={[rowData]}
                 onRowsChange={handleRowsChange}
-                headerRowHeight={30}
-                rowHeight={30}
+                headerRowHeight={HEADER_ROW_HEIGHT}
+                rowHeight={ROW_HEIGHT}
                 rowKeyGetter={() => 'single-row'}
                 style={{ height: 78 }}
             />
@@ -272,25 +278,13 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
 
     const gridHeight = useMemo(() => {
-        const rowHeight = 30;
-        const headerHeight = 45; // Aumentado de 30 a 45
-        const filterHeight = isFilterRowVisible ? 30 : 0; // Aumentado de 30 a 45
-        const bottomSummaryHeight = 30; // Altura de la fila de resumen inferior
+        const filterHeight = isFilterRowVisible ? FILTER_ROW_HEIGHT : 0;
 
-        // Añadimos 30px extra para margen/bordes y mejorar el espaciado visual
-        // La altura total incluye: Filas + Header + Filtros(top) + Resumen(bottom) + Margen Visual
-        let calculatedHeight = (filteredRows.length * rowHeight) + headerHeight + filterHeight + bottomSummaryHeight + 41;
+        let calculatedHeight = (filteredRows.length * ROW_HEIGHT) + HEADER_ROW_HEIGHT + filterHeight + SUMMARY_ROW_HEIGHT + 40
 
-
-        // Si hay datos pero no coinciden los filtros, forzamos un mínimo para el mensaje de "Sin resultados"
-        // El mínimo debe cubrir Header(30) + Filtros(30) + Resumen(30) + Mensaje + Margen
-        if (tableData.length > 0 && filteredRows.length === 0 && isFilterRowVisible) {
-            calculatedHeight = Math.max(calculatedHeight, 200); // Aumentado de 150 a 200 para dar más aire
-        }
-
-        // Si la tabla está totalmente vacía de origen (BBDD), aseguramos un mínimo para el EmptyRowsRenderer
-        if (tableData.length === 0) {
-            calculatedHeight = Math.max(calculatedHeight, 200);
+        // Si hay datos pero no coinciden los filtros o la tabla está totalmente vacía de origen (BBDD)
+        if (tableData.length > 0 && filteredRows.length === 0 && isFilterRowVisible || tableData.length === 0) {
+            calculatedHeight = Math.max(calculatedHeight, MIN_BODY_HEIGHT) + filterHeight; // Aumentado de 150 a 200 para dar más aire
         }
 
         return calculatedHeight;
@@ -586,6 +580,20 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         localCellChanges, handleDeleteRow, handleAddRow, fixedFields, tableData, onOpenDetail
     ]);
 
+    const filterHeight = isFilterRowVisible ? FILTER_ROW_HEIGHT : 0;
+    const getFallBackMessage = () => {
+        if (tableData.length === 0) {
+            return "No hay filas para mostrar";
+        }
+        if (filteredRows.length === 0) {
+            // Aquí ya sabemos que tableData.length > 0 implícitamente por el if anterior
+            return "No se encontraron resultados para tu búsqueda";
+        }
+        return null;
+    };
+
+    const fallBackMessage = getFallBackMessage();
+
     if (loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
@@ -610,8 +618,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             </Box>
         );
     }
-
-    const SUMMARY_ROW_HEIGHT = 60;
     return (
         <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
             {/* Primero los ancestros jerárquicos */}
@@ -686,9 +692,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     onSelectedCellChange={handleSelectedCellChange}
                     onRowsChange={handleRowsChange}
                     selectedRows={selectedRows}
-                    rowHeight={(_row) => 30}
+                    rowHeight={(_row) => ROW_HEIGHT}
                     style={{ ...{ height: '100%', width: '100%', boxSizing: 'border-box' }, ...gridStyles }}
-                    headerRowHeight={30}
+                    headerRowHeight={HEADER_ROW_HEIGHT}
                     topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
                     bottomSummaryRows={[bottomSummaryRow]}
                     summaryRowHeight={SUMMARY_ROW_HEIGHT}
@@ -698,57 +704,25 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     onCellClick={handleCellClick}
                     onCellKeyDown={handleCellKeyDown}
                 />
-
-                {/* Fallback cuando no hay datos en la base de datos */}
-                {tableData.length === 0 && (
+                {/* Fallbacks */}
+                {fallBackMessage && (
                     <Box
                         sx={{
                             position: 'absolute',
-                            top: 32, // Debajo del header
-                            bottom: 55, // Arriba del resumen inferior
+                            top: filterHeight + HEADER_ROW_HEIGHT + 1,
+                            bottom: 102,
                             left: 18,
-                            right: 0,
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                            pointerEvents: 'none',
-                            zIndex: 10,
-                        }}
-                    >
-                        <Box sx={{
-                            border: '1px solid #ccc',
-                            borderRadius: '4px',
-                            padding: '16px 24px',
-                            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                            backgroundColor: '#fff'
-                        }}>
-                            <Typography variant="body2" color="textSecondary">
-                                No hay filas para mostrar
-                            </Typography>
-                        </Box>
-                    </Box>
-                )}
-
-                {/* Mensaje cuando los filtros vacían la grilla */}
-                {tableData.length > 0 && filteredRows.length === 0 && (
-                    <Box
-                        sx={{
-                            position: 'absolute',
-                            top: isFilterRowVisible ? SUMMARY_ROW_HEIGHT + 30 : 30, // Dinámico según filtros
-                            bottom: 30, // Arriba del resumen inferior
-                            left: 0,
                             right: 0,
                             display: 'flex',
                             justifyContent: 'center',
                             alignItems: 'center',
                             backgroundColor: 'rgba(255, 255, 255, 0.8)',
                             pointerEvents: 'none',
-                            zIndex: 1,
+                            zIndex: tableData.length === 0 ? 10 : 1, // Mantenemos el zIndex superior para el estado vacío total
                         }}
                     >
                         <Typography variant="body2" color="textSecondary">
-                            No se encontraron resultados para tu búsqueda
+                            {fallBackMessage}
                         </Typography>
                     </Box>
                 )}
