@@ -12,6 +12,7 @@ import { FieldDefinition } from '../../types';
 // @ts-ignore
 import typeStore from 'type-store';
 import { isNumericType, isDateTimeType } from '../grid/utils/helpers';
+import { useRef } from 'react';
 
 interface TypedFieldProps {
     fieldDef: FieldDefinition;
@@ -33,21 +34,37 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
     const isBoolean = fieldDef.typeName === 'boolean';
 
     // Para campos de texto/números/fechas mantenemos un valor en string (local config)
-    const [localString, setLocalString] = useState<string>('');
+    const [localString, setLocalString] = useState<string>(() => {
+        if (isBoolean) return '';
+        if (isFilterMode) return value !== null && value !== undefined ? String(value) : '';
+        try {
+            return value !== null ? typer.toLocalString(value) : '';
+        } catch (e) {
+            return value === null || value === undefined ? '' : String(value);
+        }
+    });
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const lastValueRef = useRef<any>(value);
 
-    // Inicializar el valor visual desde el valor tipado (cuando cambia desde arriba)
+    // Inicializar el valor visual desde el valor tipado (solo si cambia externamente)
     useEffect(() => {
         if (!isBoolean) {
-            try {
-                setLocalString(value !== null ? typer.toLocalString(value) : '');
+            // Solo actualizamos localString si el value real cambió desde fuera (no por nuestro propio tipeo)
+            if (value !== lastValueRef.current) {
+                lastValueRef.current = value;
+                if (isFilterMode) {
+                    setLocalString(value !== null && value !== undefined ? String(value) : '');
+                } else {
+                    try {
+                        setLocalString(value !== null ? typer.toLocalString(value) : '');
+                    } catch (e) {
+                        setLocalString(value === null || value === undefined ? '' : String(value));
+                    }
+                }
                 setErrorMsg(null);
-            } catch (e) {
-                console.warn(`Error inicializando campo ${fieldDef.name}:`, e);
-                setLocalString(value === null || value === undefined ? '' : String(value));
             }
         }
-    }, [value, typer, isBoolean, fieldDef.name]);
+    }, [value, typer, isBoolean, isFilterMode]);
 
     const handleTextChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const newValueString = e.target.value;
@@ -70,6 +87,7 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
         }
 
         setErrorMsg(pErrorMsg);
+        lastValueRef.current = parsedValue; // Seteamos el ref para que el useEffect no lo pise al re-renderizar
         // Enviamos el parsedValue siempre, pero marcamos si es válido o no
         onChange(fieldDef.name, parsedValue, isValid);
 
@@ -158,14 +176,13 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
 
     // Determinar el input type nativo en base a las 3 categorias del helper
     let inputType = 'text';
-    if (isNumericType(fieldDef.typeName)) {
+    if (isNumericType(fieldDef.typeName) && !isFilterMode) {
         inputType = 'number';
-    } else if (isDateTimeType(fieldDef.typeName)) {
-        const t = fieldDef.typeName?.toLowerCase() || '';
-        if (t === 'time') inputType = 'time';
-        else if (t === 'date') inputType = 'date';
-        else inputType = 'datetime-local';
-    }
+    } 
+    // Las fechas/tiempos y LOS FILTROS se mantienen como "text" por ahora para facilitar filtro parcial
+    // sin pickers nativos y sin bloqueo de entrada de caracteres no numéricos parciales.
+
+
 
     // Feedback styling matching GenericDataGrid 
     const cellBackgroundColor = feedback === 'error' ? theme.palette.error.light : feedback === 'success' ? theme.palette.success.light : undefined;
@@ -178,9 +195,8 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
             label={isFilterMode ? undefined : fieldDef.name}
             variant="outlined"
             size="small"
-            margin="dense"
+            margin={isFilterMode ? "none" : "dense"}
             value={localString}
-
             onChange={handleTextChange}
             disabled={isDisabled}
             error={!!errorMsg && !isFilterMode}
@@ -189,13 +205,17 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
             inputProps={{
                 style: {
                     textAlign: isNumericType(fieldDef.typeName) ? 'right' : 'left',
-                    //padding: isFilterMode ? '2px 4px' : undefined,
-                    //height: isFilterMode ? 21 : undefined, // 25px total aprox con borders
-                    //fontSize: isFilterMode ? '0.8rem' : undefined
                 }
             }}
             sx={isFilterMode
-                ? { '& .MuiOutlinedInput-root': { backgroundColor: 'background.paper' } }
+                ? { 
+                    '& .MuiOutlinedInput-root': { 
+                        backgroundColor: 'background.paper',
+                        height: 30, // Altura fija para alineación
+                        fontSize: '0.8rem',
+                        padding: '0 8px'
+                    } 
+                }
                 : { '& .MuiOutlinedInput-root': { backgroundColor: cellBackgroundColor, transition: transitionStyle } }}
             onBlur={handleTextCommit}
             onKeyDown={handleTextKeyDown}

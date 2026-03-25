@@ -3,22 +3,25 @@ import { FixedField } from "../../../types";
 import FilterInputRenderer from "../FilterInputRender";
 import { Box } from "@mui/material";
 
-export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<any, any>, fixedFields: FixedField[] | undefined, isFilterRowVisible: boolean, filters: Record<string, any>, setFilters: React.Dispatch<React.SetStateAction<Record<string, any>>>) => {
+export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<any, any>, fixedFields: FixedField[] | undefined, isFilterRowVisible: boolean) => {
     const { column, row } = props;
 
     // Solo mostramos filtros en la fila dedicada a filtros
     if (row.id === 'filterRow') {
+        const { filters, setFilters } = row; // Extraemos del row para estabilidad de columnas
         // Si el campo es fijo, no debe aparecer en los filtros
         const fixedFieldEntry = fixedFields?.find(f => f.fieldName === column.key);
         // El filtro solo se muestra si NO es un campo fijo O si es un campo fijo que sí tiene 'until' o bien si el filtro está deshabilitado
         if ((fixedFieldEntry && fixedFieldEntry.until === undefined) || !isFilterRowVisible) return null;
 
+        const fieldDef = (column as any).fieldDef;
         return (
-            <Box>
+            <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center' }}>
                 <FilterInputRenderer
-                    column={column}
-                    filters={filters}
+                    columnKey={column.key}
+                    currentFilter={filters[column.key]}
                     setFilters={setFilters}
+                    fieldDef={fieldDef}
                 />
             </Box>
         );

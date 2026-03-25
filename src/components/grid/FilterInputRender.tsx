@@ -1,22 +1,26 @@
-import { InputBase, Box, Select, MenuItem } from "@mui/material";
+import { InputBase, Box } from "@mui/material";
+import React from "react";
 import { FilterRendererProps } from "../../types";
 import { DefaultColumn } from "./GenericDataGrid";
 import { TypedField } from "../forms/TypedField";
 import { filterOperators, getDefaultOperatorForType } from "./utils/helpers";
 
-function FilterInputRenderer<R extends Record<string, any>, S>({
-    column,
-    filters,
-    setFilters
-}: FilterRendererProps<R, S>) {
+interface FilterInputRendererProps {
+    columnKey: string;
+    currentFilter: any;
+    setFilters: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+    fieldDef: any;
+}
 
-    // Obtenemos el FieldDefinition a partir de nuestra interfaz de columna extendida
-    const col = column as unknown as DefaultColumn<any>;
-    const fieldDef = col.fieldDef;
+function FilterInputRenderer({
+    columnKey,
+    currentFilter,
+    setFilters,
+    fieldDef
+}: FilterInputRendererProps) {
 
     if (fieldDef) {
         // Determinamos estado de operador y valor
-        const currentFilter = filters[column.key];
         let operator = getDefaultOperatorForType(fieldDef.typeName);
         let val = '';
         if (currentFilter && typeof currentFilter === 'object') {
@@ -27,35 +31,36 @@ function FilterInputRenderer<R extends Record<string, any>, S>({
         }
 
         const handleFilterChange = (newOp: string, newVal: any) => {
-            // Unificamos actualización, si el valor es null va como string vacío
-            const formattedVal = newVal === null ? '' : String(newVal);
-            setFilters({
-                ...filters,
-                [column.key]: { operator: newOp, value: formattedVal }
-            });
+            const formattedVal = (newVal === null || newVal === undefined) ? '' : String(newVal);
+            setFilters(prev => ({
+                ...prev,
+                [columnKey]: { operator: newOp, value: formattedVal }
+            }));
         };
 
         return (
-            <Box sx={{ mt: 0, display: 'flex', alignItems: 'flex-start', gap: 0.5, pr: 1 }}>
-                <Select
-                    size="small"
+            <Box sx={{ mt: 0, display: 'flex', alignItems: 'center', gap: 0.5, pr: 1 }}>
+                <select
                     value={operator}
                     onChange={(e) => handleFilterChange(e.target.value, val)}
-                    sx={{
-                        height: 25,
+                    style={{
+                        height: 30,
                         minWidth: 40,
-                        backgroundColor: 'background.paper',
+                        backgroundColor: 'white',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
                         fontSize: '0.8rem',
-                        '& .MuiSelect-select': { padding: '2px 4px', textAlign: 'center' }
+                        padding: '0 2px',
+                        textAlign: 'center',
+                        cursor: 'pointer'
                     }}
-                    IconComponent={() => null} // Ocultar mini-flecha para ahorrar espacio vital
                 >
                     {filterOperators.map(op => (
-                        <MenuItem key={op.value} value={op.value} sx={{ fontSize: '0.8rem', justifyContent: 'center' }}>
+                        <option key={op.value} value={op.value}>
                             {op.label}
-                        </MenuItem>
+                        </option>
                     ))}
-                </Select>
+                </select>
                 <TypedField
                     fieldDef={fieldDef}
                     isFilterMode={true}
@@ -69,12 +74,12 @@ function FilterInputRenderer<R extends Record<string, any>, S>({
     // Fallback original por si no hay fieldDef
     return (
         <InputBase
-            value={filters[column.key] || ''}
+            value={currentFilter || ''}
             onChange={(e) =>
-                setFilters({
-                    ...filters,
-                    [column.key]: e.target.value
-                })
+                setFilters(prev => ({
+                    ...prev,
+                    [columnKey]: e.target.value
+                }))
             }
             sx={{
                 width: '100%',
@@ -92,4 +97,4 @@ function FilterInputRenderer<R extends Record<string, any>, S>({
     );
 }
 
-export default FilterInputRenderer;
+export default React.memo(FilterInputRenderer);

@@ -556,7 +556,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 width: colWidth,
                 minWidth: colWidth,
                 renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
-                renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => defaultColumnSummaryCellRenderer(props, fixedFields, isFilterRowVisible, filters, setFilters),
+                renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => defaultColumnSummaryCellRenderer(props, fixedFields, isFilterRowVisible),
             };
         });
 
@@ -626,14 +626,12 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             renderEditCell: (props) => allColumnsEditCellRenderer(props, allColumns),
             renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props, onOpenDetail, ancestors, fixedFields),
         }));
-    }, [
-        tableDefinition, isFilterRowVisible, filters, toggleFilterVisibility,
-        cellFeedbackMap,
-        primaryKey, theme.palette.success.light, theme.palette.error.light,
-        theme.palette.info.light, theme.palette.action.selected,
-        handleKeyPressInEditor, setTableData,
-        localCellChanges, handleDeleteRow, handleAddRow, fixedFields, tableData, onOpenDetail
-    ]);
+    }, [tableDefinition, fixedFields, isFilterRowVisible, primaryKey, localCellChanges, handleKeyPressInEditor, handleDeleteRow, handleAddRow, handleVerticalEditRow, toggleFilterVisibility, tableData, cellFeedbackMap]);
+
+    const summaryRows = useMemo(() => {
+        if (!isFilterRowVisible) return undefined;
+        return [{ id: 'filterRow', filters, setFilters }];
+    }, [isFilterRowVisible, filters, setFilters]);
 
     const filterHeight = isFilterRowVisible ? FILTER_ROW_HEIGHT : 0;
     const getFallBackMessage = () => {
@@ -750,7 +748,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     rowHeight={(_row) => ROW_HEIGHT}
                     style={{ ...{ height: '100%', width: '100%', boxSizing: 'border-box' }, ...gridStyles }}
                     headerRowHeight={HEADER_ROW_HEIGHT}
-                    topSummaryRows={isFilterRowVisible ? [{ id: 'filterRow' }] : undefined}
+                    topSummaryRows={summaryRows}
                     bottomSummaryRows={[bottomSummaryRow]}
                     summaryRowHeight={SUMMARY_ROW_HEIGHT}
                     renderers={undefined}
@@ -759,6 +757,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     onCellClick={handleCellClick}
                     onCellKeyDown={handleCellKeyDown}
                 />
+
                 {/* Fallbacks */}
                 {fallBackMessage && (
                     <Box
