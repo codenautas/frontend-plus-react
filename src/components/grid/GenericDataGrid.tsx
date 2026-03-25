@@ -211,6 +211,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const [selectedCell, setSelectedCell] = useState<CellSelectArgs<any, NoInfer<{ id: string }>> | undefined>(undefined);
 
     const [cellFeedbackMap, setCellFeedbackMap] = useState<Map<string, CellFeedback>>(new Map());
+    const [sortColumns, setSortColumns] = useState<readonly { columnKey: string; direction: 'ASC' | 'DESC' }[]>([]);
 
     const [localCellChanges, setLocalCellChanges] = useState<Map<string, Set<string>>>(new Map());
     const theme = useTheme();
@@ -253,8 +254,50 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setSelectedRows, setTableData, callApi, callApiUpload
     });
 
+    const getInitialSortColumns = useCallback((def: TableDefinition) => {
+        if (def.sortColumns && def.sortColumns.length > 0) {
+            return def.sortColumns.map(sc => ({
+                columnKey: sc.column,
+                direction: sc.order === -1 ? 'DESC' : 'ASC'
+            })) as readonly { columnKey: string; direction: 'ASC' | 'DESC' }[];
+        }
+        // Fallback a todos los campos de la PK (calculados del def proporcionado)
+        const pk = def.primaryKey && def.primaryKey.length > 0 ? def.primaryKey : ['id'];
+        return pk.map(pkField => ({
+            columnKey: pkField,
+            direction: 'ASC'
+        })) as readonly { columnKey: string; direction: 'ASC' | 'DESC' }[];
+    }, []);
+
+    const handleSortColumnsChange = useCallback((nextSortColumns: readonly { columnKey: string; direction: 'ASC' | 'DESC' }[]) => {
+        if (nextSortColumns.length === 0) {
+            setSortColumns([]);
+            return;
+        }
+
+        const lastClicked = nextSortColumns[nextSortColumns.length - 1];
+        const { columnKey, direction } = lastClicked;
+
+        setSortColumns(prev => {
+            // Buscamos si ya estaba
+            const existingIndex = prev.findIndex(c => c.columnKey === columnKey);
+            let newSort = [...prev];
+
+            if (existingIndex !== -1) {
+                // Si ya estaba, lo quitamos de su posición
+                newSort.splice(existingIndex, 1);
+            }
+
+            // Lo insertamos al principio (index 0) con su nueva dirección
+            newSort.unshift({ columnKey, direction });
+
+            return newSort;
+        });
+    }, []);
+
     const filteredRows = useMemo(() => {
-        let rows = tableData;
+        let rows = [...tableData];
+        // 1. Filtrado
         if (isFilterRowVisible) {
             Object.keys(filters).forEach(key => {
                 const filterObj = filters[key];
@@ -328,8 +371,38 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 });
             });
         }
+
+        // 2. Ordenación (Sorting) local
+        if (sortColumns.length > 0) {
+            rows.sort((a, b) => {
+                for (const sort of sortColumns) {
+                    const { columnKey, direction } = sort;
+                    const valA = a[columnKey];
+                    const valB = b[columnKey];
+
+                    if (valA === valB) continue;
+
+                    // Manejo de nulos (siempre al final o principio según preferencia, aquí nulo es "menor")
+                    if (valA === null || valA === undefined) return direction === 'ASC' ? -1 : 1;
+                    if (valB === null || valB === undefined) return direction === 'ASC' ? 1 : -1;
+
+                    let comparison = 0;
+                    if (typeof valA === 'number' && typeof valB === 'number') {
+                        comparison = valA - valB;
+                    } else {
+                        comparison = String(valA).localeCompare(String(valB));
+                    }
+
+                    if (comparison !== 0) {
+                        return direction === 'ASC' ? comparison : -comparison;
+                    }
+                }
+                return 0;
+            });
+        }
+
         return rows;
-    }, [tableData, filters, isFilterRowVisible, tableDefinition]);
+    }, [tableData, filters, isFilterRowVisible, tableDefinition, sortColumns]);
 
 
     const gridHeight = useMemo(() => {
@@ -359,6 +432,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setLocalCellChanges(new Map());
         setExitingRowIds(new Set());
         setColumnWidths(new Map());
+        setSortColumns([]);
         if (feedbackTimerRef.current) {
             clearTimeout(feedbackTimerRef.current);
         }
@@ -369,7 +443,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             try {
                 const definition: TableDefinition = await callApi('table_structure', { table: tableName }, { isCritical: true });
                 setTableDefinition(definition);
-
+                setSortColumns(getInitialSortColumns(definition));
                 // Manejo defensivo: solo enviamos los fixedFields que existen en la definición de la tabla actual
                 const validFixedFields = fixedFields?.filter(ff =>
                     definition.fields.some(field => field.name === ff.fieldName)
@@ -491,8 +565,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         showError,
         showWarning,
         triggerImport,
-        triggerExport: () => setOpenExportDialog(true)
-    }), [tableDefinition, tableName, fixedFields, setTableData, callApi, showSuccess, showError, showWarning, triggerImport]);
+        triggerExport: () => setOpenExportDialog(true),
+        resetSorting: () => setSortColumns(getInitialSortColumns(tableDefinition!))
+    }), [tableDefinition, tableName, fixedFields, setTableData, callApi, showSuccess, showError, showWarning, triggerImport, getInitialSortColumns]);
 
     const columns: CustomColumn<any>[] = useMemo(() => {
         if (!tableDefinition) return [];
@@ -555,7 +630,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 handleKeyPressInEditor,
                 width: colWidth,
                 minWidth: colWidth,
-                renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
+                renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer({ ...props, sortColumns }, fieldDef),
                 renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => defaultColumnSummaryCellRenderer(props, fixedFields, isFilterRowVisible),
             };
         });
@@ -626,7 +701,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             renderEditCell: (props) => allColumnsEditCellRenderer(props, allColumns),
             renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props, onOpenDetail, ancestors, fixedFields),
         }));
-    }, [tableDefinition, fixedFields, isFilterRowVisible, primaryKey, localCellChanges, handleKeyPressInEditor, handleDeleteRow, handleAddRow, handleVerticalEditRow, toggleFilterVisibility, tableData, cellFeedbackMap]);
+    }, [tableDefinition, fixedFields, isFilterRowVisible, primaryKey, localCellChanges, handleKeyPressInEditor, handleDeleteRow, handleAddRow, handleVerticalEditRow, toggleFilterVisibility, tableData, cellFeedbackMap, sortColumns]);
 
     const summaryRows = useMemo(() => {
         if (!isFilterRowVisible) return undefined;
@@ -744,6 +819,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     onSelectedRowsChange={setSelectedRows}
                     onSelectedCellChange={handleSelectedCellChange}
                     onRowsChange={handleRowsChange}
+                    sortColumns={sortColumns}
+                    onSortColumnsChange={handleSortColumnsChange}
                     selectedRows={selectedRows}
                     rowHeight={(_row) => ROW_HEIGHT}
                     style={{ ...{ height: '100%', width: '100%', boxSizing: 'border-box' }, ...gridStyles }}

@@ -23,6 +23,7 @@ export interface BuildMenuOptionsParams {
     showWarning: (message: string) => void;
     triggerImport?: () => void;
     triggerExport?: () => void;
+    resetSorting?: () => void;
 }
 
 /**
@@ -40,7 +41,8 @@ export const buildMenuOptions = (params: BuildMenuOptionsParams): DataGridOption
         showError,
         showWarning,
         triggerImport,
-        triggerExport
+        triggerExport,
+        resetSorting
     } = params;
 
     if (!tableDefinition) return [];
@@ -59,6 +61,7 @@ export const buildMenuOptions = (params: BuildMenuOptionsParams): DataGridOption
                     fixedFields: fixedFields
                 });
                 setTableData(data);
+                if (resetSorting) resetSorting();
                 showSuccess('Grilla refrescada correctamente');
             } catch (err: any) {
                 showError(`Error al refrescar: ${err.message || 'Error desconocido'}`);

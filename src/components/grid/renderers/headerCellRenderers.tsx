@@ -7,15 +7,35 @@ import { RenderHeaderCellProps } from "react-data-grid";
 import { DetailTable } from "backend-plus";
 import { FieldDefinition } from "../../../types";
 
-export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<any, unknown>, fieldDef: FieldDefinition) => {
-    const { column } = props;
+interface ExtendedRenderHeaderCellProps<R, SR> extends RenderHeaderCellProps<R, SR> {
+    sortColumns?: readonly { columnKey: string; direction: 'ASC' | 'DESC' }[];
+}
+
+export const defaultColumnHeaderCellRenderer = (props: ExtendedRenderHeaderCellProps<any, unknown>, fieldDef: FieldDefinition) => {
+    const { column, sortColumns } = props;
     const isPrimaryKey = fieldDef.isPk;
+
+    // Lógica de flecha de ordenación
+    const sortIndex = sortColumns?.findIndex((s: { columnKey: string }) => s.columnKey === column.key);
+    const sorted = sortIndex !== undefined && sortIndex !== -1;
+    const sortColumn = sorted ? sortColumns![sortIndex] : null;
+
+    // Colores degradados según la prioridad
+    const getSortColor = (index: number) => {
+        if (index === 0) return '#000000'; // Principal: Negro
+        if (index === 1) return '#555555'; // Secundario: Gris oscuro
+        if (index === 2) return '#888888'; // Terciario: Gris medio
+        return '#AAAAAA'; // Otros: Gris claro
+    };
+
+    const sortColor = sorted ? getSortColor(sortIndex) : 'transparent';
+
     return (
         <Box
             sx={{
                 display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 padding: '4px',
                 boxSizing: 'border-box',
                 height: '100%',
@@ -27,13 +47,21 @@ export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<any
                 sx={{
                     fontWeight: 'bold',
                     textDecoration: isPrimaryKey ? 'underline' : 'none',
-                    fontSize: '0.930rem', // Puedes ajustar el tamaño si es necesario
+                    fontSize: '0.930rem',
                     textAlign: 'left',
-                    width: '100%'
+                    flexGrow: 1,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
                 }}
             >
                 {column.name}
             </Typography>
+            {sorted && (
+                <Box sx={{ color: sortColor, display: 'flex', alignItems: 'center', ml: 0.5 }}>
+                    {sortColumn?.direction === 'ASC' ? '\u2191' : '\u2193'}
+                </Box>
+            )}
         </Box>
     );
 }
