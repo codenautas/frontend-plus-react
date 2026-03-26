@@ -58,8 +58,8 @@ export const defaultColumnHeaderCellRenderer = (props: ExtendedRenderHeaderCellP
                 {column.name}
             </Typography>
             {sorted && (
-                <Box sx={{ color: sortColor, display: 'flex', alignItems: 'center', ml: 0.5 }}>
-                    {sortColumn?.direction === 'ASC' ? '\u2191' : '\u2193'}
+                <Box sx={{ color: sortColor, display: 'flex', alignItems: 'center', ml: 0.5, fontSize: '0.7rem' }}>
+                    {sortColumn?.direction === 'ASC' ? '\u25B2' : '\u25BC'}
                 </Box>
             )}
         </Box>
