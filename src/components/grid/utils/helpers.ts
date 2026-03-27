@@ -7,6 +7,7 @@ import { FieldDefinition } from '../../../types';
  * Indicadores especiales para filas
  */
 export const NEW_ROW_INDICATOR = '$new';
+export const DOM_TEMP_ID = Symbol('domTempId');
 
 /**
  * Obtiene los valores de la clave primaria de una fila concatenados en un string único
@@ -14,7 +15,10 @@ export const NEW_ROW_INDICATOR = '$new';
  * @param primaryKey - Array con los nombres de las columnas que forman la PK
  * @returns String único que identifica la fila
  */
-export const getPrimaryKeyValues = (row: Record<string, any>, primaryKey: string[]): string => {
+export const getPrimaryKeyValues = (row: any, primaryKey: string[]): string => {
+    // Si la fila tiene un ID de DOM explícito (Symbol), lo usamos
+    if (row[DOM_TEMP_ID]) return String(row[DOM_TEMP_ID]);
+
     return primaryKey.map(key => {
         return row[key] !== undefined && row[key] !== null
             ? String(row[key])

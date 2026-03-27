@@ -1,8 +1,9 @@
 import { TableDefinition } from 'backend-plus';
 import { useCallback } from 'react';
-import { CellMouseArgs, CellKeyDownArgs, CellMouseEvent, CellKeyboardEvent, DataGridHandle, Column, CellSelectArgs } from 'react-data-grid';
+import { CellMouseArgs, CellKeyDownArgs, CellMouseEvent, CellKeyboardEvent, DataGridHandle, Column, CellSelectArgs, RowsChangeData } from 'react-data-grid';
 import { DetailColumn } from '../../components/grid/GenericDataGrid';
 import { FixedField } from '../../types';
+import { DOM_TEMP_ID } from '../../components/grid/utils/helpers';
 
 interface UseGridEventsProps {
     dataGridRef: React.RefObject<DataGridHandle>
@@ -152,9 +153,17 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         }
     }, [tableDefinition, fixedFields]);
 
-    const handleRowsChange = useCallback((updatedRows: any[]) => {
+    const handleRowsChange = useCallback((updatedRows: any[], data: RowsChangeData<any, any>) => {
+        // Preservar la identidad (DOM_TEMP_ID) de las filas editadas
+        data.indexes.forEach(index => {
+            const oldRow = filteredRows[index];
+            const newRow = updatedRows[index];
+            if (oldRow && newRow && oldRow[DOM_TEMP_ID] && !newRow[DOM_TEMP_ID]) {
+                (newRow as any)[DOM_TEMP_ID] = oldRow[DOM_TEMP_ID];
+            }
+        });
         setTableData(updatedRows);
-    }, [setTableData]);
+    }, [setTableData, filteredRows]);
 
     return {
         handleCellMouseDown,

@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useSnackbar } from '../../contexts/SnackbarContext';
-import { NEW_ROW_INDICATOR } from '../../components/grid/GenericDataGrid';
-import { getPrimaryKeyValues } from '../../components/grid/utils/helpers';
+import { NEW_ROW_INDICATOR, DOM_TEMP_ID, getPrimaryKeyValues } from '../../components/grid/utils/helpers';
 import { FixedField, TableDefinition, CallApiOptions } from '../../types';
 import { ImportOptions } from '../../components/grid/ImportDialog';
 
@@ -57,6 +56,11 @@ export const useGridActions = ({
             newRow[field.name] = null;
         });
         newRow[NEW_ROW_INDICATOR] = true;
+
+        // 1.5. Generar un ID temporal único usando un Symbol para evitar duplicados en la vista (React Keys)
+        // Usamos un Symbol para que NO aparezca en JSON.stringify ni Object.keys, pero 
+        // al asignarlo directamente es ENUMERABLE, por lo que el operador spread (...row) lo conserva.
+        (newRow as any)[DOM_TEMP_ID] = `new_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
         // 2. Autocompletar con fixedFields
         if (fixedFields) {

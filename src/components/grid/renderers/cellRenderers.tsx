@@ -70,7 +70,7 @@ export const allColumnsCellRenderer = (
                 if (isFixedFieldCurrent) {
                     cellBackgroundColor = theme.palette.action.selected;
                 } else if ((isNewRowLocalCheck && isMandatory && !hasValue) || (localCellChanges.has(rowId) && localCellChanges.get(rowId)?.has(props.column.key))) {
-                    cellBackgroundColor = theme.palette.info.light;
+                    cellBackgroundColor = '#e3f2fd'; // Celeste premium suave
                 }
             }
 
@@ -85,7 +85,7 @@ export const allColumnsCellRenderer = (
             return (
                 <Tooltip title={currentCellFeedback?.message || ''}>
                     <Box
-                        className={displayValue === '--' ? 'typed-controls-signal-no-data' : displayValue === '//' ? 'typed-controls-signal-unknown-data' : ''}
+                        className={`${displayValue === '--' ? 'typed-controls-signal-no-data' : displayValue === '//' ? 'typed-controls-signal-unknown-data' : ''} ${row[NEW_ROW_INDICATOR] ? 'new-row-cell-animation' : ''}`}
                         sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: cellBackgroundColor, transition: 'background-color 0.3s ease-in-out', display: 'flex', alignItems: 'center', justifyContent: isNumeric ? 'flex-end' : 'flex-start', paddingLeft: '8px', paddingRight: '12px', boxSizing: 'border-box' }}
                     >
                         <Typography variant="body2" sx={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
@@ -169,7 +169,7 @@ export const allColumnsCellRenderer = (
                 },
                 {
                     action: 'vertical-edit',
-                    handler: handleVerticalEditRow, 
+                    handler: handleVerticalEditRow,
 
                     icon: ViewHeadlineIcon,
                     title: 'Editar registro en forma de ficha',
