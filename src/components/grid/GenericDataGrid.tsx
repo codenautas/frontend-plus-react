@@ -234,24 +234,23 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     }, [tableDefinition]);
 
     const {
+        sortColumns, setSortColumns, getInitialSortColumns, handleSortColumnsChange, resetSorting,
+        filters, setFilters, isFilterRowVisible, toggleFilterVisibility,
+        filteredRows, summaryData, resetView
+    } = useGridDataView({ tableData, tableDefinition });
+
+    const {
         handleAddRow, handleConfirmDelete, handleDeleteRow,
         openConfirmDialog, rowToDelete, handleImportFile,
         handleVerticalEditRow, openVerticalEditDialog,
         setOpenVerticalEditDialog, rowToEditVertical,
         setRowToEditVertical
     } = useGridActions({
-
-
         tableDefinition, tableName, primaryKey,
         fixedFields, setExitingRowIds, setLocalCellChanges,
-        setSelectedRows, setTableData, callApi, callApiUpload
+        setSelectedRows, setTableData, callApi, callApiUpload,
+        resetView
     });
-
-    const {
-        sortColumns, setSortColumns, getInitialSortColumns, handleSortColumnsChange, resetSorting,
-        filters, setFilters, isFilterRowVisible, toggleFilterVisibility,
-        filteredRows, summaryData, resetView
-    } = useGridDataView({ tableData, tableDefinition });
 
 
 

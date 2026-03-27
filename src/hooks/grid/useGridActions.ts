@@ -16,12 +16,13 @@ interface UseGridActionsProps {
     setExitingRowIds: React.Dispatch<React.SetStateAction<Set<string>>>,
     callApi: (procedureName: string, params: Record<string, any>, opts?: CallApiOptions) => Promise<any | undefined>;
     callApiUpload: (procedureName: string, file: File, params: Record<string, any>, opts?: CallApiOptions) => Promise<any | undefined>;
+    resetView?: () => void;
 }
 
 export const useGridActions = ({
     tableDefinition, tableName, fixedFields, setTableData,
     setSelectedRows, primaryKey, setLocalCellChanges,
-    setExitingRowIds, callApi, callApiUpload
+    setExitingRowIds, callApi, callApiUpload, resetView
 }: UseGridActionsProps) => {
 
     const [rowToDelete, setRowToDelete] = useState<any | null>(null);
@@ -47,12 +48,17 @@ export const useGridActions = ({
             showWarning('No se puede agregar una fila sin la definición de la tabla.');
             return;
         }
+
+        // 1. Resetear filtros y sorters para que la fila aparezca donde corresponde
+        if (resetView) resetView();
+
         const newRow: Record<string, any> = {};
         tableDefinition.fields.forEach(field => {
             newRow[field.name] = null;
         });
         newRow[NEW_ROW_INDICATOR] = true;
 
+        // 2. Autocompletar con fixedFields
         if (fixedFields) {
             fixedFields.forEach(fixedField => {
                 newRow[fixedField.fieldName] = fixedField.value;
@@ -91,7 +97,7 @@ export const useGridActions = ({
             return newMap;
         });
 
-    }, [tableDefinition, fixedFields, primaryKey, showWarning, setTableData, setSelectedRows, setLocalCellChanges]);
+    }, [tableDefinition, fixedFields, primaryKey, showWarning, setTableData, setSelectedRows, setLocalCellChanges, resetView]);
 
     const handleDeleteRow = useCallback((row: any) => {
         setRowToDelete(row);
@@ -242,4 +248,4 @@ export const useGridActions = ({
         setRowToEditVertical
     };
 
-};
+};
