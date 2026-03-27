@@ -1,36 +1,32 @@
 // src/components/GenericDataGrid.tsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { DataGrid, Column, DataGridHandle, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs, CellSelectArgs, CellKeyDownArgs, CellKeyboardEvent, CellMouseEvent } from 'react-data-grid';
+import { DataGrid, DataGridHandle, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs, CellSelectArgs, CellKeyDownArgs, CellKeyboardEvent, CellMouseEvent, Column } from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
 
 import { useApiCall } from '../../hooks/useApiCall';
 import { CircularProgress, Typography, Box, Alert, useTheme, Button, Dialog } from '@mui/material';
-import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 
 import { useSnackbar } from '../../contexts/SnackbarContext';
 
-import { CellFeedback, FieldDefinition, FixedField, TableDefinition, Ancestor } from '../../types';
+import { CellFeedback, FixedField, TableDefinition, Ancestor } from '../../types';
 
 import { ConfirmDialog } from '../ConfirmDialog';
 import { DataGridOptionsDialog } from './DataGridOptionsDialog';
 
-import { actionsColumnHeaderCellRenderer, defaultColumnHeaderCellRenderer, detailColumnCellHeaderRenderer } from './renderers/headerCellRenderers';
-import { actionsColumnSummaryCellRenderer, defaultColumnSummaryCellRenderer, detailColumnCellSummaryRenderer } from './renderers/summaryCellRenderers';
-import { allColumnsCellRenderer } from './renderers/cellRenderers';
-import { allColumnsEditCellRenderer } from './renderers/editCellRenderers';
-import { DetailTable } from 'backend-plus';
+import { DetailTable, FieldDefinition } from 'backend-plus';
 import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
-import { buildMenuOptions } from './menu/options';
 import { getPrimaryKeyValues } from './utils/helpers';
 import { useGridActions } from '../../hooks/grid/useGridActions';
-
+import { useGridDataView } from '../../hooks/grid/useGridDataView';
 import { useGridEvents } from '../../hooks/grid/useGridEvents';
+import { useGridLayout } from '../../hooks/grid/useGridLayout';
+import { useGridMenu } from '../../hooks/grid/useGridMenu';
+import { useGridColumns } from '../../hooks/grid/useGridColumns';
 import { ImportDialog, ImportOptions } from './ImportDialog';
 import { ExportDialog } from './ExportDialog';
 import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
+import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 
-// @ts-ignore
-import typeStore from 'type-store';
 
 export const SUMMARY_ROW_HEIGHT = 35;
 export const FILTER_ROW_HEIGHT = 35;
@@ -205,13 +201,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 }) => {
     const [tableDefinition, setTableDefinition] = useState<TableDefinition | null>(null);
     const [tableData, setTableData] = useState<any[]>([]);
-    const [isFilterRowVisible, setIsFilterRowVisible] = useState<boolean>(false);
-    const [filters, setFilters] = useState<Record<string, any>>({});
     const [selectedRows, setSelectedRows] = useState((): ReadonlySet<string> => new Set());
     const [selectedCell, setSelectedCell] = useState<CellSelectArgs<any, NoInfer<{ id: string }>> | undefined>(undefined);
 
     const [cellFeedbackMap, setCellFeedbackMap] = useState<Map<string, CellFeedback>>(new Map());
-    const [sortColumns, setSortColumns] = useState<readonly { columnKey: string; direction: 'ASC' | 'DESC' }[]>([]);
 
     const [localCellChanges, setLocalCellChanges] = useState<Map<string, Set<string>>>(new Map());
     const theme = useTheme();
@@ -254,177 +247,25 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setSelectedRows, setTableData, callApi, callApiUpload
     });
 
-    const getInitialSortColumns = useCallback((def: TableDefinition) => {
-        if (def.sortColumns && def.sortColumns.length > 0) {
-            return def.sortColumns.map(sc => ({
-                columnKey: sc.column,
-                direction: sc.order === -1 ? 'DESC' : 'ASC'
-            })) as readonly { columnKey: string; direction: 'ASC' | 'DESC' }[];
-        }
-        // Fallback a todos los campos de la PK (calculados del def proporcionado)
-        const pk = def.primaryKey && def.primaryKey.length > 0 ? def.primaryKey : ['id'];
-        return pk.map(pkField => ({
-            columnKey: pkField,
-            direction: 'ASC'
-        })) as readonly { columnKey: string; direction: 'ASC' | 'DESC' }[];
-    }, []);
-
-    const handleSortColumnsChange = useCallback((nextSortColumns: readonly { columnKey: string; direction: 'ASC' | 'DESC' }[]) => {
-        if (nextSortColumns.length === 0) {
-            setSortColumns([]);
-            return;
-        }
-
-        const lastClicked = nextSortColumns[nextSortColumns.length - 1];
-        const { columnKey, direction } = lastClicked;
-
-        setSortColumns(prev => {
-            // Buscamos si ya estaba
-            const existingIndex = prev.findIndex(c => c.columnKey === columnKey);
-            let newSort = [...prev];
-
-            if (existingIndex !== -1) {
-                // Si ya estaba, lo quitamos de su posición
-                newSort.splice(existingIndex, 1);
-            }
-
-            // Lo insertamos al principio (index 0) con su nueva dirección
-            newSort.unshift({ columnKey, direction });
-
-            return newSort;
-        });
-    }, []);
-
-    const filteredRows = useMemo(() => {
-        let rows = [...tableData];
-        // 1. Filtrado
-        if (isFilterRowVisible) {
-            Object.keys(filters).forEach(key => {
-                const filterObj = filters[key];
-                if (!filterObj) return;
-
-                let operator = '~';
-                let filterValue = '';
-
-                if (typeof filterObj === 'string') {
-                    filterValue = filterObj;
-                } else {
-                    operator = filterObj.operator || '~';
-                    filterValue = filterObj.value || '';
-                }
-
-                if (filterValue === '' && operator !== '\u2205' && operator !== '!=\u2205') return;
-
-                const fieldDef = tableDefinition?.fields.find(f => f.name === key);
-                const typer = fieldDef ? typeStore.typerFrom(fieldDef) : null;
-
-                rows = rows.filter(row => {
-                    const rawValue = row[key];
-                    let cellValue = '';
-                    if (typer && rawValue !== null && rawValue !== undefined) {
-                        try {
-                            cellValue = typer.toLocalString(rawValue).toLowerCase();
-                        } catch (e) {
-                            cellValue = String(rawValue).toLowerCase();
-                        }
-                    } else {
-                        cellValue = String(rawValue || '').toLowerCase();
-                    }
-
-                    const fValLower = String(filterValue).toLowerCase();
-
-                    // numeric comparison helper
-                    const numRaw = Number(rawValue);
-                    const numFilter = Number(filterValue);
-                    const isNumCom = !isNaN(numRaw) && !isNaN(numFilter) && filterValue !== '';
-
-                    switch (operator) {
-                        case '=':
-                            if (isNumCom && rawValue !== null && rawValue !== '') return numRaw === numFilter;
-                            return cellValue === fValLower;
-                        case '!=':
-                            if (isNumCom && rawValue !== null && rawValue !== '') return numRaw !== numFilter;
-                            return cellValue !== fValLower;
-                        case '~':
-                            return cellValue.includes(fValLower);
-                        case '!~':
-                            return !cellValue.includes(fValLower);
-                        case '\u2205':
-                            return rawValue === null || rawValue === undefined || rawValue === '';
-                        case '!=\u2205':
-                            return rawValue !== null && rawValue !== undefined && rawValue !== '';
-                        case '>':
-                            if (isNumCom && rawValue !== null) return numRaw > numFilter;
-                            return rawValue > filterValue;
-                        case '>=':
-                            if (isNumCom && rawValue !== null) return numRaw >= numFilter;
-                            return rawValue >= filterValue;
-                        case '<':
-                            if (isNumCom && rawValue !== null) return numRaw < numFilter;
-                            return rawValue < filterValue;
-                        case '<=':
-                            if (isNumCom && rawValue !== null) return numRaw <= numFilter;
-                            return rawValue <= filterValue;
-                        default:
-                            return cellValue.includes(fValLower);
-                    }
-                });
-            });
-        }
-
-        // 2. Ordenación (Sorting) local
-        if (sortColumns.length > 0) {
-            rows.sort((a, b) => {
-                for (const sort of sortColumns) {
-                    const { columnKey, direction } = sort;
-                    const valA = a[columnKey];
-                    const valB = b[columnKey];
-
-                    if (valA === valB) continue;
-
-                    // Manejo de nulos (siempre al final o principio según preferencia, aquí nulo es "menor")
-                    if (valA === null || valA === undefined) return direction === 'ASC' ? -1 : 1;
-                    if (valB === null || valB === undefined) return direction === 'ASC' ? 1 : -1;
-
-                    let comparison = 0;
-                    if (typeof valA === 'number' && typeof valB === 'number') {
-                        comparison = valA - valB;
-                    } else {
-                        comparison = String(valA).localeCompare(String(valB));
-                    }
-
-                    if (comparison !== 0) {
-                        return direction === 'ASC' ? comparison : -comparison;
-                    }
-                }
-                return 0;
-            });
-        }
-
-        return rows;
-    }, [tableData, filters, isFilterRowVisible, tableDefinition, sortColumns]);
+    const {
+        sortColumns, setSortColumns, getInitialSortColumns, handleSortColumnsChange, resetSorting,
+        filters, setFilters, isFilterRowVisible, toggleFilterVisibility,
+        filteredRows, summaryData, resetView
+    } = useGridDataView({ tableData, tableDefinition });
 
 
-    const gridHeight = useMemo(() => {
-        const filterHeight = isFilterRowVisible ? FILTER_ROW_HEIGHT : 0;
 
-        let calculatedHeight = (filteredRows.length * ROW_HEIGHT) + HEADER_ROW_HEIGHT + filterHeight + SUMMARY_ROW_HEIGHT + 40
+    const { gridHeight, bottomSummaryRow, summaryRows, filterHeight } = useGridLayout({
+        filteredRows, isFilterRowVisible, tableData, summaryData, filters, setFilters
+    });
 
-        // Si hay datos pero no coinciden los filtros o la tabla está totalmente vacía de origen (BBDD)
-        if (tableData.length > 0 && filteredRows.length === 0 && isFilterRowVisible || tableData.length === 0) {
-            calculatedHeight = Math.max(calculatedHeight, MIN_BODY_HEIGHT) + filterHeight; // Aumentado de 150 a 200 para dar más aire
-        }
-
-        return calculatedHeight;
-    }, [filteredRows.length, isFilterRowVisible, tableData.length]);
 
     const { handleCellDoubleClick, handleCellClick, handleCellKeyDown, handleCellMouseDown, handleKeyPressInEditor, handleSelectedCellChange, handleRowsChange } = useGridEvents({
         dataGridRef, filteredRows, fixedFields, tableData, tableDefinition, setSelectedCell, setTableData
     });
 
     useEffect(() => {
-        setFilters({});
-        setIsFilterRowVisible(false);
+        resetView();
         setSelectedRows(new Set());
         setTableDefinition(null);
         setTableData([]);
@@ -432,7 +273,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setLocalCellChanges(new Map());
         setExitingRowIds(new Set());
         setColumnWidths(new Map());
-        setSortColumns([]);
         if (feedbackTimerRef.current) {
             clearTimeout(feedbackTimerRef.current);
         }
@@ -444,22 +284,19 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 const definition: TableDefinition = await callApi('table_structure', { table: tableName }, { isCritical: true });
                 setTableDefinition(definition);
                 setSortColumns(getInitialSortColumns(definition));
-                // Manejo defensivo: solo enviamos los fixedFields que existen en la definición de la tabla actual
                 const validFixedFields = fixedFields?.filter(ff =>
                     definition.fields.some(field => field.name === ff.fieldName)
                 );
-
                 const data = await callApi('table_data', {
                     table: tableName,
-                    fixedFields: validFixedFields // Usamos los campos validados
+                    fixedFields: validFixedFields
                 }, { isCritical: true });
                 setTableData(data);
-
             } catch (err: any) {
                 setTableDefinition(null);
                 setTableData([]);
                 showError(`Error al cargar datos para la tabla '${tableName}': ${err.message || 'Error desconocido'}`);
-            } finally { }
+            }
         };
         fetchDataAndDefinition();
     }, [tableName, fixedFields, showError]);
@@ -474,16 +311,12 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 setCellFeedbackMap(prevMap => {
                     const newMap = new Map(prevMap);
                     let mapChanged = false;
-
-                    // Solo eliminamos el feedback de tipo 'success' automáticamente
                     for (const [cellId, feedback] of prevMap.entries()) {
                         if (feedback.type === 'success') {
                             newMap.delete(cellId);
                             mapChanged = true;
                         }
                     }
-
-                    // Retorna el nuevo mapa solo si hubo cambios
                     return mapChanged ? newMap : prevMap;
                 });
                 feedbackTimerRef.current = null;
@@ -496,219 +329,40 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         };
     }, [cellFeedbackMap]);
 
-    // Cálculo de agregadores para la fila de resumen inferior
-    const bottomSummaryRow = useMemo(() => {
-        if (!tableDefinition) return { id: 'bottomSummaryRow' };
-
-        const summary: any = { id: 'bottomSummaryRow' };
-
-        tableDefinition.fields.forEach(field => {
-            const agg = (field as any).aggregate;
-            if (!agg) return;
-
-            const values = filteredRows
-                .map(r => r[field.name])
-                .filter(v => v !== null && v !== undefined);
-
-            if (values.length === 0 && agg !== 'count' && agg !== 'countTrue') {
-                return;
-            }
-
-            switch (agg) {
-                case 'sum':
-                    summary[field.name] = { type: 'sum', value: values.reduce((a, b) => Number(a) + Number(b), 0) };
-                    break;
-                case 'avg':
-                    const sum = values.reduce((a, b) => Number(a) + Number(b), 0);
-                    summary[field.name] = { type: 'avg', value: sum / values.length };
-                    break;
-                case 'min':
-                    summary[field.name] = { type: 'min', value: Math.min(...values.map(v => Number(v))) };
-                    break;
-                case 'max':
-                    summary[field.name] = { type: 'max', value: Math.max(...values.map(v => Number(v))) };
-                    break;
-                case 'count':
-                    summary[field.name] = { type: 'count', value: values.length };
-                    break;
-                case 'countTrue':
-                    summary[field.name] = { type: 'countTrue', value: filteredRows.filter(r => r[field.name] === true).length };
-                    break;
-            }
-        });
-
-        return summary;
-    }, [tableDefinition, filteredRows]);
-
-
-    const toggleFilterVisibility = useCallback(() => {
-        setIsFilterRowVisible(prev => {
-            if (prev) {
-                setFilters({});
-            }
-            return !prev;
-        });
-    }, []);
-
-    const triggerImport = useCallback(() => {
-        setOpenImportDialog(true);
-    }, []);
-
-
-    const menuOptions = useMemo(() => buildMenuOptions({
+    const { menuOptions } = useGridMenu({
         tableDefinition,
         tableName,
         fixedFields,
         setTableData,
         callApi,
-        showSuccess,
-        showError,
-        showWarning,
-        triggerImport,
+        resetSorting: tableDefinition ? () => resetSorting(tableDefinition) : undefined,
+        triggerImport: () => setOpenImportDialog(true),
         triggerExport: () => setOpenExportDialog(true),
-        resetSorting: () => setSortColumns(getInitialSortColumns(tableDefinition!))
-    }), [tableDefinition, tableName, fixedFields, setTableData, callApi, showSuccess, showError, showWarning, triggerImport, getInitialSortColumns]);
+    });
 
-    const columns: CustomColumn<any>[] = useMemo(() => {
-        if (!tableDefinition) return [];
-        const fieldsToShow = tableDefinition.fields.filter((field: FieldDefinition) => {
-            const isFixedField = fixedFields?.some(f => f.fieldName === field.name);
-            return !isFixedField && field.visible !== false;
-        });
-        // Estimación simple de ancho en px por carácter según fuente (~8px para body2/caption)
-        const estimateTextWidth = (text: string): number => text.length * 8 + 16;
+    const { columns } = useGridColumns({
+        tableDefinition,
+        tableData,
+        fixedFields,
+        isFilterRowVisible,
+        sortColumns,
+        primaryKey,
+        localCellChanges,
+        cellFeedbackMap,
+        setCellFeedbackMap,
+        setTableData,
+        setLocalCellChanges,
+        handleKeyPressInEditor,
+        handleDeleteRow,
+        handleAddRow,
+        handleVerticalEditRow,
+        toggleFilterVisibility,
+        setDataGridOptionsAnchorEl,
+        setOpenDataGridOptions,
+        onOpenDetail,
+        ancestors: ancestors ?? [],
+    });
 
-        const getColumnWidthFromData = (fieldDef: FieldDefinition): number => {
-            const headerLabel = fieldDef.label || fieldDef.name;
-            const type = fieldDef.typeName?.toLowerCase() || '';
-
-            // Ancho mínimo base según tipo
-            let typeMinWidth = 60;
-            if (type.includes('boolean') || type.includes('checkbox')) typeMinWidth = 60;
-            else if (type.includes('date') || type.includes('timestamp')) typeMinWidth = 110;
-            else if (type.includes('integer') || type.includes('numeric')) typeMinWidth = 80;
-
-            // Ancho del encabezado (texto + ícono de sort ~20px)
-            const headerWidth = estimateTextWidth(headerLabel) + 20;
-
-            // Ancho máximo encontrado en las primeras 50 filas
-            const sampleRows = tableData.slice(0, 50);
-            const maxDataWidth = sampleRows.reduce((maxW, row) => {
-                const typer = typeStore.typerFrom(fieldDef);
-                const cellValue = row[fieldDef.name] !== null && typer.toLocalString(row[fieldDef.name]);
-                if (cellValue === null || cellValue === undefined) return maxW;
-                const valueStr = String(cellValue);
-                return Math.max(maxW, estimateTextWidth(valueStr));
-            }, 0);
-
-            // El ancho final es el máximo entre: ancho del header, ancho del dato, mínimo por tipo
-            // Con un límite máximo de 500px para no exagerar en campos muy largos
-            return Math.min(Math.max(headerWidth, maxDataWidth, typeMinWidth), 500);
-        };
-
-        const defaultColumns: CustomColumn<any>[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
-            const isFixedField = fixedFields?.some(f => f.fieldName === fieldDef.name);
-            const isFieldEditable = fieldDef.editable !== false && !isFixedField;
-            const colWidth = getColumnWidthFromData(fieldDef);
-
-            return {
-                key: fieldDef.name,
-                customType: 'default',
-                tableDefinition,
-                fieldDef,
-                cellFeedbackMap,
-                setCellFeedbackMap,
-                primaryKey,
-                fixedFields,
-                localCellChanges,
-                setLocalCellChanges,
-                setTableData,
-                name: fieldDef.label || cambiarGuionesBajosPorEspacios(fieldDef.name),
-                resizable: true,
-                sortable: true,
-                editable: isFieldEditable,
-                handleKeyPressInEditor,
-                width: colWidth,
-                minWidth: colWidth,
-                renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer({ ...props, sortColumns }, fieldDef),
-                renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => defaultColumnSummaryCellRenderer(props, fixedFields, isFilterRowVisible),
-            };
-        });
-
-        // Calcular ancho dinámico basado en botones disponibles
-        const availableActions = [
-            tableDefinition.allow?.insert,
-            tableDefinition.allow?.delete,
-            tableDefinition.allow?.['vertical-edit']
-        ].filter(Boolean).length;
-
-        // Ancho base para "Lupa" y "Opciones" (2 botones siempre presentes) + Paddington general = ~60px
-        // Ancho extra por cada botón de acción habilitado (Agregar, Eliminar, Editar) = ~25px
-        const actionColumnWidth = 60 + (availableActions * 10);
-
-        const actionsColumn: CustomColumn<any> = {
-            key: 'actionsColumn',
-            customType: 'action',
-            tableDefinition,
-            handleDeleteRow,
-            handleAddRow,
-            handleVerticalEditRow,
-            name: 'filterCol',
-
-            width: actionColumnWidth,
-            editable: false,
-            resizable: false,
-            sortable: false,
-            renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => actionsColumnHeaderCellRenderer(props, isFilterRowVisible, toggleFilterVisibility, (e: React.MouseEvent<HTMLElement>) => {
-                setDataGridOptionsAnchorEl(e.currentTarget);
-                setOpenDataGridOptions(true);
-            }, handleAddRow, tableDefinition.allow?.insert),
-            renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => actionsColumnSummaryCellRenderer(props),
-        }; const detailColumns: CustomColumn<any>[] = [];
-        if (tableDefinition.detailTables && tableDefinition.detailTables.length > 0) {
-            tableDefinition.detailTables.forEach(detailTable => {
-                const detailKey = `detail_${detailTable.abr}`;
-                detailColumns.push({
-                    key: detailKey,
-                    customType: 'detail',
-                    tableDefinition,
-                    detailTable,
-                    primaryKey,
-                    tableData,
-                    setTableData,
-                    detailKey,
-                    name: detailTable.label || `Detalle ${detailTable.abr}`,
-                    resizable: false,
-                    sortable: false,
-                    editable: false,
-                    width: 30,
-                    minWidth: 30,
-                    renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => detailColumnCellHeaderRenderer(props, detailTable),
-                    renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => detailColumnCellSummaryRenderer(props),
-                });
-            });
-        }
-
-        const allColumns = [
-            actionsColumn,
-            ...detailColumns,
-            ...defaultColumns,
-        ];
-
-        return allColumns.map(col => ({
-            ...col,
-            editorOptions: { closeOnExternalRowChange: false }, //con esto no se pierde el foco
-            renderEditCell: (props) => allColumnsEditCellRenderer(props, allColumns),
-            renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props, onOpenDetail, ancestors, fixedFields),
-        }));
-    }, [tableDefinition, fixedFields, isFilterRowVisible, primaryKey, localCellChanges, handleKeyPressInEditor, handleDeleteRow, handleAddRow, handleVerticalEditRow, toggleFilterVisibility, tableData, cellFeedbackMap, sortColumns]);
-
-    const summaryRows = useMemo(() => {
-        if (!isFilterRowVisible) return undefined;
-        return [{ id: 'filterRow', filters, setFilters }];
-    }, [isFilterRowVisible, filters, setFilters]);
-
-    const filterHeight = isFilterRowVisible ? FILTER_ROW_HEIGHT : 0;
     const getFallBackMessage = () => {
         if (tableData.length === 0) {
             return "No hay filas para mostrar";
