@@ -43,7 +43,7 @@ function InputRenderer<R extends Record<string, any>, S>({
 }: InputRendererProps<R, S>) {
     const fieldDefinition = tableDefinition.fields.find(f => f.name === column.key);
     const typer = useMemo(() => typeStore.typerFrom(fieldDefinition), [fieldDefinition]);
-    const [editingValue, setEditingValue] = useState(() => row[column.key] !== null ? typer.toLocalString(row[column.key]) : null);
+    const [editingValue, setEditingValue] = useState(() => row[column.key] !== null ? isNumericType(fieldDefinition?.typeName) ? row[column.key] : typer.toLocalString(row[column.key]) : null);
     const isCommitInProgress = React.useRef(false);
 
     const theme = useTheme();
@@ -81,7 +81,6 @@ function InputRenderer<R extends Record<string, any>, S>({
         try {
             // Usamos la lógica de BestControls portada de TypedControls.js a getBestTypedValue
             processedNewValue = getBestTypedValue(currentValue, typer);
-
             // Validamos contra el esquema del typer
             typer.validateTypedData(processedNewValue);
         } catch (err: any) {

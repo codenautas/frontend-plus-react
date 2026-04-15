@@ -1,14 +1,6 @@
 // src/components/grid/utils/typedControls.ts
 
 export const BestControls = {
-    div: {
-        getTypedValue: (plainValue: any, typer: any): any => {
-            if (plainValue === null || plainValue === undefined) {
-                return plainValue;
-            }
-            return typer.fromUserInput(plainValue);
-        }
-    },
     text: {
         translates: {
             true: { '\n': '\u21b5' },
@@ -23,18 +15,10 @@ export const BestControls = {
             return result;
         },
         getTypedValue: (plainValue: any, typer: any): any => {
-            let typedValue = plainValue;
-            if (typeof typedValue === 'string') {
-                typedValue = BestControls.text.translate(false, typedValue);
+            if (plainValue === null || plainValue === undefined) {
+                return plainValue;
             }
-            if ((typedValue === null || typedValue === undefined || typedValue === '') && !typer.nullable) {
-                return '';
-            } else {
-                if (typeof typedValue === 'string') {
-                    return typedValue.replace(/\n+$/, '');
-                }
-                return typedValue;
-            }
+            return typer.fromUserInput(plainValue);
         }
     },
     number: {
@@ -82,7 +66,7 @@ export const BestControls = {
                 // DD/MM/YYYY
                 // Requisito: Años si o si con 4 dígitos
                 if (parts[2].length !== 4) return null;
-                
+
                 day = Number(parts[0]);
                 month = Number(parts[1]) - 1;
                 year = Number(parts[2]);
@@ -103,12 +87,11 @@ export const BestControls = {
  * Función principal para obtener el valor tipado según el tipo del typer.
  */
 export const getBestTypedValue = (value: any, typer: any): any => {
+
+    value = value === '' ? typer.emptyValue : value;
+
     const typeName = typer.typeName;
-    
-    // Mapeo de tipos de typer a controlles específicos
-    if (typeName === 'text' || typeName === 'varchar' || typeName === 'char') {
-        return BestControls.text.getTypedValue(value, typer);
-    }
+
     if (['integer', 'bigint', 'decimal', 'double', 'float', 'number'].includes(typeName)) {
         return BestControls.number.getTypedValue(value);
     }
@@ -118,7 +101,6 @@ export const getBestTypedValue = (value: any, typer: any): any => {
     if (typeName === 'date' || (typeName && typeName.toLowerCase().includes('timestamp'))) {
         return BestControls.date.getTypedValue(value, typer);
     }
-    
-    // Fallback al genérico
-    return BestControls.div.getTypedValue(value, typer);
+
+    return BestControls.text.getTypedValue(value, typer);
 };
