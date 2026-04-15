@@ -4,6 +4,8 @@ import { TableDefinition, FieldDefinition } from '../../types';
 
 // @ts-ignore
 import typeStore from 'type-store';
+import { sameValue } from '../../components/grid/utils/helpers';
+import { getBestTypedValue } from '../../components/grid/utils/typedControls';
 
 export type SortColumn = { columnKey: string; direction: 'ASC' | 'DESC' };
 
@@ -87,8 +89,20 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
                 const fieldDef = tableDefinition?.fields.find(f => f.name === key);
                 const typer = fieldDef ? typeStore.typerFrom(fieldDef) : null;
 
+                // Intentamos parsear el valor del filtro al tipo real para comparaciones matemáticas/fechas
+                let parsedFilterValue: any = filterValue;
+                if (typer && filterValue !== '' && !['~', '!~', '∅', '!=∅'].includes(operator)) {
+                    try {
+                        parsedFilterValue = getBestTypedValue(filterValue, typer);
+                    } catch (e) {
+                        // Si falla el parseo (ej: fecha incompleta), seguimos con el valor original
+                    }
+                }
+
                 rows = rows.filter(row => {
                     const rawValue = row[key];
+
+                    // cellValue se usa para búsquedas parciales (~) o como fallback
                     let cellValue = '';
                     if (typer && rawValue !== null && rawValue !== undefined) {
                         try { cellValue = typer.toLocalString(rawValue).toLowerCase(); }
@@ -98,33 +112,24 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
                     }
 
                     const fValLower = String(filterValue).toLowerCase();
-                    const numRaw = Number(rawValue);
-                    const numFilter = Number(filterValue);
-                    const isNumCom = !isNaN(numRaw) && !isNaN(numFilter) && filterValue !== '';
 
                     switch (operator) {
                         case '=':
-                            if (isNumCom && rawValue !== null && rawValue !== '') return numRaw === numFilter;
-                            return cellValue === fValLower;
+                            return sameValue(rawValue, parsedFilterValue) || cellValue === fValLower;
                         case '!=':
-                            if (isNumCom && rawValue !== null && rawValue !== '') return numRaw !== numFilter;
-                            return cellValue !== fValLower;
+                            return !sameValue(rawValue, parsedFilterValue) && cellValue !== fValLower;
                         case '~': return cellValue.includes(fValLower);
                         case '!~': return !cellValue.includes(fValLower);
                         case '∅': return rawValue === null || rawValue === undefined || rawValue === '';
                         case '!=∅': return rawValue !== null && rawValue !== undefined && rawValue !== '';
                         case '>':
-                            if (isNumCom && rawValue !== null) return numRaw > numFilter;
-                            return rawValue > filterValue;
+                            return (rawValue !== null && rawValue !== undefined) && (rawValue > parsedFilterValue);
                         case '>=':
-                            if (isNumCom && rawValue !== null) return numRaw >= numFilter;
-                            return rawValue >= filterValue;
+                            return (rawValue !== null && rawValue !== undefined) && (rawValue >= parsedFilterValue);
                         case '<':
-                            if (isNumCom && rawValue !== null) return numRaw < numFilter;
-                            return rawValue < filterValue;
+                            return (rawValue !== null && rawValue !== undefined) && (rawValue < parsedFilterValue);
                         case '<=':
-                            if (isNumCom && rawValue !== null) return numRaw <= numFilter;
-                            return rawValue <= filterValue;
+                            return (rawValue !== null && rawValue !== undefined) && (rawValue <= parsedFilterValue);
                         default: return cellValue.includes(fValLower);
                     }
                 });

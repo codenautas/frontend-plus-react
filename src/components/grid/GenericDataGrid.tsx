@@ -260,7 +260,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
 
     const { handleCellDoubleClick, handleCellClick, handleCellKeyDown, handleCellMouseDown, handleKeyPressInEditor, handleSelectedCellChange, handleRowsChange } = useGridEvents({
-        dataGridRef, filteredRows, fixedFields, tableData, tableDefinition, setSelectedCell, setTableData
+        dataGridRef, filteredRows, fixedFields, tableData, tableDefinition, setSelectedCell, setTableData, setSortColumns
     });
 
     useEffect(() => {

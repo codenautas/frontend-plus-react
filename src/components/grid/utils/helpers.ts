@@ -26,6 +26,23 @@ export const getPrimaryKeyValues = (row: any, primaryKey: string[]): string => {
     }).join('|');
 };
 
+/**
+ * Compara dos valores de forma robusta, manejando Fechas y nulos.
+ * Basado en sameValue de best-globals/backend-plus.
+ */
+export const sameValue = (a: any, b: any): boolean => {
+    if (a === b) return true;
+    if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
+    
+    // Tratamos null y undefined como equivalentes para el propósito de "valor vacío" 
+    // en celdas de grilla si uno de ellos está presente y el otro no.
+    const isAEmpty = a === null || a === undefined;
+    const isBEmpty = b === null || b === undefined;
+    if (isAEmpty && isBEmpty) return true;
+
+    return false;
+};
+
 
 /**
  * Obtiene la clave única para una celda.

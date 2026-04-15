@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Column } from "react-data-grid";
 import { useSnackbar } from "../../contexts/SnackbarContext";
 import { useApiCall } from "../../hooks/useApiCall";
@@ -9,7 +9,8 @@ import { InputRendererProps, CellFeedback, CellFeedbackMap } from "../../types";
 // getCellKey deben provenir de tu archivo GenericDataGrid
 import { NEW_ROW_INDICATOR } from "./GenericDataGrid";
 import { useTheme } from "@mui/material";
-import { getPrimaryKeyValues, getCellKey, isNumericType } from "./utils/helpers";
+import { getPrimaryKeyValues, getCellKey, isNumericType, sameValue } from "./utils/helpers";
+import { getBestTypedValue } from "./utils/typedControls";
 // @ts-ignore
 import typeStore from 'type-store';
 
@@ -43,6 +44,7 @@ function InputRenderer<R extends Record<string, any>, S>({
     const fieldDefinition = tableDefinition.fields.find(f => f.name === column.key);
     const typer = useMemo(() => typeStore.typerFrom(fieldDefinition), [fieldDefinition]);
     const [editingValue, setEditingValue] = useState(() => row[column.key] !== null ? typer.toLocalString(row[column.key]) : null);
+    const isCommitInProgress = React.useRef(false);
 
     const theme = useTheme();
     const { showSuccess, showError } = useSnackbar();
@@ -50,33 +52,42 @@ function InputRenderer<R extends Record<string, any>, S>({
     const tableName = tableDefinition.tableName!;
 
 
-    // Generamos la clave única usando la función importada
-    const cellKey = getCellKey(row, column.key, primaryKey);
+    // Generamos la clave única para la celda manualmente usando el formato esperado
+    const rowId = getPrimaryKeyValues(row, primaryKey);
+    const cellKey = `${rowId}-${column.key}`;
 
-    // --- LÍNEA CORREGIDA ---
     // Asumimos que cellFeedbackMap es un Map<string, CellFeedback>
     const currentCellFeedback = cellFeedbackMap.get(cellKey);
     // ------------------------
 
+    const isMandatory = tableDefinition.primaryKey.includes(column.key) || (fieldDefinition?.nullable === false);
+    const isEmpty = editingValue === null || editingValue === undefined || String(editingValue).trim() === '';
+
     let cellBackgroundColor;
+    let cellBorderColor = '#ccc';
+
     if (currentCellFeedback) {
         cellBackgroundColor = currentCellFeedback.type === 'error' ? theme.palette.error.light : theme.palette.success.light;
+        cellBorderColor = currentCellFeedback.type === 'error' ? theme.palette.error.main : theme.palette.success.main;
     }
 
     const initialRowId = useMemo(() => getPrimaryKeyValues(row, primaryKey), [row, primaryKey]);
-    const { callApi } = useApiCall();
 
     const handleCommit = useCallback(async (currentValue: any, closeEditor: boolean, focusNextCell: boolean) => {
+        if (isCommitInProgress.current) return;
+        isCommitInProgress.current = true;
+
         let processedNewValue;
         try {
-            const typedValue = typer.fromLocalString(currentValue);
-            typer.validateTypedData(typedValue);
-            processedNewValue = typedValue;
+            // Usamos la lógica de BestControls portada de TypedControls.js a getBestTypedValue
+            processedNewValue = getBestTypedValue(currentValue, typer);
+
+            // Validamos contra el esquema del typer
+            typer.validateTypedData(processedNewValue);
         } catch (err: any) {
             showError(err.message);
-            // Si el valor es inválido, no hacemos commit y mantenemos el editor abierto si es blur
-            // Opcionalmente podemos resetear el valor, pero mejor dejar que el usuario corrija.
-            return;
+            isCommitInProgress.current = false;
+            return; // Detenemos el commit ante errores
         }
 
 
@@ -90,8 +101,10 @@ function InputRenderer<R extends Record<string, any>, S>({
         const isMandatoryField = tableDefinition.primaryKey.includes(column.key) || (tableDefinition.fields.find(f => f.name === column.key)?.nullable === false);
         const isMandatoryFieldEmpty = isNewRow && isMandatoryField && (processedNewValue === null || processedNewValue === undefined || String(processedNewValue).trim() === '');
 
-        if (processedNewValue === row[column.key] && !isNewRow && !isMandatoryFieldEmpty) {
-            console.log("No se guardó: el valor no cambió (y no es una nueva fila o campo obligatorio vacío que se está iniciando).");
+        // Usamos sameValue para una comparación robusta (Dates, nulls, etc)
+        if (sameValue(processedNewValue, row[column.key]) && !isNewRow && !isMandatoryFieldEmpty) {
+            console.log("No se guardó: el valor no cambió.");
+            isCommitInProgress.current = false;
             return;
         }
 
@@ -127,6 +140,7 @@ function InputRenderer<R extends Record<string, any>, S>({
                     newMap.set(initialRowId, currentColumnsInRow);
                     return newMap;
                 });
+                isCommitInProgress.current = false;
                 return;
             } else {
                 console.log("Nueva fila: Todos los campos obligatorios están llenos. Procediendo a guardar.");
@@ -214,6 +228,10 @@ function InputRenderer<R extends Record<string, any>, S>({
                 return newFeedback;
             });
             // -------------------------------
+        } finally {
+            if (!closeEditor) {
+                isCommitInProgress.current = false;
+            }
         }
     }, [
         column, row, onRowChange, tableName, tableDefinition.primaryKey,
@@ -223,7 +241,15 @@ function InputRenderer<R extends Record<string, any>, S>({
 
 
     const handleKeyDown = useCallback(async (event: React.KeyboardEvent) => {
-        if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'F4'].includes(event.key)) {
+        if (event.key === 'F4') {
+            event.preventDefault();
+            if (onKeyPress) {
+                onKeyPress(rowIdx, column.key, event, handleCommit);
+            }
+            return;
+        }
+
+        if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft'].includes(event.key)) {
             await handleCommit(editingValue, true, true);
             if (onKeyPress) {
                 onKeyPress(rowIdx, column.key, event, handleCommit);
@@ -246,12 +272,12 @@ function InputRenderer<R extends Record<string, any>, S>({
             onChange={(e) => setEditingValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
-            placeholder={''}
+            placeholder={isMandatory ? '*' : ''}
             className={editingValue === '--' ? 'typed-controls-signal-no-data' : editingValue === '//' ? 'typed-controls-signal-unknown-data' : ''}
             sx={{
                 width: '100%',
                 margin: '0',
-                border: '1px solid #ccc',
+                border: `1px solid ${cellBorderColor}`,
                 borderRadius: '4px',
                 padding: '2px 4px',
                 fontSize: '0.8rem',

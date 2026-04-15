@@ -4,6 +4,7 @@ import { CellMouseArgs, CellKeyDownArgs, CellMouseEvent, CellKeyboardEvent, Data
 import { DetailColumn } from '../../components/grid/GenericDataGrid';
 import { FixedField } from '../../types';
 import { DOM_TEMP_ID } from '../../components/grid/utils/helpers';
+import { SortColumn } from './useGridDataView';
 
 interface UseGridEventsProps {
     dataGridRef: React.RefObject<DataGridHandle>
@@ -13,9 +14,10 @@ interface UseGridEventsProps {
     tableData: any[],
     setSelectedCell: React.Dispatch<React.SetStateAction<CellSelectArgs<any, NoInfer<{id: string;}>> | undefined>>,
     setTableData: React.Dispatch<React.SetStateAction<any[]>>,
+    setSortColumns: React.Dispatch<React.SetStateAction<readonly SortColumn[]>>
 }
 
-export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, tableData, fixedFields, setSelectedCell, setTableData}: UseGridEventsProps) => {
+export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, tableData, fixedFields, setSelectedCell, setTableData, setSortColumns}: UseGridEventsProps) => {
 
     const handleKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, event: React.KeyboardEvent, currentColumns: Column<any>[], handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => {
         if (dataGridRef.current && tableDefinition) {
@@ -112,8 +114,9 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
                             break;
                         }
                         case (key === 'F4'): {
+                            setSortColumns([]); // Limpiar ordenamiento
                             const {rowIdx, idx} = calcularFilaSiguiente();
-                            const previousRow = tableData[rowIndex-1]
+                            const previousRow = filteredRows[rowIndex-1]
                             if(previousRow){
                                 handleCommit(previousRow[columnKey], true, true).then(()=>hacerFoco({rowIdx ,idx}))
                             }
@@ -149,9 +152,10 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         const isFixedField = fixedFields?.some(f => f.fieldName === args.column.key);
         const isEditable = fieldDefinition?.editable !== false && !isFixedField;
         if(isEditable){
+            setSortColumns([]); // Limpiar ordenamiento al clickear
             args.selectCell(true);
         }
-    }, [tableDefinition, fixedFields]);
+    }, [tableDefinition, fixedFields, setSortColumns]);
 
     const handleRowsChange = useCallback((updatedRows: any[], data: RowsChangeData<any, any>) => {
         // Preservar la identidad (DOM_TEMP_ID) de las filas editadas

@@ -57,19 +57,20 @@ export const allColumnsCellRenderer = (
 
             let cellBackgroundColor = 'transparent';
 
+            const isMandatory = tableDefinition.primaryKey.includes(props.column.key) || (tableDefinition.fields.find(f => f.name === props.column.key)?.nullable === false);
+            const hasValue = row[props.column.key] !== null && row[props.column.key] !== undefined && String(row[props.column.key]).trim() !== '';
+
             // --- LÓGICA DE COLOR DE FEEDBACK ADAPTADA ---
             if (currentCellFeedback) {
                 cellBackgroundColor = currentCellFeedback.type === 'error' ? theme.palette.error.light : theme.palette.success.light;
             } else {
                 // ------------------------------------------
                 const isNewRowLocalCheck = row[NEW_ROW_INDICATOR];
-                const isMandatory = tableDefinition.primaryKey.includes(props.column.key) || (tableDefinition.fields.find(f => f.name === props.column.key)?.nullable === false);
-                const hasValue = row[props.column.key] !== null && row[props.column.key] !== undefined && String(row[props.column.key]).trim() !== '';
                 const isFixedFieldCurrent = fixedFields?.some(f => f.fieldName === props.column.key);
 
                 if (isFixedFieldCurrent) {
                     cellBackgroundColor = theme.palette.action.selected;
-                } else if ((isNewRowLocalCheck && isMandatory && !hasValue) || (localCellChanges.has(rowId) && localCellChanges.get(rowId)?.has(props.column.key))) {
+                } else if ((isMandatory && !hasValue) || (localCellChanges.has(rowId) && localCellChanges.get(rowId)?.has(props.column.key))) {
                     cellBackgroundColor = '#e3f2fd'; // Celeste premium suave
                 }
             }
@@ -78,8 +79,12 @@ export const allColumnsCellRenderer = (
             // Usamos TypeStore para el formateo de visualización
             const value = row[props.column.key];
             const typer = typeStore.typerFrom(fieldDef);
-            const displayValue = value !== null && typer.toLocalString(value);
+            let displayValue = value !== null ? typer.toLocalString(value) : '';
             const isNumeric = isNumericType(fieldDef?.typeName);
+            
+            if (!hasValue && isMandatory) {
+                displayValue = '* ' + displayValue; // Agrega el asterisco si está vacío y es requerido
+            }
 
 
             return (
