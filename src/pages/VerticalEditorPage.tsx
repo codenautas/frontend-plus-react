@@ -138,12 +138,28 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
                 setInternalIsNewRow(false);
             }
 
-            // Exito multi-feedback: cada campo tiene su propio timer
-            setFieldFeedback(prev => ({ ...prev, [fieldName]: 'success' }));
-            if (feedbackTimersRef.current[fieldName]) clearTimeout(feedbackTimersRef.current[fieldName]);
-            feedbackTimersRef.current[fieldName] = setTimeout(() =>
-                setFieldFeedback(prev => { const n = {...prev}; delete n[fieldName]; return n; })
-            , 3000);
+            if (wasNewItem) {
+                // Primer guardado: pintar todos los campos con valor en la respuesta del servidor
+                const feedbackPatch: Record<string, 'success'> = {};
+                for (const key of Object.keys(responseRow)) {
+                    const val = responseRow[key];
+                    if (val !== null && val !== undefined && val !== '') {
+                        feedbackPatch[key] = 'success';
+                        if (feedbackTimersRef.current[key]) clearTimeout(feedbackTimersRef.current[key]);
+                        feedbackTimersRef.current[key] = setTimeout(() =>
+                            setFieldFeedback(prev => { const n = { ...prev }; delete n[key]; return n; })
+                            , 3000);
+                    }
+                }
+                setFieldFeedback(prev => ({ ...prev, ...feedbackPatch }));
+            } else {
+                // Guardado parcial: solo el campo modificado
+                setFieldFeedback(prev => ({ ...prev, [fieldName]: 'success' }));
+                if (feedbackTimersRef.current[fieldName]) clearTimeout(feedbackTimersRef.current[fieldName]);
+                feedbackTimersRef.current[fieldName] = setTimeout(() =>
+                    setFieldFeedback(prev => { const n = { ...prev }; delete n[fieldName]; return n; })
+                    , 3000);
+            }
 
             onSaveSuccess(responseRow, wasNewItem);
 
@@ -153,8 +169,8 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
             setFieldFeedback(prev => ({ ...prev, [fieldName]: 'error' }));
             if (feedbackTimersRef.current[fieldName]) clearTimeout(feedbackTimersRef.current[fieldName]);
             feedbackTimersRef.current[fieldName] = setTimeout(() =>
-                setFieldFeedback(prev => { const n = {...prev}; delete n[fieldName]; return n; })
-            , 5000);
+                setFieldFeedback(prev => { const n = { ...prev }; delete n[fieldName]; return n; })
+                , 5000);
 
         } finally {
             setIsSaving(false);
