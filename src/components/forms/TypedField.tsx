@@ -6,6 +6,7 @@ import {
     Select,
     MenuItem,
     FormHelperText,
+    InputAdornment,
     useTheme
 } from '@mui/material';
 import { FieldDefinition } from '../../types';
@@ -23,9 +24,10 @@ interface TypedFieldProps {
     disabled?: boolean;
     isFilterMode?: boolean; // Para usarse en los headers de filtro (más compacto)
     feedback?: 'success' | 'error'; // Indicador de éxito/error proveniente del evento save
+    isMandatory?: boolean; 
 }
 
-export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChange, onCommit, disabled, isFilterMode = false, feedback }) => {
+export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChange, onCommit, disabled, isFilterMode = false, feedback, isMandatory = false }) => {
     const theme = useTheme();
 
     const typer = useMemo(() => typeStore.typerFrom(fieldDef), [fieldDef]);
@@ -43,6 +45,7 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
     });
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const lastValueRef = useRef<any>(value);
+    const lastCommittedStringRef = useRef<string>(localString); // Para evitar commit sin cambios
 
     // Inicializar el valor visual desde el valor tipado (solo si cambia externamente)
     useEffect(() => {
@@ -93,6 +96,10 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
 
     const handleTextCommit = useCallback(() => {
         if (!onCommit) return;
+        // No enviar commit si el string no cambió desde el último commit
+        if (localString === lastCommittedStringRef.current) return;
+        lastCommittedStringRef.current = localString;
+        
         let parsedValue = null;
         let isValid = true;
 
@@ -144,20 +151,34 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
         if (value === true) boolVal = 'true';
         else if (value === false) boolVal = 'false';
 
+        const isEmpty = boolVal === '';
+        let defaultBgColor = undefined;
+        if (isMandatory && isEmpty && !isFilterMode) {
+            defaultBgColor = '#e3f2fd';
+        }
         // Feedback styling matching GenericDataGrid
-        const cellBackgroundColor = feedback === 'error' ? theme.palette.error.light : feedback === 'success' ? theme.palette.success.light : undefined;
+        const cellBackgroundColor = feedback === 'error' ? theme.palette.error.light : feedback === 'success' ? theme.palette.success.light : defaultBgColor;
         const transitionStyle = 'background-color 0.3s ease-in-out';
 
         return (
             <FormControl fullWidth error={!!errorMsg && !isFilterMode} disabled={isDisabled} size="small" margin="dense">
-                {!isFilterMode && <InputLabel>{fieldDef.name}</InputLabel>}
+                {!isFilterMode && <InputLabel shrink>{fieldDef.name}</InputLabel>}
                 <Select
                     value={boolVal}
                     label={!isFilterMode ? fieldDef.name : undefined}
                     onChange={handleBooleanChange}
+                    startAdornment={
+                        isMandatory && isEmpty && !isFilterMode
+                            ? <InputAdornment position="start" sx={{ color: 'text.secondary', ml: 0.5 }}>*</InputAdornment>
+                            : undefined
+                    }
+                    displayEmpty
                     sx={isFilterMode
                         ? { height: 25, fontSize: '0.8rem', backgroundColor: 'background.paper' }
-                        : { backgroundColor: cellBackgroundColor, transition: transitionStyle }}
+                        : { 
+                            backgroundColor: cellBackgroundColor, 
+                            transition: transitionStyle,
+                          }}
                 >
 
                     {fieldDef.nullable !== false && (
@@ -182,8 +203,14 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
 
 
 
+    const isEmptyText = localString === null || localString === undefined || String(localString).trim() === '';
+    let defaultTextBgColor = undefined;
+    if (isMandatory && isEmptyText && !isFilterMode) {
+        defaultTextBgColor = '#e3f2fd';
+    }
+
     // Feedback styling matching GenericDataGrid 
-    const cellBackgroundColor = feedback === 'error' ? theme.palette.error.light : feedback === 'success' ? theme.palette.success.light : undefined;
+    const cellBackgroundColor = feedback === 'error' ? theme.palette.error.light : feedback === 'success' ? theme.palette.success.light : defaultTextBgColor;
     const transitionStyle = 'background-color 0.3s ease-in-out';
 
     return (
@@ -198,8 +225,13 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
             onChange={handleTextChange}
             disabled={isDisabled}
             error={!!errorMsg && !isFilterMode}
-            helperText={!isFilterMode ? (errorMsg || (fieldDef.nullable === false ? 'Obligatorio' : '')) : undefined}
+            helperText={!isFilterMode ? (errorMsg || (isMandatory ? 'Obligatorio' : '')) : undefined}
             InputLabelProps={!isFilterMode ? { shrink: true } : undefined}
+            InputProps={!isFilterMode && isMandatory && isEmptyText ? {
+                startAdornment: (
+                    <InputAdornment position="start" sx={{ color: 'text.secondary', mr: 0.5 }}>*</InputAdornment>
+                )
+            } : {}}
             inputProps={{
                 style: {
                     textAlign: isNumericType(fieldDef.typeName) ? 'right' : 'left',
@@ -215,7 +247,15 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
                         padding: '0px'
                     }
                 }
-                : { '& .MuiOutlinedInput-root': { backgroundColor: cellBackgroundColor, transition: transitionStyle } }}
+                : { 
+                    '& .MuiOutlinedInput-root': { 
+                        backgroundColor: cellBackgroundColor, 
+                        transition: transitionStyle 
+                    },
+                    '& .MuiOutlinedInput-input': {
+                        padding: '6px 12px'
+                    }
+                }}
             onBlur={handleTextCommit}
             onKeyDown={handleTextKeyDown}
         />

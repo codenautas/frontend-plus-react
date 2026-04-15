@@ -6,12 +6,15 @@ import {
     Button,
     Alert,
     Box,
-    CircularProgress
+    CircularProgress,
+    IconButton,
+    Typography
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { TableDefinition, FixedField } from '../types';
 import { TypedField } from '../components/forms/TypedField';
 import { useTableRecordSave } from '../hooks/useTableRecordSave';
-import { getPrimaryKeyValues } from '../components/grid/utils/helpers';
+import { getPrimaryKeyValues, sameValue } from '../components/grid/utils/helpers';
 
 // @ts-ignore
 import typeStore from 'type-store';
@@ -53,7 +56,7 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
     const [isSaving, setIsSaving] = useState(false);
 
     const [fieldFeedback, setFieldFeedback] = useState<Record<string, 'success' | 'error'>>({});
-    const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const feedbackTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({}); // timer por campo
 
     const handleFieldChange = useCallback((fieldName: string, newValue: any, isValid: boolean) => {
         setFormData(prev => ({ ...prev, [fieldName]: newValue }));
@@ -86,11 +89,9 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
         // En un autosave, si el campo es inválido localmente, no enviamos
         if (!isValid) return;
 
-        // Diff check: si el valor tipeado/seleccionado es el mismo que está guardado en backend, ignoramos.
-        // Hacemos una comparación simple; para objetos más complejos podría requerir deep equal,
-        // pero para Date/Numbers/Strings que pasan por DynamicField, el === contra el primitive suele bastar 
-        // o si es string vs number (ej '0' vs 0) forzamos a localString? typer normaliza los valores
-        if (newValue === lastSavedData[fieldName]) {
+        // Diff check: si el valor es el mismo que está guardado en backend, no persistimos.
+        // Usamos sameValue para comparación robusta (Dates, null/undefined, etc.)
+        if (sameValue(newValue, lastSavedData[fieldName])) {
             return;
         }
 
@@ -137,19 +138,23 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
                 setInternalIsNewRow(false);
             }
 
-            // Exito multi-feedback
+            // Exito multi-feedback: cada campo tiene su propio timer
             setFieldFeedback(prev => ({ ...prev, [fieldName]: 'success' }));
-            if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
-            feedbackTimerRef.current = setTimeout(() => setFieldFeedback({}), 3000);
+            if (feedbackTimersRef.current[fieldName]) clearTimeout(feedbackTimersRef.current[fieldName]);
+            feedbackTimersRef.current[fieldName] = setTimeout(() =>
+                setFieldFeedback(prev => { const n = {...prev}; delete n[fieldName]; return n; })
+            , 3000);
 
             onSaveSuccess(responseRow, wasNewItem);
 
         } catch (err: any) {
             setGlobalError(err.message || 'Error desconocido al guardar.');
-            // Error multi-feedback
+            // Error multi-feedback: cada campo tiene su propio timer
             setFieldFeedback(prev => ({ ...prev, [fieldName]: 'error' }));
-            if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
-            feedbackTimerRef.current = setTimeout(() => setFieldFeedback({}), 5000);
+            if (feedbackTimersRef.current[fieldName]) clearTimeout(feedbackTimersRef.current[fieldName]);
+            feedbackTimersRef.current[fieldName] = setTimeout(() =>
+                setFieldFeedback(prev => { const n = {...prev}; delete n[fieldName]; return n; })
+            , 5000);
 
         } finally {
             setIsSaving(false);
@@ -166,8 +171,13 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
     // También consideramos ocultar los fixed fields o mostrarlos deshabilitados
     return (
         <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <DialogTitle sx={{ px: 0, pt: 0 }}>
-                {isNewRow ? 'Nuevo Registro' : 'Editar Registro'} - {tableDefinition.title || tableName}
+            <DialogTitle sx={{ px: 0, pt: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography component="div" variant="h6">
+                    {isNewRow ? 'Nuevo Registro' : 'Editar Registro'} - {tableDefinition.title || tableName}
+                </Typography>
+                <IconButton onClick={onClose} size="small" edge="end">
+                    <CloseIcon />
+                </IconButton>
             </DialogTitle>
 
             <DialogContent dividers sx={{ px: 2, flexGrow: 1, py: 1 }}>
@@ -180,8 +190,9 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                     {tableDefinition.fields.map(field => {
                         const isFixed = fixedFields?.some(ff => ff.fieldName === field.name);
+                        const isMandatory = field.nullable === false || tableDefinition.primaryKey.includes(field.name);
                         return (
-                            <Box key={field.name} sx={{ width: '100%', maxWidth: 500 }}>
+                            <Box key={field.name} sx={{ width: '100%', maxWidth: '100%' }}>
                                 <TypedField
                                     fieldDef={field}
                                     value={formData[field.name]}
@@ -189,6 +200,7 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
                                     onCommit={handleCommit}
                                     disabled={isFixed || field.editable === false}
                                     feedback={fieldFeedback[field.name]}
+                                    isMandatory={isMandatory}
                                 />
                             </Box>
 

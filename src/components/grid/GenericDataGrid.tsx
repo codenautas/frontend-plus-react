@@ -15,7 +15,7 @@ import { DataGridOptionsDialog } from './DataGridOptionsDialog';
 
 import { DetailTable, FieldDefinition } from 'backend-plus';
 import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
-import { getPrimaryKeyValues } from './utils/helpers';
+import { getPrimaryKeyValues, sameValue } from './utils/helpers';
 import { useGridActions } from '../../hooks/grid/useGridActions';
 import { useGridDataView } from '../../hooks/grid/useGridDataView';
 import { useGridEvents } from '../../hooks/grid/useGridEvents';
@@ -220,6 +220,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const { showSuccess, showError, showWarning, showInfo } = useSnackbar();
     const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
     const dataGridRef = useRef<DataGridHandle>(null);
+    const rowAtEditStartRef = useRef<any>(null); // Captura la fila cuando abre el vertical editor
     const [openImportDialog, setOpenImportDialog] = useState(false);
     const [openExportDialog, setOpenExportDialog] = useState(false);
     const [columnWidths, setColumnWidths] = useState<ReadonlyMap<string, any>>(() => new Map());
@@ -354,7 +355,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         handleKeyPressInEditor,
         handleDeleteRow,
         handleAddRow,
-        handleVerticalEditRow,
+        handleVerticalEditRow: (row: any) => {
+            rowAtEditStartRef.current = { ...row }; // Capturar snapshot antes de abrir
+            handleVerticalEditRow(row);
+        },
         toggleFilterVisibility,
         setDataGridOptionsAnchorEl,
         setOpenDataGridOptions,
@@ -549,9 +553,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 <Dialog
                     open={openVerticalEditDialog}
                     onClose={() => setOpenVerticalEditDialog(false)}
-                    maxWidth="md"
+                    maxWidth="sm"
                     fullWidth
-                    disableEscapeKeyDown
                 >
                     {rowToEditVertical && (
                         <VerticalEditorPage
@@ -561,13 +564,11 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                             fixedFields={fixedFields}
                             isNewRow={!!rowToEditVertical[NEW_ROW_INDICATOR]}
                             onSaveSuccess={(savedRow, isNewItem) => {
-                                // No cerramos el dialog porque es auto-save persistente
                                 setRowToEditVertical(savedRow);
                                 setTableData(prevData => {
                                     const newData = [...prevData];
                                     const pK = isNewItem ? getPrimaryKeyValues(rowToEditVertical, primaryKey) : getPrimaryKeyValues(savedRow, primaryKey);
                                     const index = newData.findIndex(r => getPrimaryKeyValues(r, primaryKey) === pK);
-
                                     if (index !== -1) {
                                         newData[index] = savedRow;
                                     } else {
@@ -575,11 +576,30 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                                     }
                                     return newData;
                                 });
-                                // showSuccess es opcional aquí, el vertical editor ya muestra texto "Cambios auto-guardados",
-                                // pero podemos mantenerlo como feedback pasivo.
                             }}
-
-                            onClose={() => setOpenVerticalEditDialog(false)}
+                            onClose={() => {
+                                // Resaltar los campos que cambiaron respecto al estado original al abrir,
+                                // comparando con lo que devolvió el servidor (captura triggers también)
+                                const originalRow = rowAtEditStartRef.current;
+                                const serverRow = rowToEditVertical;
+                                if (originalRow && serverRow && tableDefinition) {
+                                    const rowId = getPrimaryKeyValues(serverRow, primaryKey);
+                                    const changedFields = tableDefinition.fields
+                                        .filter(f => !sameValue(originalRow[f.name], serverRow[f.name]))
+                                        .map(f => f.name);
+                                    if (changedFields.length > 0) {
+                                        setCellFeedbackMap(prev => {
+                                            const next = new Map(prev);
+                                            changedFields.forEach(fieldName => {
+                                                next.set(`${rowId}-${fieldName}`, { rowId, columnKey: fieldName, type: 'success' });
+                                            });
+                                            return next;
+                                        });
+                                    }
+                                }
+                                rowAtEditStartRef.current = null;
+                                setOpenVerticalEditDialog(false);
+                            }}
                         />
                     )}
                 </Dialog>
