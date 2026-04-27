@@ -29,7 +29,7 @@ const LoginPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Obtiene setIsLoggedIn y checkSession del contexto de la aplicación
-    const { setIsLoggedIn, checkSession } = useApp(); 
+    const { setIsLoggedIn, checkSession } = useApp();
 
     // Obtiene el dispatch de Redux
     const dispatch = useDispatch<AppDispatch>();
@@ -77,7 +77,7 @@ const LoginPage = () => {
             // --- ¡CAMBIO CLAVE AQUÍ! ---
             // Despacha el thunk de Redux para cargar el clientContext.
             // El .unwrap() es importante para poder capturar errores directamente con try/catch.
-            await dispatch(fetchClientContext()).unwrap(); 
+            await dispatch(fetchClientContext()).unwrap();
 
             console.log("Login exitoso y clientContext cargado.");
             navigate('/home'); // Redirige al home o dashboard
@@ -109,10 +109,10 @@ const LoginPage = () => {
                 boxShadow={3}
             >
                 <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-                    <img 
-                        src={`${envConfig.backendUrl}/img/login-logo-icon.png`} 
-                        alt="Logo" 
-                        style={{ height: '80px', maxWidth: '100%', objectFit: 'contain' }} 
+                    <img
+                        src={`${envConfig.backendUrl}/img/login-logo-icon.png`}
+                        alt="Logo"
+                        style={{ height: '192px', maxWidth: '100%', objectFit: 'contain' }}
                     />
                 </Box>
                 <Typography variant="h5" align="center" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
@@ -177,7 +177,7 @@ const LoginPage = () => {
                     </Button>
                 </form>
                 {loginError && (
-                    <Alert severity="error" sx={{ mt: 2, maxHeight:'200px'}}> {/* Ya no necesitas alertProps */}
+                    <Alert severity="error" sx={{ mt: 2, maxHeight: '200px' }}> {/* Ya no necesitas alertProps */}
                         <AlertTitle>Error</AlertTitle>
                         {loginError}
                     </Alert>

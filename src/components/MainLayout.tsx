@@ -95,11 +95,11 @@ const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como 
                         {isDrawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
                     </IconButton>
                     {!isDrawerOpen && (
-                         <img 
-                         src={`${envConfig.backendUrl}/img/logo-128.png`} 
-                         alt="logo" 
-                         style={{ height: '32px', marginRight: '12px', objectFit: 'contain' }} 
-                     />
+                        <img
+                            src={`${envConfig.backendUrl}/img/logo-128.png`}
+                            alt="logo"
+                            style={{ height: '32px', marginRight: '12px', objectFit: 'contain' }}
+                        />
                     )}
                     <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
                         {isDrawerOpen ? '' : clientContext.config.title}
@@ -142,10 +142,10 @@ const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como 
                         gap: 1.5
                     }}
                 >
-                    <img 
-                        src={`${envConfig.backendUrl}/img/logo-128.png`} 
-                        alt="logo" 
-                        style={{ height: '32px', objectFit: 'contain' }} 
+                    <img
+                        src={`${envConfig.backendUrl}/img/logo-128.png`}
+                        alt="logo"
+                        style={{ height: '32px', objectFit: 'contain' }}
                     />
                     <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
                         {clientContext.config.title}
