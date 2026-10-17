@@ -6,19 +6,17 @@ import AddIcon from '@mui/icons-material/Add';
 import { RenderHeaderCellProps } from "react-data-grid";
 import { DetailTable } from "backend-plus";
 import { FieldDefinition } from "../../../types";
+import { useVistaGrilla } from "../estadoGrilla";
 
-interface ExtendedRenderHeaderCellProps<R, SR> extends RenderHeaderCellProps<R, SR> {
-    sortColumns?: readonly { columnKey: string; direction: 'ASC' | 'DESC' }[];
-}
-
-export const defaultColumnHeaderCellRenderer = (props: ExtendedRenderHeaderCellProps<any, unknown>, fieldDef: FieldDefinition) => {
-    const { column, sortColumns } = props;
+export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<any, unknown>, fieldDef: FieldDefinition) => {
+    // react-data-grid ya informa el orden de la columna: no hace falta pasar sortColumns
+    // (y así las columnas no se recrean cada vez que cambia el orden)
+    const { column, sortDirection, priority } = props;
     const isPrimaryKey = fieldDef.isPk;
 
-    // Lógica de flecha de ordenación
-    const sortIndex = sortColumns?.findIndex((s: { columnKey: string }) => s.columnKey === column.key);
-    const sorted = sortIndex !== undefined && sortIndex !== -1;
-    const sortColumn = sorted ? sortColumns![sortIndex] : null;
+    // Lógica de flecha de ordenación (priority viene solo cuando hay más de una columna ordenada)
+    const sorted = sortDirection !== undefined;
+    const sortIndex = (priority ?? 1) - 1;
 
     // Colores degradados según la prioridad
     const getSortColor = (index: number) => {
@@ -59,27 +57,34 @@ export const defaultColumnHeaderCellRenderer = (props: ExtendedRenderHeaderCellP
             </Typography>
             {sorted && (
                 <Box sx={{ color: sortColor, display: 'flex', alignItems: 'center', ml: 0.5, fontSize: '0.7rem' }}>
-                    {sortColumn?.direction === 'ASC' ? '\u25B2' : '\u25BC'}
+                    {sortDirection === 'ASC' ? '\u25B2' : '\u25BC'}
                 </Box>
             )}
         </Box>
     );
 }
 
-export const actionsColumnHeaderCellRenderer = (
-    props: RenderHeaderCellProps<any, unknown>,
-    isFilterRowVisible: boolean,
-    toggleFilterVisibility: () => void,
-    handleDataGridOptions: (event: React.MouseEvent<HTMLElement>) => void,
-    handleAddRow: () => void,
-    allowInsert?: boolean
-) => {
+interface ActionsColumnHeaderCellProps {
+    toggleFilterVisibility: () => void;
+    handleDataGridOptions: (event: React.MouseEvent<HTMLElement>) => void;
+    handleAddRow: () => void;
+    allowInsert?: boolean;
+}
+
+/** Es un componente (y no una función que se llama al armar las columnas) para leer la fila de filtros del contexto */
+export const ActionsColumnHeaderCell = ({
+    toggleFilterVisibility,
+    handleDataGridOptions,
+    handleAddRow,
+    allowInsert
+}: ActionsColumnHeaderCellProps) => {
+    const { isFilterRowVisible } = useVistaGrilla();
     return (
         <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0.2 }}>
             {allowInsert && (
                 <IconButton
                     color="inherit"
-                    onClick={handleAddRow}
+                    onClick={() => handleAddRow()}
                     size="small"
                     title="Añadir registro"
                     sx={{ p: 0.25 }}

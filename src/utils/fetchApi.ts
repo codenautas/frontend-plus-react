@@ -1,6 +1,66 @@
 import { FetchApiOptions } from "../types";
 import { envConfig } from '../env'; // Ajusta la ruta según donde lo hayas guardado
 import JSON4all from 'json4all';
+import { ProcedureDef } from 'backend-plus';
+
+type DefinicionesDeProcedimientos = Record<string, ProcedureDef>;
+
+/**
+ * Fuente de las definiciones de procedimientos que manda el servidor en client-setup.
+ * La registra el store para que este módulo no lo importe (evita la dependencia circular).
+ */
+let obtenerDefinicionesDeProcedimientos: () => DefinicionesDeProcedimientos | undefined = () => undefined;
+
+export function registrarFuenteDeProcedimientos(fuente: () => DefinicionesDeProcedimientos | undefined) {
+    obtenerDefinicionesDeProcedimientos = fuente;
+}
+
+/** Codifica un valor igual que lo hace my-ajax.js (myAjax.encoders), que es como lo decodifica el servidor */
+function codificarParametro(valor: unknown, encoding: string | undefined, procedureName: string, paramName: string): string {
+    switch (encoding ?? 'JSON4all') {
+        case 'plain':
+            if (typeof valor === 'object' && valor !== null) {
+                throw new Error(`El parámetro '${paramName}' de '${procedureName}' es plain y no admite objetos`);
+            }
+            return String(valor);
+        case 'JSON':
+            return JSON.stringify(valor);
+        case 'JSON4all':
+            return JSON4all.stringify(valor);
+        default:
+            throw new Error(`Encoding '${encoding}' no soportado para el parámetro '${paramName}' de '${procedureName}'`);
+    }
+}
+
+/**
+ * Arma los parámetros codificados según la definición del procedimiento.
+ * Si el procedimiento no se conoce todavía (por ejemplo antes de cargar client-setup)
+ * se usa la codificación anterior: primitivos tal cual y objetos con JSON4all.
+ */
+function codificarParametros(procedureName: string, params: Record<string, unknown>): { codificados: Record<string, string>, method: 'get' | 'post' } {
+    const definicion = obtenerDefinicionesDeProcedimientos()?.[procedureName];
+    const codificados: Record<string, string> = {};
+    if (!definicion) {
+        for (const [nombre, valor] of Object.entries(params)) {
+            if (valor === undefined) continue;
+            codificados[nombre] = typeof valor === 'object' && valor !== null ? JSON4all.stringify(valor) : String(valor);
+        }
+        return { codificados, method: 'post' };
+    }
+    const declarados = new Set(definicion.parameters.map(p => p.name));
+    for (const nombre of Object.keys(params)) {
+        if (!declarados.has(nombre)) {
+            console.warn(`El parámetro '${nombre}' no está declarado en el procedimiento '${procedureName}' y no se envía`);
+        }
+    }
+    for (const paramDef of definicion.parameters) {
+        const valor = params[paramDef.name];
+        // si no viene, el servidor usa el defaultValue (o informa que falta)
+        if (valor === undefined) continue;
+        codificados[paramDef.name] = codificarParametro(valor, paramDef.encoding, procedureName, paramDef.name);
+    }
+    return { codificados, method: definicion.method ?? 'post' };
+}
 
 
 /**
@@ -38,35 +98,11 @@ export async function fetchApi(endPoint: string, options: FetchApiOptions): Prom
     return await fetch(BACKEND_URL + endPoint, config);
 }
 export const executeBackendProcedure = async<T = any>(procedureName: string, params: Record<string, any>): Promise<T | null> => {
-    function stringifyObjectsAndArraysInParams(params: Record<string, any>): Record<string, any> {
-        const newParams: Record<string, any> = {};
-
-        for (const key in params) {
-            // Asegúrate de que la propiedad pertenece al objeto y no a su prototipo
-            if (Object.prototype.hasOwnProperty.call(params, key)) {
-                const value = params[key];
-
-                // Condición: Si el valor es un objeto Y NO es null
-                // Tanto los objetos planos como los arrays pasarán esta condición.
-                if (typeof value === 'object' && value !== null) {
-                    try {
-                        newParams[key] = JSON.stringify(value);
-                    } catch (e) {
-                        // Manejo de errores si el objeto/array no es serializable (ej. referencias circulares)
-                        console.warn(`Warning: Could not stringify value for key '${key}'. Keeping original value. Error:`, e);
-                        newParams[key] = value; // Mantén el valor original si no se puede stringificar
-                    }
-                } else {
-                    // Para todos los demás tipos (primitivos, null, undefined), mantenemos el valor original
-                    newParams[key] = value;
-                }
-            }
-        }
-        return newParams;
-    }
-
-    const body = new URLSearchParams(stringifyObjectsAndArraysInParams(params));
-    const response = await fetchApi(`/${procedureName}`, { body, method: 'POST' })
+    const { codificados, method } = codificarParametros(procedureName, params);
+    const query = new URLSearchParams(codificados);
+    const response = method === 'get'
+        ? await fetchApi(`/${procedureName}?${query}`, { method: 'GET' })
+        : await fetchApi(`/${procedureName}`, { body: query, method: 'POST' });
     if (response.ok) {
         const rawResponseText = await response.text();
         const result = parseBackendResponse(rawResponseText);
@@ -133,16 +169,10 @@ export const executeBackendUpload = async<T = any>(procedureName: string, file: 
     const formData = new FormData();
     formData.append('file', file);
 
-    // Añadimos el resto de parámetros al formData
-    for (const key in params) {
-        if (Object.prototype.hasOwnProperty.call(params, key)) {
-            const value = params[key];
-            if (typeof value === 'object' && value !== null) {
-                formData.append(key, JSON.stringify(value));
-            } else {
-                formData.append(key, value);
-            }
-        }
+    // Añadimos el resto de parámetros al formData (los multipart no admiten encoding plain)
+    const { codificados } = codificarParametros(procedureName, params);
+    for (const [key, value] of Object.entries(codificados)) {
+        formData.append(key, value);
     }
 
     // Al usar FormData, fetchApi NO debe poner Content-Type: application/x-www-form-urlencoded

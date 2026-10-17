@@ -16,6 +16,7 @@ import storage from 'redux-persist/lib/storage';
 import clientContextReducer from './clientContextSlice';
 import routerReducer from './routerSlice';
 import menuUiReducer from './menuUiSlice';
+import { registrarFuenteDeProcedimientos } from '../utils/fetchApi';
 
 import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
 import { ClientContextState, MenuUiState } from '../types';
@@ -46,6 +47,13 @@ export const store = configureStore({
 });
 
 export const persistor = persistStore(store);
+
+// fetchApi codifica los parámetros según las definiciones que vinieron en client-setup
+registrarFuenteDeProcedimientos(() => {
+    const { procedure, procedures } = store.getState().clientContext;
+    if (procedure && Object.keys(procedure).length > 0) return procedure;
+    return procedures?.length ? Object.fromEntries(procedures.map(p => [p.action, p])) : undefined;
+});
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;

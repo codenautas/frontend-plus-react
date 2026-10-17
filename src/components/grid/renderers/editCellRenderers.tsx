@@ -1,8 +1,6 @@
 import { Column, RenderEditCellProps } from "react-data-grid";
 import InputRenderer from "../InputRenderer";
 import { CustomColumn, DefaultColumn } from "../GenericDataGrid";
-import { Box, Tooltip } from "@mui/material";
-import { getPrimaryKeyValues } from "../utils/helpers";
 
 export const allColumnsEditCellRenderer = (
     props: RenderEditCellProps<any, any>, 
@@ -13,15 +11,11 @@ export const allColumnsEditCellRenderer = (
         case 'default': {
             const defaultColumn = column as DefaultColumn<any, unknown>;
             const {
-                tableDefinition, 
-                fixedFields, 
-                primaryKey, 
-                setTableData, 
-                cellFeedbackMap,
-                setCellFeedbackMap,
-                handleKeyPressInEditor,
-                localCellChanges,
-                setLocalCellChanges
+                tableDefinition,
+                fixedFields,
+                primaryKey,
+                setTableData,
+                handleKeyPressInEditor
             } = defaultColumn
             
             if (column.editable) { 
@@ -36,29 +30,15 @@ export const allColumnsEditCellRenderer = (
                     return undefined
                 }
                 
-                const rowId = getPrimaryKeyValues(props.row, primaryKey);
-                const cellKey = `${rowId}-${props.column.key}`; // Clave única
-                
-                // Obtener el feedback específico para esta celda
-                const currentCellFeedback = cellFeedbackMap.get ? cellFeedbackMap.get(cellKey) : cellFeedbackMap[cellKey];
-
+                // El feedback (color y mensaje) lo lee InputRenderer del EstadoGrilla
                 return (
-                    // --- TOOLTIP ADAPTADO: Lee el mensaje de error desde el Mapa ---
-                    <Tooltip title={currentCellFeedback?.message || ''}>
-                        <Box>
-                            <InputRenderer
-                                {...props}
-                                tableDefinition={tableDefinition}
-                                setCellFeedbackMap={setCellFeedbackMap} // <--- PASAMOS setCellFeedbackMap como setCellFeedback a InputRenderer
-                                cellFeedbackMap={cellFeedbackMap} // <--- PASAMOS cellFeedbackMap
-                                onKeyPress={(rowIndex, columnKey, event, handleCommit) => handleKeyPressInEditor(rowIndex, columnKey, event, allColumns, handleCommit)}
-                                setTableData={setTableData}
-                                setLocalCellChanges={setLocalCellChanges}
-                                localCellChanges={localCellChanges}
-                                primaryKey={primaryKey}
-                            />
-                        </Box>
-                    </Tooltip> 
+                    <InputRenderer
+                        {...props}
+                        tableDefinition={tableDefinition}
+                        onKeyPress={(rowIndex, columnKey, event, handleCommit) => handleKeyPressInEditor(rowIndex, columnKey, event, allColumns, handleCommit)}
+                        setTableData={setTableData}
+                        primaryKey={primaryKey}
+                    />
                 )
             }
             return undefined

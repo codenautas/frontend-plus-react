@@ -1,31 +1,32 @@
 // src/components/GenericDataGrid.tsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { DataGrid, DataGridHandle, CellMouseArgs, RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, ColSpanArgs, CellSelectArgs, CellKeyDownArgs, CellKeyboardEvent, CellMouseEvent, Column } from 'react-data-grid';
+import { DataGrid, DataGridHandle, RenderCellProps, CellSelectArgs, Column } from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
+import './GenericDataGrid.css';
 
 import { useApiCall } from '../../hooks/useApiCall';
-import { CircularProgress, Typography, Box, Alert, useTheme, Button, Dialog } from '@mui/material';
+import { CircularProgress, Typography, Box, Alert, useTheme, Dialog } from '@mui/material';
 
 import { useSnackbar } from '../../contexts/SnackbarContext';
 
-import { CellFeedback, FixedField, TableDefinition, Ancestor } from '../../types';
+import { FixedField, TableDefinition, Ancestor } from '../../types';
 
 import { ConfirmDialog } from '../ConfirmDialog';
 import { DataGridOptionsDialog } from './DataGridOptionsDialog';
 
 import { DetailTable, FieldDefinition } from 'backend-plus';
-import { EmptyRowsRenderer } from './renderers/emptyRowRenderer';
-import { getPrimaryKeyValues, sameValue } from './utils/helpers';
+import { getPrimaryKeyValues, sameValue, Typer, NEW_ROW_INDICATOR } from './utils/helpers';
 import { useGridActions } from '../../hooks/grid/useGridActions';
 import { useGridDataView } from '../../hooks/grid/useGridDataView';
 import { useGridEvents } from '../../hooks/grid/useGridEvents';
 import { useGridLayout } from '../../hooks/grid/useGridLayout';
 import { useGridMenu } from '../../hooks/grid/useGridMenu';
-import { useGridColumns } from '../../hooks/grid/useGridColumns';
-import { ImportDialog, ImportOptions } from './ImportDialog';
+import { calcularAnchosDeColumnas, useGridColumns } from '../../hooks/grid/useGridColumns';
+import { ImportDialog } from './ImportDialog';
 import { ExportDialog } from './ExportDialog';
 import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
+import { crearEstadoGrilla, EstadoGrillaContext, MapaFeedback, VistaGrillaContext } from './estadoGrilla';
 
 
 export const SUMMARY_ROW_HEIGHT = 35;
@@ -33,6 +34,9 @@ export const FILTER_ROW_HEIGHT = 35;
 export const HEADER_ROW_HEIGHT = 30;
 export const ROW_HEIGHT = 30;
 export const MIN_BODY_HEIGHT = 260;
+
+/** Cuánto dura el feedback verde de una celda grabada */
+const DURACION_FEEDBACK_EXITO = 3000;
 
 interface GenericDataGridProps {
     tableName: string;
@@ -42,23 +46,25 @@ interface GenericDataGridProps {
     ancestors?: Ancestor[];
 }
 
-export const NEW_ROW_INDICATOR = '$new';
+export { NEW_ROW_INDICATOR };
 interface BaseCustomColumn<TRow, TSummaryRow = unknown> extends Column<TRow, TSummaryRow> {
     customType: 'default' | 'detail' | 'action',
     tableDefinition: TableDefinition,
 }
 
+/**
+ * Columna de un campo. Solo lleva datos que no cambian mientras se edita
+ * (el feedback y los cambios locales viven en el EstadoGrilla).
+ */
 export interface DefaultColumn<TRow, TSummaryRow = unknown> extends BaseCustomColumn<TRow, TSummaryRow> {
     customType: 'default';
     fieldDef: FieldDefinition;
-    // 💥 MULTI-CELL FEEDBACK: Se cambia a un mapa
-    cellFeedbackMap: Map<string, CellFeedback>,
-    setCellFeedbackMap: React.Dispatch<React.SetStateAction<Map<string, CellFeedback>>>,
+    typer: Typer;
+    isMandatory: boolean;
+    isNumeric: boolean;
     setTableData: React.Dispatch<React.SetStateAction<any[]>>,
     primaryKey: string[],
     fixedFields: FixedField[] | undefined,
-    localCellChanges: Map<string, Set<string>>,
-    setLocalCellChanges: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>,
     handleKeyPressInEditor: (rowIndex: number, columnKey: string, event: React.KeyboardEvent, currentColumns: Column<any>[], handleCommit: (currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void
 }
 
@@ -66,8 +72,6 @@ export interface DetailColumn<TRow, TSummaryRow = unknown> extends BaseCustomCol
     customType: 'detail';
     detailTable: DetailTable,
     primaryKey: string[],
-    tableData: any[],
-    setTableData: React.Dispatch<React.SetStateAction<any[]>>,
     detailKey: string
 }
 
@@ -84,18 +88,20 @@ export type CustomColumn<TRow, TSummaryRow = unknown> =
     | DetailColumn<TRow, TSummaryRow>
     | ActionColumn<TRow, TSummaryRow>;
 
-/** Componente auxiliar para mostrar un registro padre como una grilla estática y editable */
+const SIN_ANCESTROS: Ancestor[] = [];
+
+/**
+ * Componente auxiliar para mostrar un registro padre como una grilla estática.
+ * Es de solo lectura: antes intentaba grabar con 'table_data_save', que no existe en backend-plus,
+ * y además las columnas no tenían editor, así que la edición nunca funcionó.
+ */
 const StaticAncestorGrid: React.FC<{
     ancestor: Ancestor,
     index: number,
     fieldsToHide?: FixedField[],
-    callApi: (proc: string, params: Record<string, any>, options?: { isCritical?: boolean }) => Promise<any>,
-    showSuccess: (msg: string) => void,
-    showError: (msg: string) => void
-}> = ({ ancestor, index, fieldsToHide, callApi, showSuccess, showError }) => {
+}> = ({ ancestor, index, fieldsToHide }) => {
     const theme = useTheme();
     const { tableDefinition, row } = ancestor; // ya no usamos fixedFields del propio objeto para filtrar SE a sí mismo
-    const [rowData, setRowData] = useState(row);
 
     const columns: Column<any>[] = useMemo(() => {
         // Ocultamos los campos que el nivel SUPERIOR usó para filtrar a ESTE ancestro
@@ -109,7 +115,7 @@ const StaticAncestorGrid: React.FC<{
                 key: field.name,
                 name: field.label || cambiarGuionesBajosPorEspacios(field.name),
                 width: 150,
-                editable: field.editable !== false,
+                editable: false,
                 renderHeaderCell: () => (
                     <Box sx={{ p: 0.5, height: '100%', display: 'flex', alignItems: 'center' }}>
                         <Typography
@@ -134,22 +140,6 @@ const StaticAncestorGrid: React.FC<{
             };
         });
     }, [tableDefinition, fieldsToHide]);
-
-    const handleRowsChange = async (newRows: any[]) => {
-        const updatedRow = newRows[0];
-        setRowData(updatedRow);
-
-        try {
-            await callApi('table_data_save', {
-                table: ancestor.tableName,
-                row: updatedRow
-            });
-            showSuccess(`Registro de ${cambiarGuionesBajosPorEspacios(ancestor.tableName)} actualizado.`);
-        } catch (err: any) {
-            showError(`Error al actualizar padre: ${err.message}`);
-            setRowData(row); // Revertir si hay error
-        }
-    };
 
     return (
         <Box sx={{
@@ -181,8 +171,7 @@ const StaticAncestorGrid: React.FC<{
             <DataGrid
                 className='rdg-light'
                 columns={columns}
-                rows={[rowData]}
-                onRowsChange={handleRowsChange}
+                rows={[row]}
                 headerRowHeight={HEADER_ROW_HEIGHT}
                 rowHeight={ROW_HEIGHT}
                 rowKeyGetter={() => 'single-row'}
@@ -194,19 +183,26 @@ const StaticAncestorGrid: React.FC<{
 
 const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     tableName,
-    fixedFields,
+    fixedFields: fixedFieldsRecibidos,
     gridStyles,
     onOpenDetail,
-    ancestors = []
+    ancestors = SIN_ANCESTROS
 }) => {
+    // fixedFields suele llegar como un array nuevo en cada render del padre:
+    // se estabiliza por contenido para no volver a pedir los datos ni recrear las columnas
+    const claveFixedFields = JSON.stringify(fixedFieldsRecibidos ?? null);
+    const fixedFields = useMemo(() => fixedFieldsRecibidos, [claveFixedFields]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const [tableDefinition, setTableDefinition] = useState<TableDefinition | null>(null);
     const [tableData, setTableData] = useState<any[]>([]);
+    const [cargandoInicial, setCargandoInicial] = useState(true);
+    const [errorDeCarga, setErrorDeCarga] = useState<string | null>(null);
+    const [anchosCalculados, setAnchosCalculados] = useState<Map<string, number>>(() => new Map());
     const [selectedRows, setSelectedRows] = useState((): ReadonlySet<string> => new Set());
-    const [selectedCell, setSelectedCell] = useState<CellSelectArgs<any, NoInfer<{ id: string }>> | undefined>(undefined);
+    const [, setSelectedCell] = useState<CellSelectArgs<any, NoInfer<{ id: string }>> | undefined>(undefined);
 
-    const [cellFeedbackMap, setCellFeedbackMap] = useState<Map<string, CellFeedback>>(new Map());
-
-    const [localCellChanges, setLocalCellChanges] = useState<Map<string, Set<string>>>(new Map());
+    // feedback y cambios locales por celda: fuera del estado de React (ver estadoGrilla.ts)
+    const [estadoGrilla] = useState(crearEstadoGrilla);
     const theme = useTheme();
 
     const [openDataGridOptions, setOpenDataGridOptions] = useState(false);
@@ -214,20 +210,15 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     const [exitingRowIds, setExitingRowIds] = useState<Set<string>>(new Set());
 
-    // Estado para Vertical Editor Modal ahora en useGridActions
-
-
-    const { showSuccess, showError, showWarning, showInfo } = useSnackbar();
-    const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const { showError } = useSnackbar();
     const dataGridRef = useRef<DataGridHandle>(null);
     const rowAtEditStartRef = useRef<any>(null); // Captura la fila cuando abre el vertical editor
     const [openImportDialog, setOpenImportDialog] = useState(false);
     const [openExportDialog, setOpenExportDialog] = useState(false);
     const [columnWidths, setColumnWidths] = useState<ReadonlyMap<string, any>>(() => new Map());
-    const { callApi, callApiUpload, loading, error } = useApiCall();
-
-    const getRowCount = () => tableData.length;
-    const getFilteredRowCount = () => filteredRows.length;
+    // loading solo indica que hay una llamada en curso (borrar, importar, refrescar):
+    // ya no reemplaza la grilla por un spinner, eso es solo para la carga inicial
+    const { callApi, callApiUpload, loading } = useApiCall();
 
     const primaryKey = useMemo(() => {
         if (!tableDefinition) return ['id'];
@@ -248,17 +239,14 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setRowToEditVertical
     } = useGridActions({
         tableDefinition, tableName, primaryKey,
-        fixedFields, setExitingRowIds, setLocalCellChanges,
+        fixedFields, setExitingRowIds, setLocalCellChanges: estadoGrilla.setCambiosLocales,
         setSelectedRows, setTableData, callApi, callApiUpload,
         resetView
     });
 
-
-
     const { gridHeight, bottomSummaryRow, summaryRows, filterHeight } = useGridLayout({
         filteredRows, isFilterRowVisible, tableData, summaryData, filters, setFilters
     });
-
 
     const { handleCellDoubleClick, handleCellClick, handleCellKeyDown, handleCellMouseDown, handleKeyPressInEditor, handleSelectedCellChange, handleRowsChange } = useGridEvents({
         dataGridRef, filteredRows, fixedFields, tableData, tableDefinition, setSelectedCell, setTableData, setSortColumns
@@ -269,65 +257,79 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setSelectedRows(new Set());
         setTableDefinition(null);
         setTableData([]);
-        setCellFeedbackMap(new Map());
-        setLocalCellChanges(new Map());
+        estadoGrilla.setFeedback(new Map());
+        estadoGrilla.setCambiosLocales(new Map());
         setExitingRowIds(new Set());
         setColumnWidths(new Map());
-        if (feedbackTimerRef.current) {
-            clearTimeout(feedbackTimerRef.current);
-        }
-    }, [tableName]);
+    }, [tableName, estadoGrilla, resetView]);
 
     useEffect(() => {
+        let vigente = true;
         const fetchDataAndDefinition = async () => {
+            setCargandoInicial(true);
+            setErrorDeCarga(null);
             try {
                 const definition: TableDefinition = await callApi('table_structure', { table: tableName }, { isCritical: true });
-                setTableDefinition(definition);
-                setSortColumns(getInitialSortColumns(definition));
                 const validFixedFields = fixedFields?.filter(ff =>
                     definition.fields.some(field => field.name === ff.fieldName)
                 );
                 const data = await callApi('table_data', {
                     table: tableName,
-                    fixedFields: validFixedFields
+                    fixedFields: validFixedFields ?? []
                 }, { isCritical: true });
+                if (!vigente) return;
+                setTableDefinition(definition);
+                setSortColumns(getInitialSortColumns(definition));
+                setAnchosCalculados(calcularAnchosDeColumnas(definition, data));
                 setTableData(data);
             } catch (err: any) {
+                if (!vigente) return;
                 setTableDefinition(null);
                 setTableData([]);
-                showError(`Error al cargar datos para la tabla '${tableName}': ${err.message || 'Error desconocido'}`);
+                const mensaje = `Error al cargar datos para la tabla '${tableName}': ${err.message || 'Error desconocido'}`;
+                setErrorDeCarga(mensaje);
+                showError(mensaje);
+            } finally {
+                if (vigente) setCargandoInicial(false);
             }
         };
         fetchDataAndDefinition();
-    }, [tableName, fixedFields, showError]);
+        // si cambia la tabla antes de que llegue la respuesta, se descarta la respuesta vieja
+        return () => { vigente = false; };
+    }, [tableName, fixedFields, showError, callApi, getInitialSortColumns, setSortColumns]);
 
+    // El feedback de éxito se borra solo al rato; el de error queda hasta la próxima edición
     useEffect(() => {
-        if (cellFeedbackMap.size > 0) {
-            if (feedbackTimerRef.current) {
-                clearTimeout(feedbackTimerRef.current);
-            }
-            const timerDuration = 3000;
-            feedbackTimerRef.current = setTimeout(() => {
-                setCellFeedbackMap(prevMap => {
-                    const newMap = new Map(prevMap);
-                    let mapChanged = false;
-                    for (const [cellId, feedback] of prevMap.entries()) {
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const desuscribir = estadoGrilla.suscribir(() => {
+            const hayExitos = Array.from(estadoGrilla.obtenerFeedback().values()).some(f => f.type === 'success');
+            if (!hayExitos || timer) return;
+            timer = setTimeout(() => {
+                timer = null;
+                estadoGrilla.setFeedback(anterior => {
+                    const nuevo: MapaFeedback = new Map(anterior);
+                    let cambio = false;
+                    for (const [cellId, feedback] of anterior.entries()) {
                         if (feedback.type === 'success') {
-                            newMap.delete(cellId);
-                            mapChanged = true;
+                            nuevo.delete(cellId);
+                            cambio = true;
                         }
                     }
-                    return mapChanged ? newMap : prevMap;
+                    return cambio ? nuevo : anterior;
                 });
-                feedbackTimerRef.current = null;
-            }, timerDuration);
-        }
+            }, DURACION_FEEDBACK_EXITO);
+        });
         return () => {
-            if (feedbackTimerRef.current) {
-                clearTimeout(feedbackTimerRef.current);
-            }
+            desuscribir();
+            if (timer) clearTimeout(timer);
         };
-    }, [cellFeedbackMap]);
+    }, [estadoGrilla]);
+
+    const resetSortingDeLaTabla = useCallback(() => {
+        if (tableDefinition) resetSorting(tableDefinition);
+    }, [tableDefinition, resetSorting]);
+    const abrirImportacion = useCallback(() => setOpenImportDialog(true), []);
+    const abrirExportacion = useCallback(() => setOpenExportDialog(true), []);
 
     const { menuOptions } = useGridMenu({
         tableDefinition,
@@ -335,36 +337,46 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         fixedFields,
         setTableData,
         callApi,
-        resetSorting: tableDefinition ? () => resetSorting(tableDefinition) : undefined,
-        triggerImport: () => setOpenImportDialog(true),
-        triggerExport: () => setOpenExportDialog(true),
+        resetSorting: tableDefinition ? resetSortingDeLaTabla : undefined,
+        triggerImport: abrirImportacion,
+        triggerExport: abrirExportacion,
     });
+
+    const abrirOpcionesDeGrilla = useCallback((anchorEl: HTMLElement) => {
+        setDataGridOptionsAnchorEl(anchorEl);
+        setOpenDataGridOptions(true);
+    }, []);
+
+    const editarEnFicha = useCallback((row: any) => {
+        rowAtEditStartRef.current = { ...row }; // Capturar snapshot antes de abrir
+        handleVerticalEditRow(row);
+    }, [handleVerticalEditRow]);
 
     const { columns } = useGridColumns({
         tableDefinition,
-        tableData,
+        anchosCalculados,
         fixedFields,
-        isFilterRowVisible,
-        sortColumns,
         primaryKey,
-        localCellChanges,
-        cellFeedbackMap,
-        setCellFeedbackMap,
         setTableData,
-        setLocalCellChanges,
         handleKeyPressInEditor,
         handleDeleteRow,
         handleAddRow,
-        handleVerticalEditRow: (row: any) => {
-            rowAtEditStartRef.current = { ...row }; // Capturar snapshot antes de abrir
-            handleVerticalEditRow(row);
-        },
+        handleVerticalEditRow: editarEnFicha,
         toggleFilterVisibility,
-        setDataGridOptionsAnchorEl,
-        setOpenDataGridOptions,
+        abrirOpcionesDeGrilla,
         onOpenDetail,
-        ancestors: ancestors ?? [],
+        ancestors,
     });
+
+    const rowKeyGetter = useCallback((row: any) => getPrimaryKeyValues(row, primaryKey), [primaryKey]);
+    // Las filas que se están borrando se marcan con una clase en lugar de copiar cada fila con un style:
+    // copiar las filas en cada render anula la memorización de filas de react-data-grid
+    const rowClass = useCallback((row: any) =>
+        exitingRowIds.has(getPrimaryKeyValues(row, primaryKey)) ? 'fpr-fila-saliendo' : undefined
+    , [exitingRowIds, primaryKey]);
+    const estiloGrilla = useMemo<React.CSSProperties>(() => ({ height: '100%', width: '100%', boxSizing: 'border-box', ...gridStyles }), [gridStyles]);
+    const bottomSummaryRows = useMemo(() => [bottomSummaryRow], [bottomSummaryRow]);
+    const vistaGrilla = useMemo(() => ({ isFilterRowVisible }), [isFilterRowVisible]);
 
     const getFallBackMessage = () => {
         if (tableData.length === 0) {
@@ -379,7 +391,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     const fallBackMessage = getFallBackMessage();
 
-    if (loading) {
+    if (cargandoInicial) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
                 <CircularProgress />
@@ -388,10 +400,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         );
     }
 
-    if (error) {
+    if (errorDeCarga) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-                <Alert severity="error">{error.message}</Alert>
+                <Alert severity="error">{errorDeCarga}</Alert>
             </Box>
         );
     }
@@ -406,7 +418,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     return (
         <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
             {/* Primero los ancestros jerárquicos */}
-            {ancestors && ancestors.length > 0 && (
+            {ancestors.length > 0 && (
                 <Box sx={{ px: 2, pt: 0, pb: 1, display: 'flex', flexDirection: 'column' }}>
                     {ancestors.map((ancestor, index) => (
                         <StaticAncestorGrid
@@ -414,9 +426,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                             ancestor={ancestor}
                             index={index}
                             fieldsToHide={index > 0 ? ancestors[index - 1].fixedFields : []}
-                            callApi={callApi}
-                            showSuccess={showSuccess}
-                            showError={showError}
                         />
                     ))}
                 </Box>
@@ -435,14 +444,18 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     borderTopLeftRadius: theme.shape.borderRadius,
                     borderTopRightRadius: theme.shape.borderRadius,
                     ml: 2 + (ancestors.length * 4), // Margen dinámico basado en jerarquía
-                    mr: 2
+                    mr: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
                 }}
             >
                 <Typography variant="subtitle2" component="div">
-                    {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} - {getFilteredRowCount() === getRowCount() ? `${getRowCount()} registros`
-                        : `${getFilteredRowCount()} (F)`
+                    {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} - {filteredRows.length === tableData.length ? `${tableData.length} registros`
+                        : `${filteredRows.length} (F)`
                     }
                 </Typography>
+                {loading && <CircularProgress size={14} color="inherit" />}
             </Box>
 
             <Box
@@ -458,39 +471,37 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     pb: 3,
                 }}
             >
-                <DataGrid
-                    className='rdg-light'
-                    ref={dataGridRef}
-                    //@ts-ignore TODO: arreglar este tipo
-                    columns={columns}
-                    rows={filteredRows.map(row => ({
-                        ...row,
-                        style: exitingRowIds.has(getPrimaryKeyValues(row, primaryKey))
-                            ? { maxHeight: 0, opacity: 0, overflow: 'hidden' }
-                            : { maxHeight: '35px', opacity: 1 }
-                    }))}
-                    columnWidths={columnWidths}
-                    onColumnWidthsChange={setColumnWidths}
-                    enableVirtualization={true}
-                    rowKeyGetter={(row: any) => getPrimaryKeyValues(row, primaryKey)}
-                    onSelectedRowsChange={setSelectedRows}
-                    onSelectedCellChange={handleSelectedCellChange}
-                    onRowsChange={handleRowsChange}
-                    sortColumns={sortColumns}
-                    onSortColumnsChange={handleSortColumnsChange}
-                    selectedRows={selectedRows}
-                    rowHeight={(_row) => ROW_HEIGHT}
-                    style={{ ...{ height: '100%', width: '100%', boxSizing: 'border-box' }, ...gridStyles }}
-                    headerRowHeight={HEADER_ROW_HEIGHT}
-                    topSummaryRows={summaryRows}
-                    bottomSummaryRows={[bottomSummaryRow]}
-                    summaryRowHeight={SUMMARY_ROW_HEIGHT}
-                    renderers={undefined}
-                    onCellMouseDown={handleCellMouseDown}
-                    onCellDoubleClick={handleCellDoubleClick}
-                    onCellClick={handleCellClick}
-                    onCellKeyDown={handleCellKeyDown}
-                />
+                <EstadoGrillaContext.Provider value={estadoGrilla}>
+                    <VistaGrillaContext.Provider value={vistaGrilla}>
+                        <DataGrid
+                            className='rdg-light'
+                            ref={dataGridRef}
+                            columns={columns as Column<any, any>[]}
+                            rows={filteredRows}
+                            rowClass={rowClass}
+                            columnWidths={columnWidths}
+                            onColumnWidthsChange={setColumnWidths}
+                            enableVirtualization={true}
+                            rowKeyGetter={rowKeyGetter}
+                            onSelectedRowsChange={setSelectedRows}
+                            onSelectedCellChange={handleSelectedCellChange}
+                            onRowsChange={handleRowsChange}
+                            sortColumns={sortColumns}
+                            onSortColumnsChange={handleSortColumnsChange}
+                            selectedRows={selectedRows}
+                            rowHeight={ROW_HEIGHT}
+                            style={estiloGrilla}
+                            headerRowHeight={HEADER_ROW_HEIGHT}
+                            topSummaryRows={summaryRows}
+                            bottomSummaryRows={bottomSummaryRows}
+                            summaryRowHeight={SUMMARY_ROW_HEIGHT}
+                            onCellMouseDown={handleCellMouseDown}
+                            onCellDoubleClick={handleCellDoubleClick}
+                            onCellClick={handleCellClick}
+                            onCellKeyDown={handleCellKeyDown}
+                        />
+                    </VistaGrillaContext.Provider>
+                </EstadoGrillaContext.Provider>
 
                 {/* Fallbacks */}
                 {fallBackMessage && (
@@ -549,61 +560,59 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
 
             {/* Modal de Editor Vertical */}
-            {tableDefinition && (
-                <Dialog
-                    open={openVerticalEditDialog}
-                    onClose={() => setOpenVerticalEditDialog(false)}
-                    maxWidth="sm"
-                    fullWidth
-                >
-                    {rowToEditVertical && (
-                        <VerticalEditorPage
-                            tableName={tableName}
-                            tableDefinition={tableDefinition}
-                            initialData={rowToEditVertical}
-                            fixedFields={fixedFields}
-                            isNewRow={!!rowToEditVertical[NEW_ROW_INDICATOR]}
-                            onSaveSuccess={(savedRow, isNewItem) => {
-                                setRowToEditVertical(savedRow);
-                                setTableData(prevData => {
-                                    const newData = [...prevData];
-                                    const pK = isNewItem ? getPrimaryKeyValues(rowToEditVertical, primaryKey) : getPrimaryKeyValues(savedRow, primaryKey);
-                                    const index = newData.findIndex(r => getPrimaryKeyValues(r, primaryKey) === pK);
-                                    if (index !== -1) {
-                                        newData[index] = savedRow;
-                                    } else {
-                                        newData.unshift(savedRow);
-                                    }
-                                    return newData;
-                                });
-                            }}
-                            onClose={() => {
-                                // Resaltar los campos que cambiaron respecto al estado original al abrir,
-                                // comparando con lo que devolvió el servidor (captura triggers también)
-                                const originalRow = rowAtEditStartRef.current;
-                                const serverRow = rowToEditVertical;
-                                if (originalRow && serverRow && tableDefinition) {
-                                    const rowId = getPrimaryKeyValues(serverRow, primaryKey);
-                                    const changedFields = tableDefinition.fields
-                                        .filter(f => !sameValue(originalRow[f.name], serverRow[f.name]))
-                                        .map(f => f.name);
-                                    if (changedFields.length > 0) {
-                                        setCellFeedbackMap(prev => {
-                                            const next = new Map(prev);
-                                            changedFields.forEach(fieldName => {
-                                                next.set(`${rowId}-${fieldName}`, { rowId, columnKey: fieldName, type: 'success' });
-                                            });
-                                            return next;
-                                        });
-                                    }
+            <Dialog
+                open={openVerticalEditDialog}
+                onClose={() => setOpenVerticalEditDialog(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                {rowToEditVertical && (
+                    <VerticalEditorPage
+                        tableName={tableName}
+                        tableDefinition={tableDefinition}
+                        initialData={rowToEditVertical}
+                        fixedFields={fixedFields}
+                        isNewRow={!!rowToEditVertical[NEW_ROW_INDICATOR]}
+                        onSaveSuccess={(savedRow, isNewItem) => {
+                            setRowToEditVertical(savedRow);
+                            setTableData(prevData => {
+                                const newData = [...prevData];
+                                const pK = isNewItem ? getPrimaryKeyValues(rowToEditVertical, primaryKey) : getPrimaryKeyValues(savedRow, primaryKey);
+                                const index = newData.findIndex(r => getPrimaryKeyValues(r, primaryKey) === pK);
+                                if (index !== -1) {
+                                    newData[index] = savedRow;
+                                } else {
+                                    newData.unshift(savedRow);
                                 }
-                                rowAtEditStartRef.current = null;
-                                setOpenVerticalEditDialog(false);
-                            }}
-                        />
-                    )}
-                </Dialog>
-            )}
+                                return newData;
+                            });
+                        }}
+                        onClose={() => {
+                            // Resaltar los campos que cambiaron respecto al estado original al abrir,
+                            // comparando con lo que devolvió el servidor (captura triggers también)
+                            const originalRow = rowAtEditStartRef.current;
+                            const serverRow = rowToEditVertical;
+                            if (originalRow && serverRow) {
+                                const rowId = getPrimaryKeyValues(serverRow, primaryKey);
+                                const changedFields = tableDefinition.fields
+                                    .filter(f => !sameValue(originalRow[f.name], serverRow[f.name]))
+                                    .map(f => f.name);
+                                if (changedFields.length > 0) {
+                                    estadoGrilla.setFeedback(prev => {
+                                        const next = new Map(prev);
+                                        changedFields.forEach(fieldName => {
+                                            next.set(`${rowId}-${fieldName}`, { rowId, columnKey: fieldName, type: 'success' });
+                                        });
+                                        return next;
+                                    });
+                                }
+                            }
+                            rowAtEditStartRef.current = null;
+                            setOpenVerticalEditDialog(false);
+                        }}
+                    />
+                )}
+            </Dialog>
         </Box>
     );
 

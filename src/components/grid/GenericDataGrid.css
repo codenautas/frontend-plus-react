@@ -1,0 +1,40 @@
+/* src/components/grid/GenericDataGrid.css */
+
+/* Celda de datos (reemplaza al Box + Typography de MUI que se armaba en cada celda) */
+.fpr-celda {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 12px 0 8px;
+  box-sizing: border-box;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 0.3s ease-in-out;
+}
+
+.fpr-celda-numerica {
+  justify-content: flex-end;
+}
+
+/* Fila que se está borrando (antes era un style copiado en cada fila) */
+.fpr-fila-saliendo {
+  opacity: 0;
+  transition: opacity 0.4s ease-in-out;
+}
+
+/* Estas clases estaban solo en index.css, que la librería no importa */
+.typed-controls-signal-no-data {
+  background-color: #fff9c4 !important;
+  color: #fbc02d;
+  font-weight: bold;
+}
+
+.typed-controls-signal-unknown-data {
+  background-color: #ffe0b2 !important;
+  color: #fb8c00;
+  font-weight: bold;
+}

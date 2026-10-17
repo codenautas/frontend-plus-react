@@ -55,14 +55,9 @@ export interface InputRendererProps<R extends Record<string, any>, S> {
     onRowChange: (row: R, commitChanges?: boolean) => void;
     onClose: (commitChanges?: boolean, shouldFocusCell?: boolean) => void;
     tableDefinition: TableDefinition,
-    // --- CAMBIOS DE PROPIEDADES ---
-    cellFeedbackMap: CellFeedbackMap, // <--- CAMBIADO
-    setCellFeedbackMap: React.Dispatch<React.SetStateAction<CellFeedbackMap>>; // <--- CAMBIADO
-    // ----------------------------
+    // el feedback y los cambios locales se leen y escriben en el EstadoGrilla (ver estadoGrilla.ts)
     onKeyPress?: (rowIndex: number, columnKey: string, event: React.KeyboardEvent, handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void;
     setTableData: React.Dispatch<React.SetStateAction<any[]>>;
-    setLocalCellChanges: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>;
-    localCellChanges: Map<string, Set<string>>; 
     primaryKey: string[];
 }
 

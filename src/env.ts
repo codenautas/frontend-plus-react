@@ -8,11 +8,13 @@ interface EnvVariables {
 // Función auxiliar para obtener la variable de entorno de forma agnóstica al bundler
 const getEnvVar = (key: string): string => {
   // Intenta leer de import.meta.env (Vite)
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
+  // import.meta.env lo define Vite; la librería no depende de los tipos de vite/client
+  const viteEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
+  if (viteEnv) {
     const viteKey = `VITE_${key}`;
-    // Usamos 'as any' para evitar problemas de tipado con las propiedades dinámicas de import.meta.env
-    if ((import.meta.env as any)[viteKey]) {
-      return (import.meta.env as any)[viteKey];
+    const valor = viteEnv[viteKey];
+    if (valor) {
+      return valor;
     }
   }
 

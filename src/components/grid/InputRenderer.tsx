@@ -8,7 +8,8 @@ import InputBase from "@mui/material/InputBase";
 import { InputRendererProps, CellFeedback, CellFeedbackMap } from "../../types";
 // getCellKey deben provenir de tu archivo GenericDataGrid
 import { NEW_ROW_INDICATOR } from "./GenericDataGrid";
-import { useTheme } from "@mui/material";
+import { Tooltip, useTheme } from "@mui/material";
+import { useEstadoGrilla, useFeedbackCelda } from "./estadoGrilla";
 import { getPrimaryKeyValues, getCellKey, isNumericType, sameValue } from "./utils/helpers";
 import { getBestTypedValue } from "./utils/typedControls";
 // @ts-ignore
@@ -33,14 +34,13 @@ function InputRenderer<R extends Record<string, any>, S>({
     tableDefinition,
     onRowChange,
     onClose,
-    cellFeedbackMap, // Tipo: CellFeedbackMap
-    setCellFeedbackMap, // Tipo: Dispatch<SetStateAction<CellFeedbackMap>>
     onKeyPress,
     setTableData,
-    setLocalCellChanges,
-    localCellChanges,
     primaryKey
 }: InputRendererProps<R, S>) {
+    const estadoGrilla = useEstadoGrilla();
+    const setCellFeedbackMap = estadoGrilla.setFeedback;
+    const setLocalCellChanges = estadoGrilla.setCambiosLocales;
     const fieldDefinition = tableDefinition.fields.find(f => f.name === column.key);
     const typer = useMemo(() => typeStore.typerFrom(fieldDefinition), [fieldDefinition]);
     const [editingValue, setEditingValue] = useState(() => row[column.key] !== null ? isNumericType(fieldDefinition?.typeName) ? row[column.key] : typer.toLocalString(row[column.key]) : null);
@@ -56,8 +56,7 @@ function InputRenderer<R extends Record<string, any>, S>({
     const rowId = getPrimaryKeyValues(row, primaryKey);
     const cellKey = `${rowId}-${column.key}`;
 
-    // Asumimos que cellFeedbackMap es un Map<string, CellFeedback>
-    const currentCellFeedback = cellFeedbackMap.get(cellKey);
+    const currentCellFeedback = useFeedbackCelda(cellKey);
     // ------------------------
 
     const isMandatory = tableDefinition.primaryKey.includes(column.key) || (fieldDefinition?.nullable === false);
@@ -235,7 +234,7 @@ function InputRenderer<R extends Record<string, any>, S>({
     }, [
         column, row, onRowChange, tableName, tableDefinition.primaryKey,
         tableDefinition.fields, showSuccess, showError, setCellFeedbackMap, onClose,
-        setTableData, setLocalCellChanges, localCellChanges, initialRowId, typer
+        setTableData, setLocalCellChanges, initialRowId, typer
     ]);
 
 
@@ -264,7 +263,7 @@ function InputRenderer<R extends Record<string, any>, S>({
 
     const isNumeric = isNumericType(fieldDefinition?.typeName);
 
-    return (
+    const editor = (
         <InputBase
             autoFocus
             value={editingValue}
@@ -291,6 +290,9 @@ function InputRenderer<R extends Record<string, any>, S>({
         />
 
     );
+    return currentCellFeedback?.message
+        ? <Tooltip title={currentCellFeedback.message}><div style={{ width: '100%' }}>{editor}</div></Tooltip>
+        : editor;
 }
 
 export default InputRenderer;

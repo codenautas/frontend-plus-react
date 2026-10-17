@@ -1,5 +1,6 @@
+import React from 'react';
 import { RenderCellProps } from 'react-data-grid';
-import { Box, Button, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, Button, IconButton, Tooltip, useTheme } from '@mui/material';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -10,10 +11,9 @@ import { clientSides } from '../clientSides';
 import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
 import { OverridableComponent } from '@mui/material/OverridableComponent';
 import { SvgIconTypeMap } from '@mui/material/SvgIcon';
-import { getPrimaryKeyValues, isNumericType } from '../utils/helpers';
+import { getPrimaryKeyValues } from '../utils/helpers';
 import { cambiarGuionesBajosPorEspacios } from '../../../utils/functions';
-// @ts-ignore
-import typeStore from 'type-store';
+import { useCeldaPendiente, useFeedbackCelda } from '../estadoGrilla';
 
 
 type ActionButtonDefinition = {
@@ -24,13 +24,65 @@ type ActionButtonDefinition = {
     color: 'success' | 'error' | 'primary'
 }
 
+interface CeldaDatoProps {
+    row: Record<string, any>;
+    columnKey: string;
+    defaultColumn: DefaultColumn<any, unknown>;
+}
+
+/**
+ * Celda de datos. Es un componente memorizado: solo se redibuja cuando cambia su fila
+ * o el feedback/pendiente de esta celda (que lee del EstadoGrilla, no de la columna).
+ * Se usan elementos y clases simples en lugar de Box/Typography/Tooltip de MUI
+ * porque hay una por cada celda visible.
+ */
+const CeldaDato = React.memo(function CeldaDato({ row, columnKey, defaultColumn }: CeldaDatoProps) {
+    const theme = useTheme();
+    const { primaryKey, fixedFields, typer, isMandatory, isNumeric } = defaultColumn;
+    const rowId = getPrimaryKeyValues(row, primaryKey);
+    const currentCellFeedback = useFeedbackCelda(`${rowId}-${columnKey}`);
+    const pendiente = useCeldaPendiente(rowId, columnKey);
+
+    const value = row[columnKey];
+    const hasValue = value !== null && value !== undefined && String(value).trim() !== '';
+
+    let cellBackgroundColor = 'transparent';
+    if (currentCellFeedback) {
+        cellBackgroundColor = currentCellFeedback.type === 'error' ? theme.palette.error.light : theme.palette.success.light;
+    } else if (fixedFields?.some(f => f.fieldName === columnKey)) {
+        cellBackgroundColor = theme.palette.action.selected;
+    } else if ((isMandatory && !hasValue) || pendiente) {
+        cellBackgroundColor = '#e3f2fd'; // Celeste premium suave
+    }
+
+    //  TODO: Capturar valor fecha
+    // Usamos TypeStore para el formateo de visualización
+    let displayValue: string = value !== null && value !== undefined ? typer.toLocalString(value) : '';
+    if (!hasValue && isMandatory) {
+        displayValue = '* ' + displayValue; // Agrega el asterisco si está vacío y es requerido
+    }
+
+    const signal = displayValue === '--' ? 'typed-controls-signal-no-data' : displayValue === '//' ? 'typed-controls-signal-unknown-data' : '';
+    const celda = (
+        <div
+            className={`fpr-celda ${isNumeric ? 'fpr-celda-numerica' : ''} ${signal} ${row[NEW_ROW_INDICATOR] ? 'new-row-cell-animation' : ''}`}
+            style={{ backgroundColor: cellBackgroundColor }}
+        >
+            {displayValue}
+        </div>
+    );
+    // El Tooltip de MUI solo se arma cuando hay un mensaje que mostrar
+    return currentCellFeedback?.message
+        ? <Tooltip title={currentCellFeedback.message}>{celda}</Tooltip>
+        : celda;
+});
+
 export const allColumnsCellRenderer = (
     props: RenderCellProps<any, unknown>,
     onOpenDetail?: (tableName: string, fixedFields: FixedField[], label: string, ancestors: Ancestor[]) => void,
     ancestors: Ancestor[] = [],
     currentFixedFields: FixedField[] = []
 ) => {
-    const theme = useTheme();
     const column = props.column as unknown as CustomColumn<any, unknown>;
     const { row } = props;
 
@@ -38,14 +90,7 @@ export const allColumnsCellRenderer = (
     switch (column.customType) {
         case 'default': {
             const defaultColumn = column as DefaultColumn<any, unknown>;
-            // --- CAMBIO: Cambiamos cellFeedback a cellFeedbackMap ---
-            const { fieldDef, tableDefinition, primaryKey, cellFeedbackMap, fixedFields, localCellChanges } = defaultColumn;
-            // ---------------------------------------------------------
-            const rowId = getPrimaryKeyValues(row, primaryKey);
-            const cellKey = `${rowId}-${props.column.key}`; // Clave única para el mapa
-
-            // Obtener el feedback específico para esta celda
-            const currentCellFeedback = cellFeedbackMap.get(cellKey);
+            const { fieldDef, tableDefinition, primaryKey } = defaultColumn;
 
             if (fieldDef?.clientSide) {
                 const ClientSideComponent = clientSides[fieldDef.clientSide];
@@ -55,56 +100,12 @@ export const allColumnsCellRenderer = (
                 return <FallbackClientSideRenderer {...props} fieldDefinition={fieldDef} tableDefinition={tableDefinition} primaryKey={primaryKey} />;
             }
 
-            let cellBackgroundColor = 'transparent';
-
-            const isMandatory = tableDefinition.primaryKey.includes(props.column.key) || (tableDefinition.fields.find(f => f.name === props.column.key)?.nullable === false);
-            const hasValue = row[props.column.key] !== null && row[props.column.key] !== undefined && String(row[props.column.key]).trim() !== '';
-
-            // --- LÓGICA DE COLOR DE FEEDBACK ADAPTADA ---
-            if (currentCellFeedback) {
-                cellBackgroundColor = currentCellFeedback.type === 'error' ? theme.palette.error.light : theme.palette.success.light;
-            } else {
-                // ------------------------------------------
-                const isNewRowLocalCheck = row[NEW_ROW_INDICATOR];
-                const isFixedFieldCurrent = fixedFields?.some(f => f.fieldName === props.column.key);
-
-                if (isFixedFieldCurrent) {
-                    cellBackgroundColor = theme.palette.action.selected;
-                } else if ((isMandatory && !hasValue) || (localCellChanges.has(rowId) && localCellChanges.get(rowId)?.has(props.column.key))) {
-                    cellBackgroundColor = '#e3f2fd'; // Celeste premium suave
-                }
-            }
-
-            //  TODO: Capturar valor fecha
-            // Usamos TypeStore para el formateo de visualización
-            const value = row[props.column.key];
-            const typer = typeStore.typerFrom(fieldDef);
-            let displayValue = value !== null ? typer.toLocalString(value) : '';
-            const isNumeric = isNumericType(fieldDef?.typeName);
-            
-            if (!hasValue && isMandatory) {
-                displayValue = '* ' + displayValue; // Agrega el asterisco si está vacío y es requerido
-            }
-
-
-            return (
-                <Tooltip title={currentCellFeedback?.message || ''}>
-                    <Box
-                        className={`${displayValue === '--' ? 'typed-controls-signal-no-data' : displayValue === '//' ? 'typed-controls-signal-unknown-data' : ''} ${row[NEW_ROW_INDICATOR] ? 'new-row-cell-animation' : ''}`}
-                        sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: cellBackgroundColor, transition: 'background-color 0.3s ease-in-out', display: 'flex', alignItems: 'center', justifyContent: isNumeric ? 'flex-end' : 'flex-start', paddingLeft: '8px', paddingRight: '12px', boxSizing: 'border-box' }}
-                    >
-                        <Typography variant="body2" sx={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
-                            {displayValue}
-                        </Typography>
-                    </Box>
-                </Tooltip>
-            );
-
+            return <CeldaDato row={row} columnKey={props.column.key} defaultColumn={defaultColumn} />;
         }
 
         case 'detail': {
             const detailColumn = column as DetailColumn<any, unknown>;
-            const { detailTable, primaryKey, tableData, setTableData, detailKey, tableDefinition } = detailColumn;
+            const { detailTable, tableDefinition } = detailColumn;
 
             return (
                 <Tooltip title={detailTable.label}>

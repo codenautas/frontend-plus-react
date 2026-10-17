@@ -1,5 +1,5 @@
 // src/hooks/grid/useGridDataView.ts
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { TableDefinition, FieldDefinition } from '../../types';
 
 // @ts-ignore
@@ -11,6 +11,9 @@ export type SortColumn = { columnKey: string; direction: 'ASC' | 'DESC' };
 
 export type SummaryEntry = { type: string; value: number };
 export type SummaryData = Record<string, SummaryEntry>;
+
+/** Si cambian más filas que esto se considera una recarga (refrescar, importar) y se vuelve a ordenar y filtrar */
+const MAXIMO_FILAS_EDICION_PUNTUAL = 3;
 
 interface UseGridDataViewProps {
     tableData: any[];
@@ -65,7 +68,35 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
     }, []);
 
     // ── filteredRows ──────────────────────────────────────────────────────────
+    // Lo último que se calculó, para no reordenar ni refiltrar cuando solo se editaron algunas filas
+    const vistaAnteriorRef = useRef<{
+        tableData: any[], filas: any[], filters: Record<string, any>, isFilterRowVisible: boolean,
+        sortColumns: readonly SortColumn[], tableDefinition: TableDefinition | null
+    } | null>(null);
+
     const filteredRows = useMemo(() => {
+        const anterior = vistaAnteriorRef.current;
+        if (anterior
+            && anterior.filters === filters
+            && anterior.isFilterRowVisible === isFilterRowVisible
+            && anterior.sortColumns === sortColumns
+            && anterior.tableDefinition === tableDefinition
+            && anterior.tableData.length === tableData.length
+        ) {
+            // Misma vista y misma cantidad de filas: si solo cambiaron unas pocas (una edición),
+            // se reemplazan en su lugar. Así la fila que se está editando no salta a otra posición
+            // ni desaparece por el filtro; se reacomoda cuando el usuario cambia el orden o los filtros.
+            const reemplazos = new Map<any, any>();
+            for (let i = 0; i < tableData.length && reemplazos.size <= MAXIMO_FILAS_EDICION_PUNTUAL; i++) {
+                if (anterior.tableData[i] !== tableData[i]) reemplazos.set(anterior.tableData[i], tableData[i]);
+            }
+            if (reemplazos.size <= MAXIMO_FILAS_EDICION_PUNTUAL) {
+                const filas = reemplazos.size === 0 ? anterior.filas : anterior.filas.map(fila => reemplazos.get(fila) ?? fila);
+                vistaAnteriorRef.current = { ...anterior, tableData, filas };
+                return filas;
+            }
+        }
+
         let rows = [...tableData];
 
         // 1. Filtrado
@@ -158,6 +189,7 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
             });
         }
 
+        vistaAnteriorRef.current = { tableData, filas: rows, filters, isFilterRowVisible, sortColumns, tableDefinition };
         return rows;
     }, [tableData, filters, isFilterRowVisible, tableDefinition, sortColumns]);
 

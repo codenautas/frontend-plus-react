@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { ClientSideProps } from './clientSides'; // Asegúrate de importar la interfaz
+import { ClientSideProps } from '../../types'; // Asegúrate de importar la interfaz
 
 const FallbackClientSideRenderer: React.FC<ClientSideProps> = ({ column, row, fieldDefinition }) => {
     const clientSideName = fieldDefinition?.clientSide || 'Desconocido';

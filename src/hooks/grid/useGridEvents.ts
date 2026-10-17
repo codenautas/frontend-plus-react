@@ -1,5 +1,5 @@
 import { TableDefinition } from 'backend-plus';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { CellMouseArgs, CellKeyDownArgs, CellMouseEvent, CellKeyboardEvent, DataGridHandle, Column, CellSelectArgs, RowsChangeData } from 'react-data-grid';
 import { DetailColumn } from '../../components/grid/GenericDataGrid';
 import { FixedField } from '../../types';
@@ -19,7 +19,16 @@ interface UseGridEventsProps {
 
 export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, tableData, fixedFields, setSelectedCell, setTableData, setSortColumns}: UseGridEventsProps) => {
 
+    // handleKeyPressInEditor viaja dentro de las columnas: tiene que ser estable para no recrearlas
+    // en cada cambio de datos, así que lee las filas visibles y la definición a través de refs.
+    const filteredRowsRef = useRef(filteredRows);
+    filteredRowsRef.current = filteredRows;
+    const tableDefinitionRef = useRef(tableDefinition);
+    tableDefinitionRef.current = tableDefinition;
+
     const handleKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, event: React.KeyboardEvent, currentColumns: Column<any>[], handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => {
+        const tableDefinition = tableDefinitionRef.current;
+        const filteredRows = filteredRowsRef.current;
         if (dataGridRef.current && tableDefinition) {
             const currentColumnIndex = currentColumns.findIndex((col: Column<any>) => col.key === columnKey);
             const editableColumns = currentColumns.filter(col => {
@@ -114,7 +123,7 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
                             break;
                         }
                         case (key === 'F4'): {
-                            setSortColumns([]); // Limpiar ordenamiento
+                            // no hace falta limpiar el orden: useGridDataView mantiene las filas en su lugar al editar
                             const {rowIdx, idx} = calcularFilaSiguiente();
                             const previousRow = filteredRows[rowIndex-1]
                             if(previousRow){
@@ -127,7 +136,7 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
                 }    
             }        
         }
-    }, [filteredRows, tableDefinition, tableData, dataGridRef]); // Agregado dataGridRef por seguridad
+    }, [dataGridRef]);
 
     const handleCellKeyDown = useCallback((args: CellKeyDownArgs<any, { id: string }>, event: CellKeyboardEvent) => {
         if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp','ArrowRight', 'ArrowLeft'].includes(event.key)) {
@@ -152,21 +161,28 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         const isFixedField = fixedFields?.some(f => f.fieldName === args.column.key);
         const isEditable = fieldDefinition?.editable !== false && !isFixedField;
         if(isEditable){
-            setSortColumns([]); // Limpiar ordenamiento al clickear
+            // antes se limpiaba el orden al clickear; ya no hace falta porque al editar
+            // las filas no se reordenan hasta que el usuario cambie el orden o los filtros
             args.selectCell(true);
         }
-    }, [tableDefinition, fixedFields, setSortColumns]);
+    }, [tableDefinition, fixedFields]);
 
     const handleRowsChange = useCallback((updatedRows: any[], data: RowsChangeData<any, any>) => {
-        // Preservar la identidad (DOM_TEMP_ID) de las filas editadas
+        // updatedRows son las filas visibles (filtradas y ordenadas), no todo tableData:
+        // se reemplazan en tableData solo las filas editadas, buscándolas por identidad.
+        const reemplazos = new Map<any, any>();
         data.indexes.forEach(index => {
             const oldRow = filteredRows[index];
             const newRow = updatedRows[index];
-            if (oldRow && newRow && oldRow[DOM_TEMP_ID] && !newRow[DOM_TEMP_ID]) {
+            if (!oldRow || !newRow) return;
+            // Preservar la identidad (DOM_TEMP_ID) de las filas editadas
+            if (oldRow[DOM_TEMP_ID] && !newRow[DOM_TEMP_ID]) {
                 (newRow as any)[DOM_TEMP_ID] = oldRow[DOM_TEMP_ID];
             }
+            reemplazos.set(oldRow, newRow);
         });
-        setTableData(updatedRows);
+        if (reemplazos.size === 0) return;
+        setTableData(prevData => prevData.map(row => reemplazos.get(row) ?? row));
     }, [setTableData, filteredRows]);
 
     return {

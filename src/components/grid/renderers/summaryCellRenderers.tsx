@@ -3,7 +3,8 @@ import { FixedField } from "../../../types";
 import FilterInputRenderer from "../FilterInputRender";
 import { Box } from "@mui/material";
 
-export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<any, any>, fixedFields: FixedField[] | undefined, isFilterRowVisible: boolean) => {
+// La fila de filtros solo existe en topSummaryRows cuando está visible, por eso no hace falta recibir isFilterRowVisible
+export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<any, any>, fixedFields: FixedField[] | undefined) => {
     const { column, row } = props;
 
     // Solo mostramos filtros en la fila dedicada a filtros
@@ -12,7 +13,7 @@ export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<a
         // Si el campo es fijo, no debe aparecer en los filtros
         const fixedFieldEntry = fixedFields?.find(f => f.fieldName === column.key);
         // El filtro solo se muestra si NO es un campo fijo O si es un campo fijo que sí tiene 'until' o bien si el filtro está deshabilitado
-        if ((fixedFieldEntry && fixedFieldEntry.until === undefined) || !isFilterRowVisible) return null;
+        if (fixedFieldEntry && fixedFieldEntry.until === undefined) return null;
 
         const fieldDef = (column as any).fieldDef;
         return (

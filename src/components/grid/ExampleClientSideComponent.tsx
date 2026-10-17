@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import { ClientSideProps } from './clientSides';
+import { ClientSideProps } from '../../types';
 
 const ExampleClientSideComponent: React.FC<ClientSideProps> = ({ row, column, fieldDefinition }) => {
     // Accede al valor de la celda:

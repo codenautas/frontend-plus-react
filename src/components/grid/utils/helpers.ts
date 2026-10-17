@@ -4,6 +4,17 @@ import typeStore from 'type-store';
 import { FieldDefinition } from '../../../types';
 
 /**
+ * Lo que usamos de un typer de type-store (el paquete no publica tipos)
+ */
+export interface Typer {
+    toLocalString(value: unknown): string;
+    fromUserInput?(value: unknown): unknown;
+    validateTypedData(value: unknown): void;
+}
+
+export const typerFrom = (fieldDef: FieldDefinition): Typer => typeStore.typerFrom(fieldDef);
+
+/**
  * Indicadores especiales para filas
  */
 export const NEW_ROW_INDICATOR = '$new';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Paper } from '@mui/material';
-import { ResultOkProps } from './resultsOk'; 
+import { ResultOkProps } from '../../types';
 
 const SuccessDisplay: React.FC<ResultOkProps> = ({ data }) => {
     return (
