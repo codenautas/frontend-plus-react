@@ -29,9 +29,7 @@ export const claveDetalle = (rowId: string, detailTable: DetailTable) => `${rowI
 
 /** Alto de la fila de detalle mientras la grilla anidada todavía no informó cuánto necesita */
 export const ALTO_INICIAL_DETALLE = 140;
-export const ALTO_MINIMO_DETALLE = 110;
-/** Más que esto la grilla anidada scrollea por dentro (y virtualiza sus propias filas) */
-export const ALTO_MAXIMO_DETALLE = 420;
+export const ALTO_MINIMO_DETALLE = 80;
 
 /** Un campo de DetailTable['fields'] normalizado; `until` lo acepta my-tables.js aunque no esté en el .d.ts */
 interface CampoDeDetalle {

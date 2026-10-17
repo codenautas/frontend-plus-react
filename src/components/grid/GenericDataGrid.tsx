@@ -28,7 +28,7 @@ import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 import { crearEstadoGrilla, EstadoGrillaContext, MapaFeedback, VistaGrillaContext } from './estadoGrilla';
 import {
-    ALTO_INICIAL_DETALLE, ALTO_MAXIMO_DETALLE, ALTO_MINIMO_DETALLE, CacheGrillasContext, calcularFixedFieldsDetalle,
+    ALTO_INICIAL_DETALLE, ALTO_MINIMO_DETALLE, CacheGrillasContext, calcularFixedFieldsDetalle,
     claveDetalle, DETALLE, DetallesGrillaContext, esFilaDetalle, FilaDetalle, GrillaGuardada
 } from './detalles';
 
@@ -46,6 +46,8 @@ const DURACION_FEEDBACK_EXITO = 3000;
 const ALTO_TITULO_ANIDADA = 26;
 /** Alto mínimo de una grilla anidada sin filas (alcanza para el mensaje "No hay filas") */
 const ALTO_MINIMO_CUERPO_ANIDADA = 120;
+/** Espacio extra bajo una grilla anidada: lo justo para una barra de scroll horizontal */
+const HOLGURA_ANIDADA = 18;
 
 interface GenericDataGridProps {
     tableName: string;
@@ -62,6 +64,12 @@ interface GenericDataGridProps {
     claveCache?: string;
     /** La grilla anidada informa el alto que necesita para mostrarse completa */
     onAltoDeseado?: (alto: number) => void;
+    /**
+     * Tope opcional para el alto de las filas de detalle (en px). Sin tope (lo normal) cada detalle
+     * se muestra completo, como en backend-plus; con tope, el detalle más alto scrollea por dentro
+     * y virtualiza sus propias filas (útil si hay detalles de miles de filas).
+     */
+    altoMaximoDetalle?: number;
 }
 
 export { NEW_ROW_INDICATOR };
@@ -209,6 +217,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     titulo,
     claveCache,
     onAltoDeseado,
+    altoMaximoDetalle,
 }) => {
     // fixedFields suele llegar como un array nuevo en cada render del padre:
     // se estabiliza por contenido para no volver a pedir los datos ni recrear las columnas
@@ -320,7 +329,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     const { gridHeight, bottomSummaryRow, summaryRows, filterHeight } = useGridLayout({
         filteredRows, isFilterRowVisible, tableData, summaryData, filters, setFilters, altoDetalles,
-        altoMinimoCuerpo: anidada ? ALTO_MINIMO_CUERPO_ANIDADA : MIN_BODY_HEIGHT
+        altoMinimoCuerpo: anidada ? ALTO_MINIMO_CUERPO_ANIDADA : MIN_BODY_HEIGHT,
+        holgura: anidada ? HOLGURA_ANIDADA : undefined,
     });
 
     const { handleCellDoubleClick, handleCellClick, handleCellKeyDown, handleCellMouseDown, handleKeyPressInEditor, handleSelectedCellChange, handleRowsChange } = useGridEvents({
@@ -485,9 +495,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     }, [onOpenDetail, abrirDetalleEnPestana]);
 
     const cambiarAltoDetalle = useCallback((clave: string, altoDeseado: number) => {
-        const alto = Math.min(Math.max(Math.round(altoDeseado), ALTO_MINIMO_DETALLE), ALTO_MAXIMO_DETALLE);
+        // sin tope: la fila de detalle crece hasta mostrar completa la grilla anidada (y sus propios detalles)
+        const alto = Math.min(Math.max(Math.round(altoDeseado), ALTO_MINIMO_DETALLE), altoMaximoDetalle ?? Infinity);
         setAltosDetalle(anteriores => anteriores.get(clave) === alto ? anteriores : new Map(anteriores).set(clave, alto));
-    }, []);
+    }, [altoMaximoDetalle]);
 
     // Ancho visible de la grilla: la grilla anidada no se estira a todas las columnas del padre (como en backend-plus)
     const [anchoVisible, setAnchoVisible] = useState<number | null>(null);
@@ -505,8 +516,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         return (
             <div
                 className="fpr-detalle"
-                // la celda ocupa el ancho de todas las columnas del padre; la grilla anidada no pasa de lo visible
-                style={{ width: '100%', maxWidth: anchoVisible ? anchoVisible - 2 : undefined }}
+                // el ancho lo da el contenido (ver .fpr-detalle) pero no pasa de lo visible de esta grilla
+                style={{ maxWidth: anchoVisible ? anchoVisible - 2 : undefined }}
                 // las teclas de la grilla anidada no tienen que mover la selección de esta grilla
                 onKeyDown={(e) => e.stopPropagation()}
             >
@@ -518,6 +529,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         titulo={titulo}
                         claveCache={`${claveCache ?? tableName}>${fila.clave}`}
                         onAltoDeseado={(alto) => cambiarAltoDetalle(fila.clave, alto)}
+                        altoMaximoDetalle={altoMaximoDetalle}
                         onOpenDetail={onOpenDetail}
                         ancestors={tableDefinition ? [...ancestors, { tableName: tableDefinition.name, row: fila.filaPadre, tableDefinition, fixedFields: fila.fixedFields }] : ancestors}
                     />
@@ -525,7 +537,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 }
             </div>
         );
-    }, [anchoVisible, claveCache, tableName, cambiarAltoDetalle, onOpenDetail, tableDefinition, ancestors]);
+    }, [anchoVisible, claveCache, tableName, cambiarAltoDetalle, altoMaximoDetalle, onOpenDetail, tableDefinition, ancestors]);
 
     const detallesGrilla = useMemo(() => ({ abiertos, alternarDetalle, renderDetalle }), [abiertos, alternarDetalle, renderDetalle]);
 
