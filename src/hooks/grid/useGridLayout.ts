@@ -10,6 +10,10 @@ interface UseGridLayoutProps {
     summaryData: SummaryData;
     filters: Record<string, any>;
     setFilters: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+    /** Alto que agregan las filas de detalle desplegadas */
+    altoDetalles?: number;
+    /** Alto mínimo cuando no hay filas para mostrar (las grillas anidadas usan uno menor) */
+    altoMinimoCuerpo?: number;
 }
 
 export const useGridLayout = ({
@@ -19,16 +23,18 @@ export const useGridLayout = ({
     summaryData,
     filters,
     setFilters,
+    altoDetalles = 0,
+    altoMinimoCuerpo = MIN_BODY_HEIGHT,
 }: UseGridLayoutProps) => {
 
     const gridHeight = useMemo(() => {
         const filterHeight = isFilterRowVisible ? FILTER_ROW_HEIGHT : 0;
-        let calculatedHeight = (filteredRows.length * ROW_HEIGHT) + HEADER_ROW_HEIGHT + filterHeight + SUMMARY_ROW_HEIGHT + 40;
+        let calculatedHeight = (filteredRows.length * ROW_HEIGHT) + altoDetalles + HEADER_ROW_HEIGHT + filterHeight + SUMMARY_ROW_HEIGHT + 40;
         if (tableData.length > 0 && filteredRows.length === 0 && isFilterRowVisible || tableData.length === 0) {
-            calculatedHeight = Math.max(calculatedHeight, MIN_BODY_HEIGHT) + filterHeight;
+            calculatedHeight = Math.max(calculatedHeight, altoMinimoCuerpo) + filterHeight;
         }
         return calculatedHeight;
-    }, [filteredRows.length, isFilterRowVisible, tableData.length]);
+    }, [filteredRows.length, isFilterRowVisible, tableData.length, altoDetalles, altoMinimoCuerpo]);
 
     const bottomSummaryRow = useMemo(() => {
         return { id: 'bottomSummaryRow', ...summaryData };

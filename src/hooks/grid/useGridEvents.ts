@@ -4,12 +4,14 @@ import { CellMouseArgs, CellKeyDownArgs, CellMouseEvent, CellKeyboardEvent, Data
 import { DetailColumn } from '../../components/grid/GenericDataGrid';
 import { FixedField } from '../../types';
 import { DOM_TEMP_ID } from '../../components/grid/utils/helpers';
+import { esFilaDetalle } from '../../components/grid/detalles';
 import { SortColumn } from './useGridDataView';
 
 interface UseGridEventsProps {
     dataGridRef: React.RefObject<DataGridHandle>
     tableDefinition: TableDefinition | null,
     fixedFields: FixedField[] | undefined
+    /** Las filas tal como se muestran: filtradas, ordenadas y con las filas de detalle intercaladas */
     filteredRows: any[],
     tableData: any[],
     setSelectedCell: React.Dispatch<React.SetStateAction<CellSelectArgs<any, NoInfer<{id: string;}>> | undefined>>,
@@ -45,14 +47,21 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
                 const hacerFoco = ({rowIdx, idx}:{rowIdx:number, idx: number}) => 
                     setTimeout(()=>dataGridRef.current?.selectCell({ rowIdx, idx }, { enableEditor: true, shouldFocusCell: true }),10);
                 
+                // Índice de la próxima fila de datos en la dirección indicada, salteando las filas de detalle (-1 si no hay)
+                const filaDeDatos = (desde: number, paso: 1 | -1) => {
+                    let i = desde + paso;
+                    while (i >= 0 && i < filteredRows.length && esFilaDetalle(filteredRows[i])) i += paso;
+                    return i >= 0 && i < filteredRows.length ? i : -1;
+                };
+
                 const calcularColumnaSiguiente = ()=>{
                     let nextEditableColumnIndex = currentEditableColumnIndex + 1;
                     let nextRowIndex = rowIndex;
                     if (nextEditableColumnIndex >= editableColumns.length) {
                         nextEditableColumnIndex = 0;
-                        nextRowIndex++;
-                        if (nextRowIndex >= filteredRows.length) {
-                            nextRowIndex = 0;
+                        nextRowIndex = filaDeDatos(rowIndex, 1);
+                        if (nextRowIndex === -1) {
+                            nextRowIndex = filaDeDatos(-1, 1);
                         }
                     }
                     const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
@@ -72,21 +81,13 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
                 }
                 
                 const calcularFilaSiguiente = ()=>{
-                    let nextRowIndex = rowIndex;   
-                    nextRowIndex++;               
-                    if (nextRowIndex >= filteredRows.length) {
-                        return {rowIdx: rowIndex, idx:currentColumnIndex}
-                    }
-                    return {rowIdx: nextRowIndex, idx:currentColumnIndex}
+                    const nextRowIndex = filaDeDatos(rowIndex, 1);
+                    return {rowIdx: nextRowIndex === -1 ? rowIndex : nextRowIndex, idx:currentColumnIndex}
                 }
 
                 const calcularFilaAnterior = ()=>{
-                    let nextRowIndex = rowIndex;
-                    nextRowIndex--;
-                    if (nextRowIndex < 0) {
-                        return {rowIdx: rowIndex, idx:currentColumnIndex}
-                    }
-                    return {rowIdx: nextRowIndex, idx:currentColumnIndex}
+                    const nextRowIndex = filaDeDatos(rowIndex, -1);
+                    return {rowIdx: nextRowIndex === -1 ? rowIndex : nextRowIndex, idx:currentColumnIndex}
                 }
                 
                 if (currentEditableColumnIndex !== -1) {
@@ -125,7 +126,8 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
                         case (key === 'F4'): {
                             // no hace falta limpiar el orden: useGridDataView mantiene las filas en su lugar al editar
                             const {rowIdx, idx} = calcularFilaSiguiente();
-                            const previousRow = filteredRows[rowIndex-1]
+                            const indiceAnterior = filaDeDatos(rowIndex, -1);
+                            const previousRow = indiceAnterior === -1 ? undefined : filteredRows[indiceAnterior]
                             if(previousRow){
                                 handleCommit(previousRow[columnKey], true, true).then(()=>hacerFoco({rowIdx ,idx}))
                             }
@@ -157,6 +159,8 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
     }, [setSelectedCell]);
 
     const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>, _event: CellMouseEvent) => {
+        // la fila de detalle contiene otra grilla: los clicks son de esa grilla
+        if (esFilaDetalle(args.row)) return;
         const fieldDefinition = tableDefinition?.fields.find(f => f.name === args.column.key);
         const isFixedField = fixedFields?.some(f => f.fieldName === args.column.key);
         const isEditable = fieldDefinition?.editable !== false && !isFixedField;
@@ -174,7 +178,7 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         data.indexes.forEach(index => {
             const oldRow = filteredRows[index];
             const newRow = updatedRows[index];
-            if (!oldRow || !newRow) return;
+            if (!oldRow || !newRow || esFilaDetalle(oldRow)) return;
             // Preservar la identidad (DOM_TEMP_ID) de las filas editadas
             if (oldRow[DOM_TEMP_ID] && !newRow[DOM_TEMP_ID]) {
                 (newRow as any)[DOM_TEMP_ID] = oldRow[DOM_TEMP_ID];

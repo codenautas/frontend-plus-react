@@ -1,14 +1,15 @@
 // src/hooks/grid/useGridColumns.ts
 import React, { useMemo } from 'react';
-import { RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, RenderEditCellProps, Column } from 'react-data-grid';
+import { RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, RenderEditCellProps, Column, ColSpanArgs } from 'react-data-grid';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
-import { FieldDefinition, FixedField, TableDefinition, Ancestor } from '../../types';
+import { FieldDefinition, FixedField, TableDefinition } from '../../types';
 import { CustomColumn, DefaultColumn, DetailColumn, ActionColumn } from '../../components/grid/GenericDataGrid';
 import { ActionsColumnHeaderCell, defaultColumnHeaderCellRenderer, detailColumnCellHeaderRenderer } from '../../components/grid/renderers/headerCellRenderers';
 import { actionsColumnSummaryCellRenderer, defaultColumnSummaryCellRenderer, detailColumnCellSummaryRenderer } from '../../components/grid/renderers/summaryCellRenderers';
 import { allColumnsCellRenderer } from '../../components/grid/renderers/cellRenderers';
 import { allColumnsEditCellRenderer } from '../../components/grid/renderers/editCellRenderers';
 import { isNumericType, typerFrom } from '../../components/grid/utils/helpers';
+import { esFilaDetalle } from '../../components/grid/detalles';
 
 const estimateTextWidth = (text: string): number => text.length * 8 + 16;
 
@@ -54,8 +55,6 @@ interface UseGridColumnsProps {
     handleVerticalEditRow: (row: any) => void;
     toggleFilterVisibility: () => void;
     abrirOpcionesDeGrilla: (anchorEl: HTMLElement) => void;
-    onOpenDetail?: (tableName: string, fixedFields: FixedField[], label: string, ancestors: Ancestor[]) => void;
-    ancestors: Ancestor[];
 }
 
 /**
@@ -76,8 +75,6 @@ export const useGridColumns = ({
     handleVerticalEditRow,
     toggleFilterVisibility,
     abrirOpcionesDeGrilla,
-    onOpenDetail,
-    ancestors,
 }: UseGridColumnsProps) => {
 
     const columns: CustomColumn<any>[] = useMemo(() => {
@@ -165,14 +162,18 @@ export const useGridColumns = ({
         });
 
         const allColumns: CustomColumn<any>[] = [actionsColumn, ...detailColumns, ...defaultColumns];
+        const cantidadDeColumnas = allColumns.length;
+        // En una fila de detalle la columna de acciones ocupa todo el ancho y muestra la grilla anidada
+        const colSpanDetalle = (args: ColSpanArgs<any, unknown>) => args.type === 'ROW' && esFilaDetalle(args.row) ? cantidadDeColumnas : undefined;
         return allColumns.map(col => ({
             ...col,
+            colSpan: col.customType === 'action' ? colSpanDetalle : col.colSpan,
             editorOptions: { closeOnExternalRowChange: false },
             renderEditCell: (props: RenderEditCellProps<any, unknown>) => allColumnsEditCellRenderer(props, allColumns as Column<any>[]),
-            renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props, onOpenDetail, ancestors, fixedFields),
+            renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props),
         }));
 
-    }, [tableDefinition, anchosCalculados, fixedFields, primaryKey, setTableData, handleKeyPressInEditor, handleDeleteRow, handleAddRow, handleVerticalEditRow, toggleFilterVisibility, abrirOpcionesDeGrilla, onOpenDetail, ancestors]);
+    }, [tableDefinition, anchosCalculados, fixedFields, primaryKey, setTableData, handleKeyPressInEditor, handleDeleteRow, handleAddRow, handleVerticalEditRow, toggleFilterVisibility, abrirOpcionesDeGrilla]);
 
     return { columns };
 };

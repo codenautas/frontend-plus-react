@@ -1,5 +1,5 @@
 // src/components/GenericDataGrid.tsx
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo, useRef } from 'react';
 import { DataGrid, DataGridHandle, RenderCellProps, CellSelectArgs, Column } from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
 import './GenericDataGrid.css';
@@ -27,6 +27,10 @@ import { ExportDialog } from './ExportDialog';
 import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 import { crearEstadoGrilla, EstadoGrillaContext, MapaFeedback, VistaGrillaContext } from './estadoGrilla';
+import {
+    ALTO_INICIAL_DETALLE, ALTO_MAXIMO_DETALLE, ALTO_MINIMO_DETALLE, CacheGrillasContext, calcularFixedFieldsDetalle,
+    claveDetalle, DETALLE, DetallesGrillaContext, esFilaDetalle, FilaDetalle, GrillaGuardada
+} from './detalles';
 
 
 export const SUMMARY_ROW_HEIGHT = 35;
@@ -38,12 +42,26 @@ export const MIN_BODY_HEIGHT = 260;
 /** Cuánto dura el feedback verde de una celda grabada */
 const DURACION_FEEDBACK_EXITO = 3000;
 
+/** Alto del título de una grilla anidada (para informar cuánto necesita) */
+const ALTO_TITULO_ANIDADA = 26;
+/** Alto mínimo de una grilla anidada sin filas (alcanza para el mensaje "No hay filas") */
+const ALTO_MINIMO_CUERPO_ANIDADA = 120;
+
 interface GenericDataGridProps {
     tableName: string;
     fixedFields?: FixedField[];
+    /** Abre un detalle en otra pestaña (Ctrl+click o botón del medio en el botón del detalle) */
     onOpenDetail?: (tableName: string, fixedFields: FixedField[], label: string, ancestors: Ancestor[]) => void;
     gridStyles?: React.CSSProperties;
     ancestors?: Ancestor[];
+    /** Es una grilla de detalle desplegada dentro de otra grilla */
+    anidada?: boolean;
+    /** Título a mostrar en lugar del de la tabla (lo usan las grillas anidadas) */
+    titulo?: string;
+    /** Clave en el CacheGrillasContext para volver a mostrarse sin recargar */
+    claveCache?: string;
+    /** La grilla anidada informa el alto que necesita para mostrarse completa */
+    onAltoDeseado?: (alto: number) => void;
 }
 
 export { NEW_ROW_INDICATOR };
@@ -186,18 +204,34 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     fixedFields: fixedFieldsRecibidos,
     gridStyles,
     onOpenDetail,
-    ancestors = SIN_ANCESTROS
+    ancestors = SIN_ANCESTROS,
+    anidada = false,
+    titulo,
+    claveCache,
+    onAltoDeseado,
 }) => {
     // fixedFields suele llegar como un array nuevo en cada render del padre:
     // se estabiliza por contenido para no volver a pedir los datos ni recrear las columnas
     const claveFixedFields = JSON.stringify(fixedFieldsRecibidos ?? null);
     const fixedFields = useMemo(() => fixedFieldsRecibidos, [claveFixedFields]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const [tableDefinition, setTableDefinition] = useState<TableDefinition | null>(null);
-    const [tableData, setTableData] = useState<any[]>([]);
-    const [cargandoInicial, setCargandoInicial] = useState(true);
+    // Cache compartido por toda la jerarquía de grillas (la grilla de más arriba lo crea)
+    const cacheHeredado = useContext(CacheGrillasContext);
+    const [cachePropio] = useState(() => new Map<string, GrillaGuardada>());
+    const cache = cacheHeredado ?? cachePropio;
+    // Lo guardado de esta grilla (si ya se mostró antes y salió de la pantalla por la virtualización)
+    const [guardada] = useState(() => claveCache ? cache.get(claveCache) : undefined);
+    // Qué tabla+fixedFields están cargados; si viene del cache ya están y no se vuelve a pedir
+    const claveCargadaRef = useRef<string | null>(guardada ? `${tableName}|${claveFixedFields}` : null);
+
+    const [tableDefinition, setTableDefinition] = useState<TableDefinition | null>(guardada?.tableDefinition ?? null);
+    const [tableData, setTableData] = useState<any[]>(guardada?.tableData ?? []);
+    const [cargandoInicial, setCargandoInicial] = useState(!guardada);
     const [errorDeCarga, setErrorDeCarga] = useState<string | null>(null);
-    const [anchosCalculados, setAnchosCalculados] = useState<Map<string, number>>(() => new Map());
+    const [anchosCalculados, setAnchosCalculados] = useState<Map<string, number>>(() => guardada?.anchosCalculados ?? new Map());
+    // Detalles desplegados (claves `${rowId}|${abr}`) y el alto que pidió cada grilla anidada
+    const [detallesAbiertos, setDetallesAbiertos] = useState<string[]>(guardada?.detallesAbiertos ?? []);
+    const [altosDetalle, setAltosDetalle] = useState<Map<string, number>>(() => guardada?.altosDetalle ?? new Map());
     const [selectedRows, setSelectedRows] = useState((): ReadonlySet<string> => new Set());
     const [, setSelectedCell] = useState<CellSelectArgs<any, NoInfer<{ id: string }>> | undefined>(undefined);
 
@@ -231,6 +265,46 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         filteredRows, summaryData, resetView
     } = useGridDataView({ tableData, tableDefinition });
 
+    // ── Detalles desplegados ─────────────────────────────────────────────────
+    const abiertos = useMemo(() => new Set(detallesAbiertos), [detallesAbiertos]);
+    // Se reusan los objetos de las filas de detalle mientras no cambie su fila padre:
+    // así react-data-grid no redibuja la grilla anidada en cada render
+    const filasDetalleRef = useRef(new Map<string, FilaDetalle>());
+
+    /** filteredRows con las filas de detalle intercaladas debajo de su fila padre (en el orden de detailTables) */
+    const filasMostradas = useMemo(() => {
+        const detailTables = tableDefinition?.detailTables ?? [];
+        if (abiertos.size === 0 || detailTables.length === 0) return filteredRows;
+        const anteriores = filasDetalleRef.current;
+        const nuevas = new Map<string, FilaDetalle>();
+        const filas: any[] = [];
+        filteredRows.forEach(row => {
+            filas.push(row);
+            const rowId = getPrimaryKeyValues(row, primaryKey);
+            detailTables.forEach(detailTable => {
+                const clave = claveDetalle(rowId, detailTable);
+                if (!abiertos.has(clave)) return;
+                const anterior = anteriores.get(clave);
+                const filaDetalle: FilaDetalle = anterior && anterior.filaPadre === row ? anterior : {
+                    [DETALLE]: true,
+                    clave,
+                    filaPadre: row,
+                    detailTable,
+                    fixedFields: calcularFixedFieldsDetalle(detailTable, row),
+                };
+                nuevas.set(clave, filaDetalle);
+                filas.push(filaDetalle);
+            });
+        });
+        filasDetalleRef.current = nuevas;
+        return filas;
+    }, [filteredRows, abiertos, tableDefinition, primaryKey]);
+
+    const altoDeDetalle = useCallback((clave: string) => altosDetalle.get(clave) ?? ALTO_INICIAL_DETALLE, [altosDetalle]);
+    const altoDetalles = useMemo(() =>
+        filasMostradas.reduce((total, row) => esFilaDetalle(row) ? total + altoDeDetalle(row.clave) : total, 0)
+    , [filasMostradas, altoDeDetalle]);
+
     const {
         handleAddRow, handleConfirmDelete, handleDeleteRow,
         openConfirmDialog, rowToDelete, handleImportFile,
@@ -245,14 +319,21 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     });
 
     const { gridHeight, bottomSummaryRow, summaryRows, filterHeight } = useGridLayout({
-        filteredRows, isFilterRowVisible, tableData, summaryData, filters, setFilters
+        filteredRows, isFilterRowVisible, tableData, summaryData, filters, setFilters, altoDetalles,
+        altoMinimoCuerpo: anidada ? ALTO_MINIMO_CUERPO_ANIDADA : MIN_BODY_HEIGHT
     });
 
     const { handleCellDoubleClick, handleCellClick, handleCellKeyDown, handleCellMouseDown, handleKeyPressInEditor, handleSelectedCellChange, handleRowsChange } = useGridEvents({
-        dataGridRef, filteredRows, fixedFields, tableData, tableDefinition, setSelectedCell, setTableData, setSortColumns
+        dataGridRef, filteredRows: filasMostradas, fixedFields, tableData, tableDefinition, setSelectedCell, setTableData, setSortColumns
     });
 
+    // Al cambiar de tabla se limpia todo (no al montar: puede venir restaurada del cache)
+    const tableNameAnteriorRef = useRef(tableName);
     useEffect(() => {
+        if (tableNameAnteriorRef.current === tableName) return;
+        tableNameAnteriorRef.current = tableName;
+        setDetallesAbiertos([]);
+        setAltosDetalle(new Map());
         resetView();
         setSelectedRows(new Set());
         setTableDefinition(null);
@@ -264,6 +345,12 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     }, [tableName, estadoGrilla, resetView]);
 
     useEffect(() => {
+        const claveCarga = `${tableName}|${claveFixedFields}`;
+        if (claveCargadaRef.current === claveCarga) {
+            // Restaurada del cache: no se vuelve a pedir (como backend-plus al volver a desplegar un detalle)
+            if (guardada) setSortColumns(guardada.sortColumns);
+            return;
+        }
         let vigente = true;
         const fetchDataAndDefinition = async () => {
             setCargandoInicial(true);
@@ -278,6 +365,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     fixedFields: validFixedFields ?? []
                 }, { isCritical: true });
                 if (!vigente) return;
+                claveCargadaRef.current = claveCarga;
                 setTableDefinition(definition);
                 setSortColumns(getInitialSortColumns(definition));
                 setAnchosCalculados(calcularAnchosDeColumnas(definition, data));
@@ -296,7 +384,13 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         fetchDataAndDefinition();
         // si cambia la tabla antes de que llegue la respuesta, se descarta la respuesta vieja
         return () => { vigente = false; };
-    }, [tableName, fixedFields, showError, callApi, getInitialSortColumns, setSortColumns]);
+    }, [tableName, claveFixedFields, fixedFields, showError, callApi, getInitialSortColumns, setSortColumns, guardada]);
+
+    // Se guarda el estado para poder volver a mostrar la grilla tal cual si se desmonta
+    useEffect(() => {
+        if (!claveCache || !tableDefinition || cargandoInicial) return;
+        cache.set(claveCache, { tableDefinition, tableData, anchosCalculados, sortColumns, detallesAbiertos, altosDetalle });
+    }, [cache, claveCache, tableDefinition, tableData, anchosCalculados, sortColumns, detallesAbiertos, altosDetalle, cargandoInicial]);
 
     // El feedback de éxito se borra solo al rato; el de error queda hasta la próxima edición
     useEffect(() => {
@@ -364,15 +458,90 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         handleVerticalEditRow: editarEnFicha,
         toggleFilterVisibility,
         abrirOpcionesDeGrilla,
-        onOpenDetail,
-        ancestors,
     });
 
-    const rowKeyGetter = useCallback((row: any) => getPrimaryKeyValues(row, primaryKey), [primaryKey]);
+    /** Abre el detalle en otra pestaña (lo que antes hacía siempre el botón del detalle) */
+    const abrirDetalleEnPestana = useCallback((row: Record<string, any>, detailTable: DetailTable) => {
+        if (!onOpenDetail || !tableDefinition || !detailTable.table) return;
+        // Se acumulan los filtros que ya tiene la grilla actual (heredados de arriba), sin repetir campos
+        const porCampo = new Map<string, FixedField>();
+        [...(fixedFields ?? []), ...calcularFixedFieldsDetalle(detailTable, row)].forEach(ff => porCampo.set(ff.fieldName, ff));
+        const allFixedFields = Array.from(porCampo.values());
+        const filterDescription = allFixedFields
+            .map(ff => `${cambiarGuionesBajosPorEspacios(ff.fieldName)}: ${ff.value}`)
+            .join(', ');
+        const label = `${cambiarGuionesBajosPorEspacios(detailTable.table).toUpperCase()} (${filterDescription})`;
+        const newAncestors: Ancestor[] = [...ancestors, { tableName: tableDefinition.name, row, tableDefinition, fixedFields: allFixedFields }];
+        onOpenDetail(detailTable.table, allFixedFields, label, newAncestors);
+    }, [onOpenDetail, tableDefinition, fixedFields, ancestors]);
+
+    const alternarDetalle = useCallback((row: Record<string, any>, rowId: string, detailTable: DetailTable, enOtraPestana: boolean) => {
+        if (enOtraPestana && onOpenDetail) {
+            abrirDetalleEnPestana(row, detailTable);
+            return;
+        }
+        const clave = claveDetalle(rowId, detailTable);
+        setDetallesAbiertos(anteriores => anteriores.includes(clave) ? anteriores.filter(c => c !== clave) : [...anteriores, clave]);
+    }, [onOpenDetail, abrirDetalleEnPestana]);
+
+    const cambiarAltoDetalle = useCallback((clave: string, altoDeseado: number) => {
+        const alto = Math.min(Math.max(Math.round(altoDeseado), ALTO_MINIMO_DETALLE), ALTO_MAXIMO_DETALLE);
+        setAltosDetalle(anteriores => anteriores.get(clave) === alto ? anteriores : new Map(anteriores).set(clave, alto));
+    }, []);
+
+    // Ancho visible de la grilla: la grilla anidada no se estira a todas las columnas del padre (como en backend-plus)
+    const [anchoVisible, setAnchoVisible] = useState<number | null>(null);
+    useEffect(() => {
+        const elemento = dataGridRef.current?.element;
+        if (!elemento) return;
+        const observador = new ResizeObserver(() => setAnchoVisible(elemento.clientWidth));
+        observador.observe(elemento);
+        return () => observador.disconnect();
+    }, [tableDefinition, cargandoInicial]);
+
+    const renderDetalle = useCallback((fila: FilaDetalle) => {
+        const { detailTable } = fila;
+        const titulo = `${detailTable.label || cambiarGuionesBajosPorEspacios(detailTable.table ?? detailTable.abr)}`;
+        return (
+            <div
+                className="fpr-detalle"
+                // la celda ocupa el ancho de todas las columnas del padre; la grilla anidada no pasa de lo visible
+                style={{ width: '100%', maxWidth: anchoVisible ? anchoVisible - 2 : undefined }}
+                // las teclas de la grilla anidada no tienen que mover la selección de esta grilla
+                onKeyDown={(e) => e.stopPropagation()}
+            >
+                {detailTable.table
+                    ? <GenericDataGrid
+                        tableName={detailTable.table}
+                        fixedFields={fila.fixedFields}
+                        anidada
+                        titulo={titulo}
+                        claveCache={`${claveCache ?? tableName}>${fila.clave}`}
+                        onAltoDeseado={(alto) => cambiarAltoDetalle(fila.clave, alto)}
+                        onOpenDetail={onOpenDetail}
+                        ancestors={tableDefinition ? [...ancestors, { tableName: tableDefinition.name, row: fila.filaPadre, tableDefinition, fixedFields: fila.fixedFields }] : ancestors}
+                    />
+                    : <Alert severity="info">El detalle '{detailTable.abr}' es una wScreen ({detailTable.wScreen}): todavía no se puede desplegar acá.</Alert>
+                }
+            </div>
+        );
+    }, [anchoVisible, claveCache, tableName, cambiarAltoDetalle, onOpenDetail, tableDefinition, ancestors]);
+
+    const detallesGrilla = useMemo(() => ({ abiertos, alternarDetalle, renderDetalle }), [abiertos, alternarDetalle, renderDetalle]);
+
+    // La grilla anidada le informa a su padre cuánto alto necesita para mostrarse completa
+    const altoDeseado = cargandoInicial ? ALTO_INICIAL_DETALLE : gridHeight + ALTO_TITULO_ANIDADA + 8;
+    useEffect(() => {
+        onAltoDeseado?.(altoDeseado);
+    }, [onAltoDeseado, altoDeseado]);
+
+    const rowKeyGetter = useCallback((row: any) => esFilaDetalle(row) ? `detalle:${row.clave}` : getPrimaryKeyValues(row, primaryKey), [primaryKey]);
+    const rowHeight = useCallback((row: any) => esFilaDetalle(row) ? altoDeDetalle(row.clave) : ROW_HEIGHT, [altoDeDetalle]);
     // Las filas que se están borrando se marcan con una clase en lugar de copiar cada fila con un style:
     // copiar las filas en cada render anula la memorización de filas de react-data-grid
     const rowClass = useCallback((row: any) =>
-        exitingRowIds.has(getPrimaryKeyValues(row, primaryKey)) ? 'fpr-fila-saliendo' : undefined
+        esFilaDetalle(row) ? 'fpr-fila-detalle'
+            : exitingRowIds.has(getPrimaryKeyValues(row, primaryKey)) ? 'fpr-fila-saliendo' : undefined
     , [exitingRowIds, primaryKey]);
     const estiloGrilla = useMemo<React.CSSProperties>(() => ({ height: '100%', width: '100%', boxSizing: 'border-box', ...gridStyles }), [gridStyles]);
     const bottomSummaryRows = useMemo(() => [bottomSummaryRow], [bottomSummaryRow]);
@@ -416,9 +585,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         );
     }
     return (
-        <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
-            {/* Primero los ancestros jerárquicos */}
-            {ancestors.length > 0 && (
+        <CacheGrillasContext.Provider value={cache}>
+        <Box sx={{ pt: anidada ? 0 : 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
+            {/* Primero los ancestros jerárquicos (en una grilla anidada el padre está justo arriba) */}
+            {!anidada && ancestors.length > 0 && (
                 <Box sx={{ px: 2, pt: 0, pb: 1, display: 'flex', flexDirection: 'column' }}>
                     {ancestors.map((ancestor, index) => (
                         <StaticAncestorGrid
@@ -443,15 +613,17 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     borderBottom: `1px solid ${theme.palette.divider}`,
                     borderTopLeftRadius: theme.shape.borderRadius,
                     borderTopRightRadius: theme.shape.borderRadius,
-                    ml: 2 + (ancestors.length * 4), // Margen dinámico basado en jerarquía
-                    mr: 2,
+                    ml: anidada ? 0 : 2 + (ancestors.length * 4), // Margen dinámico basado en jerarquía
+                    mr: anidada ? 0 : 2,
+                    minHeight: anidada ? ALTO_TITULO_ANIDADA : undefined,
+                    boxSizing: 'border-box',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1
                 }}
             >
                 <Typography variant="subtitle2" component="div">
-                    {cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} - {filteredRows.length === tableData.length ? `${tableData.length} registros`
+                    {titulo ?? cambiarGuionesBajosPorEspacios(tableDefinition.title || tableDefinition.name)} - {filteredRows.length === tableData.length ? `${tableData.length} registros`
                         : `${filteredRows.length} (F)`
                     }
                 </Typography>
@@ -466,18 +638,19 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     position: 'relative', // CRÍTICO para el centrado del fallback
                     overflowX: 'auto',
                     overflowY: 'auto',
-                    px: 2,
-                    ml: ancestors.length * 4, // Indentación de la grilla principal
-                    pb: 3,
+                    px: anidada ? 0 : 2,
+                    ml: anidada ? 0 : ancestors.length * 4, // Indentación de la grilla principal
+                    pb: anidada ? 0 : 3,
                 }}
             >
                 <EstadoGrillaContext.Provider value={estadoGrilla}>
                     <VistaGrillaContext.Provider value={vistaGrilla}>
+                    <DetallesGrillaContext.Provider value={detallesGrilla}>
                         <DataGrid
                             className='rdg-light'
                             ref={dataGridRef}
                             columns={columns as Column<any, any>[]}
-                            rows={filteredRows}
+                            rows={filasMostradas}
                             rowClass={rowClass}
                             columnWidths={columnWidths}
                             onColumnWidthsChange={setColumnWidths}
@@ -489,7 +662,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                             sortColumns={sortColumns}
                             onSortColumnsChange={handleSortColumnsChange}
                             selectedRows={selectedRows}
-                            rowHeight={ROW_HEIGHT}
+                            rowHeight={rowHeight}
                             style={estiloGrilla}
                             headerRowHeight={HEADER_ROW_HEIGHT}
                             topSummaryRows={summaryRows}
@@ -500,6 +673,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                             onCellClick={handleCellClick}
                             onCellKeyDown={handleCellKeyDown}
                         />
+                    </DetallesGrillaContext.Provider>
                     </VistaGrillaContext.Provider>
                 </EstadoGrillaContext.Provider>
 
@@ -509,7 +683,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         sx={{
                             position: 'absolute',
                             top: filterHeight + HEADER_ROW_HEIGHT + 1,
-                            bottom: 102,
+                            bottom: anidada ? SUMMARY_ROW_HEIGHT + 4 : 102,
                             left: 18,
                             right: 0,
                             display: 'flex',
@@ -614,6 +788,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 )}
             </Dialog>
         </Box>
+        </CacheGrillasContext.Provider>
     );
 
 };

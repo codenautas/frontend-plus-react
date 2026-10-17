@@ -1,19 +1,17 @@
 import React from 'react';
 import { RenderCellProps } from 'react-data-grid';
-import { Box, Button, IconButton, Tooltip, useTheme } from '@mui/material';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import { Box, Button, Tooltip, useTheme } from '@mui/material';
 import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { ActionColumn, CustomColumn, DefaultColumn, DetailColumn, NEW_ROW_INDICATOR } from '../GenericDataGrid';
-import { Ancestor, FixedField } from '../../../types';
 import { clientSides } from '../clientSides';
 import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
 import { OverridableComponent } from '@mui/material/OverridableComponent';
 import { SvgIconTypeMap } from '@mui/material/SvgIcon';
 import { getPrimaryKeyValues } from '../utils/helpers';
-import { cambiarGuionesBajosPorEspacios } from '../../../utils/functions';
 import { useCeldaPendiente, useFeedbackCelda } from '../estadoGrilla';
+import { BotonDetalle, CeldaDetalle, esFilaDetalle } from '../detalles';
 
 
 type ActionButtonDefinition = {
@@ -78,13 +76,15 @@ const CeldaDato = React.memo(function CeldaDato({ row, columnKey, defaultColumn 
 });
 
 export const allColumnsCellRenderer = (
-    props: RenderCellProps<any, unknown>,
-    onOpenDetail?: (tableName: string, fixedFields: FixedField[], label: string, ancestors: Ancestor[]) => void,
-    ancestors: Ancestor[] = [],
-    currentFixedFields: FixedField[] = []
+    props: RenderCellProps<any, unknown>
 ) => {
     const column = props.column as unknown as CustomColumn<any, unknown>;
     const { row } = props;
+
+    // Fila de detalle: la columna de acciones ocupa todo el ancho (colSpan) y muestra la grilla anidada
+    if (esFilaDetalle(row)) {
+        return column.customType === 'action' ? <CeldaDetalle fila={row} /> : null;
+    }
 
     // Lógica para renderizar una celda normal
     switch (column.customType) {
@@ -104,52 +104,14 @@ export const allColumnsCellRenderer = (
         }
 
         case 'detail': {
-            const detailColumn = column as DetailColumn<any, unknown>;
-            const { detailTable, tableDefinition } = detailColumn;
-
+            const { detailTable, primaryKey } = column as DetailColumn<any, unknown>;
             return (
-                <Tooltip title={detailTable.label}>
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                        <IconButton
-                            onClick={() => {
-                                if (detailTable && onOpenDetail) {
-                                    // 1. Calculamos los filtros específicos de este detalle
-                                    const detailFixedFields: FixedField[] = detailTable.fields.map(f => {
-                                        if (typeof f === 'string') return { fieldName: f, value: row[f] };
-                                        if ('source' in f) return { fieldName: f.target, value: row[f.source] };
-                                        return { fieldName: f.target as string, value: f.value };
-                                    });
-
-                                    // 2. Acumulamos con los filtros que ya tiene la grilla actual (heredados de arriba)
-                                    // Deduplicamos por nombre de campo para evitar redundancia en el título y filtros
-                                    const rawFixedFields: FixedField[] = [...currentFixedFields, ...detailFixedFields];
-                                    const deduplicatedMap = new Map<string, FixedField>();
-                                    rawFixedFields.forEach(ff => deduplicatedMap.set(ff.fieldName, ff));
-                                    const allFixedFields = Array.from(deduplicatedMap.values());
-
-                                    // 3. Generamos el título descriptivo (acumulativo)
-                                    const filterDescription = allFixedFields
-                                        .map(ff => `${cambiarGuionesBajosPorEspacios(ff.fieldName)}: ${ff.value}`)
-                                        .join(', ');
-
-                                    const label = `${cambiarGuionesBajosPorEspacios(detailTable.table!).toUpperCase()} (${filterDescription})`;
-
-                                    // 4. Creamos la nueva cadena de ancestros, guardando estos filtros para el hijo
-                                    const newAncestors: Ancestor[] = [...ancestors, {
-                                        tableName: tableDefinition.name,
-                                        row,
-                                        tableDefinition,
-                                        fixedFields: allFixedFields
-                                    }];
-
-                                    onOpenDetail(detailTable.table!, allFixedFields, label, newAncestors);
-                                }
-                            }}
-                        >
-                            <KeyboardArrowRightIcon />
-                        </IconButton>
-                    </Box>
-                </Tooltip>
+                <BotonDetalle
+                    row={row}
+                    rowId={getPrimaryKeyValues(row, primaryKey)}
+                    detailTable={detailTable}
+                    deshabilitado={!!row[NEW_ROW_INDICATOR]}
+                />
             );
         }
 
