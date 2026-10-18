@@ -48,6 +48,9 @@ const ALTO_TITULO_ANIDADA = 26;
 const ALTO_MINIMO_CUERPO_ANIDADA = 120;
 /** Espacio extra bajo una grilla anidada: lo justo para una barra de scroll horizontal */
 const HOLGURA_ANIDADA = 18;
+/** Valores por omisión de backend-plus (myOwn.firstDisplayCount y myOwn.firstDisplayOverLimit) */
+const PRIMERAS_FILAS_ANIDADA = 20;
+const LIMITE_PRIMERAS_FILAS_ANIDADA = 30;
 
 interface GenericDataGridProps {
     tableName: string;
@@ -327,10 +330,18 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         resetView
     });
 
+    // Como en backend-plus: hasta firstDisplayOverLimit filas se muestran todas; si hay más, solo
+    // firstDisplayCount. En BP el resto se pide con "ver más"; acá se scrollea (con virtualización).
+    // Solo aplica a las grillas anidadas: la principal ocupa la pantalla y scrollea siempre.
+    const firstDisplayCount = tableDefinition?.firstDisplayCount ?? PRIMERAS_FILAS_ANIDADA;
+    const firstDisplayOverLimit = tableDefinition?.firstDisplayOverLimit ?? LIMITE_PRIMERAS_FILAS_ANIDADA;
+    const filasVisiblesMax = anidada ? (filteredRows.length <= firstDisplayOverLimit ? filteredRows.length : firstDisplayCount) : undefined;
+
     const { gridHeight, bottomSummaryRow, summaryRows, filterHeight } = useGridLayout({
         filteredRows, isFilterRowVisible, tableData, summaryData, filters, setFilters, altoDetalles,
         altoMinimoCuerpo: anidada ? ALTO_MINIMO_CUERPO_ANIDADA : MIN_BODY_HEIGHT,
         holgura: anidada ? HOLGURA_ANIDADA : undefined,
+        filasVisiblesMax,
     });
 
     const { handleCellDoubleClick, handleCellClick, handleCellKeyDown, handleCellMouseDown, handleKeyPressInEditor, handleSelectedCellChange, handleRowsChange } = useGridEvents({
