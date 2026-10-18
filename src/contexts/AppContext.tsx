@@ -87,7 +87,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, publicPaths=
                         // .unwrap() para que el 'catch' capture los errores del thunk
                         await dispatch(fetchClientContext()).unwrap();
                         console.log("Client context data loaded successfully by Redux.");
-                    } catch (loadError: any) {
+                    } catch (loadError) {
                         console.error("Error loading client context data during session check:", loadError);
                         // No es necesario lanzar el error, el estado de Redux ya lo manejará
                     }
@@ -104,7 +104,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, publicPaths=
                     console.log("Sesión inválida, pero no hay nada que avisar (ruta pública o nunca hubo sesión).");
                 }
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error("Error checking session:", error);
             setIsLoggedIn(false);
             dispatch(clearClientContext()); // Limpiar clientContext en Redux

@@ -23,7 +23,7 @@ const getLocalVar = (varName: string) =>{
     }
 }
 
-const setLocalVar = (varName: string, value:any) => localStorage.setItem(getAppPrefix()+varName, JSON4all.stringify(value))
+const setLocalVar = (varName: string, value: unknown) => localStorage.setItem(getAppPrefix()+varName, JSON4all.stringify(value))
 
 
 const existsLocalVar = (varName: string) => !!getRawLocalVar(varName);
@@ -39,7 +39,7 @@ const getSessionVar = (varName: string) =>{
     }
 }
 
-const setSessionVar = (varName: string, value:any) => sessionStorage.setItem(getAppPrefix()+varName, JSON4all.stringify(value))
+const setSessionVar = (varName: string, value: unknown) => sessionStorage.setItem(getAppPrefix()+varName, JSON4all.stringify(value))
 
 
 const existsSessionVar = (varName: string) => !!(sessionStorage.getItem(getAppPrefix()+varName))?true:false

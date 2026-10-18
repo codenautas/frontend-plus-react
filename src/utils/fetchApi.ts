@@ -1,4 +1,5 @@
-import { FetchApiOptions } from "../types";
+import { FetchApiOptions, ParametrosDeProcedimiento } from "../types";
+import { mensajeDeError } from "./errores";
 import { envConfig } from '../env'; // Ajusta la ruta según donde lo hayas guardado
 import JSON4all from 'json4all';
 import { ProcedureDef } from 'backend-plus';
@@ -70,54 +71,63 @@ export function codificarParametros(procedureName: string, params: Record<string
  * @param endPoint La URL a la que se realizará la petición.
  * @param options Opciones de la petición fetch (método, headers, body, etc.).
  * @returns La respuesta de la petición.
- * @throws Error si la petición no es exitosa (response.ok es false).
  */
 export async function fetchApi(endPoint: string, options: FetchApiOptions): Promise<Response> {
     const BACKEND_URL = envConfig.backendUrl;
-    const defaultHeaders = {
-        'Content-Type': 'application/x-www-form-urlencoded',
-    };
+    // sinContentType: el navegador arma el Content-Type solo (FormData lleva su boundary)
+    const { sinContentType, ...opcionesDeFetch } = options;
+    const headers = new Headers(opcionesDeFetch.headers);
+    if (!sinContentType && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/x-www-form-urlencoded');
+    }
     const config: RequestInit = {
-        ...options,
-        headers: {
-            ...(options?.headers && 'Content-Type' in options.headers && options.headers['Content-Type'] === undefined
-                ? {}
-                : { 'Content-Type': 'application/x-www-form-urlencoded' }),
-            ...options?.headers,
-        },
+        ...opcionesDeFetch,
+        headers,
         credentials: 'include',
     };
-
-    // Si el Content-Type es undefined, lo removemos para que el navegador lo asigne (ej: FormData)
-    if (config.headers && (config.headers as any)['Content-Type'] === undefined) {
-        delete (config.headers as any)['Content-Type'];
-    }
     if (config.method === 'GET' || config.method === 'HEAD') {
         delete config.body;
     }
     return await fetch(BACKEND_URL + endPoint, config);
 }
-export const executeBackendProcedure = async<T = any>(procedureName: string, params: Record<string, any>): Promise<T | null> => {
-    const { codificados, method } = codificarParametros(procedureName, params);
-    const query = new URLSearchParams(codificados);
-    const response = method === 'get'
-        ? await fetchApi(`/${procedureName}?${query}`, { method: 'GET' })
-        : await fetchApi(`/${procedureName}`, { body: query, method: 'POST' });
-    if (response.ok) {
-        const rawResponseText = await response.text();
-        const result = parseBackendResponse(rawResponseText);
-        if (result.error) {
-            throw new Error(result.error.message)
-        } else {
-            return result;
-        }
-    } else {
-        const errorTextDefinition = await response.text();
-        throw new Error(`Error al ejecutar procedure '${procedureName}': ${response.status} - ${errorTextDefinition}`);
-    }
+
+/** El servidor informa un error de un procedimiento con { error: { message } } */
+function esRespuestaConError(resultado: unknown): resultado is { error: { message: string } } {
+    if (typeof resultado !== 'object' || resultado === null || !('error' in resultado)) return false;
+    const { error } = resultado;
+    return typeof error === 'object' && error !== null && 'message' in error;
 }
 
-function parseBackendResponse(text: string): any {
+/**
+ * Interpreta la respuesta de un procedimiento y la devuelve con la forma que declara quien llama (T).
+ * Es el único lugar donde se afirma esa forma: el servidor manda JSON4all y su estructura la define cada procedimiento.
+ */
+function resultadoDeProcedimiento<T>(texto: string): T {
+    const resultado: unknown = parseBackendResponse(texto);
+    if (esRespuestaConError(resultado)) {
+        throw new Error(resultado.error.message);
+    }
+    return resultado as T;
+}
+
+async function ejecutar<T>(descripcion: string, procedureName: string, pedido: Promise<Response>): Promise<T | null> {
+    const response = await pedido;
+    if (response.ok) {
+        return resultadoDeProcedimiento<T>(await response.text());
+    }
+    const errorTextDefinition = await response.text();
+    throw new Error(`Error al ejecutar ${descripcion} '${procedureName}': ${response.status} - ${errorTextDefinition}`);
+}
+
+export const executeBackendProcedure = async <T = unknown>(procedureName: string, params: ParametrosDeProcedimiento): Promise<T | null> => {
+    const { codificados, method } = codificarParametros(procedureName, params);
+    const query = new URLSearchParams(codificados);
+    return ejecutar<T>('procedure', procedureName, method === 'get'
+        ? fetchApi(`/${procedureName}?${query}`, { method: 'GET' })
+        : fetchApi(`/${procedureName}`, { body: query, method: 'POST' }));
+}
+
+function parseBackendResponse(text: string): unknown {
     const trimmedText = text.trim();
 
     // El backend puede enviar múltiples líneas de progreso (JSONs por línea) 
@@ -147,7 +157,7 @@ function parseBackendResponse(text: string): any {
 
     try {
         return JSON4all.parse(finalPart.trim());
-    } catch (e: any) {
+    } catch (e) {
         // Si falla el parseo de la parte final, intentamos parsear la última línea que sea un JSON válido
         // Esto es un último recurso si el formato del separador varía
         const lines = trimmedText.split('\n');
@@ -161,11 +171,11 @@ function parseBackendResponse(text: string): any {
                 }
             }
         }
-        throw new Error(`No se pudo parsear la respuesta del servidor: ${e.message}`);
+        throw new Error(`No se pudo parsear la respuesta del servidor: ${mensajeDeError(e)}`);
     }
 }
 
-export const executeBackendUpload = async<T = any>(procedureName: string, file: File, params: Record<string, any>): Promise<T | null> => {
+export const executeBackendUpload = async <T = unknown>(procedureName: string, file: File, params: ParametrosDeProcedimiento): Promise<T | null> => {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -175,26 +185,5 @@ export const executeBackendUpload = async<T = any>(procedureName: string, file: 
         formData.append(key, value);
     }
 
-    // Al usar FormData, fetchApi NO debe poner Content-Type: application/x-www-form-urlencoded
-    // Pero fetchApi pone Content-Type por defecto. Necesitamos que fetchApi sea más flexible.
-    const response = await fetchApi(`/${procedureName}`, {
-        body: formData,
-        method: 'POST',
-        headers: {
-            'Content-Type': undefined as any // Dejamos que el navegador establezca el boundary
-        }
-    })
-
-    if (response.ok) {
-        const rawResponseText = await response.text();
-        const result = parseBackendResponse(rawResponseText);
-        if (result.error) {
-            throw new Error(result.error.message)
-        } else {
-            return result;
-        }
-    } else {
-        const errorTextDefinition = await response.text();
-        throw new Error(`Error al ejecutar upload '${procedureName}': ${response.status} - ${errorTextDefinition}`);
-    }
+    return ejecutar<T>('upload', procedureName, fetchApi(`/${procedureName}`, { body: formData, method: 'POST', sinContentType: true }));
 }

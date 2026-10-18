@@ -1,4 +1,5 @@
 // src/components/grid/utils/typedControls.ts
+import { Typer } from 'type-store';
 
 export const BestControls = {
     text: {
@@ -14,15 +15,15 @@ export const BestControls = {
             }
             return result;
         },
-        getTypedValue: (plainValue: any, typer: any): any => {
+        getTypedValue: (plainValue: unknown, typer: Typer): unknown => {
             if (plainValue === null || plainValue === undefined) {
                 return plainValue;
             }
-            return typer.fromUserInput(plainValue);
+            return typer.fromUserInput(String(plainValue));
         }
     },
     number: {
-        getTypedValue: (plainValue: any): any => {
+        getTypedValue: (plainValue: unknown): number | null => {
             // En React, plainValue suele ser el string del input
             if (plainValue === '' || plainValue === null || plainValue === undefined) {
                 return null;
@@ -32,7 +33,7 @@ export const BestControls = {
         }
     },
     boolean: {
-        getTypedValue: (plainValue: any): any => {
+        getTypedValue: (plainValue: unknown): boolean | null => {
             if (typeof plainValue === 'boolean') return plainValue;
             if (plainValue === null || plainValue === undefined) return null;
 
@@ -47,7 +48,7 @@ export const BestControls = {
         }
     },
     date: {
-        getTypedValue: (plainValue: any, typer?: any): any => {
+        getTypedValue: (plainValue: unknown): Date | null => {
             if (plainValue === null || plainValue === undefined || plainValue === '') return null;
             if (plainValue instanceof Date) return plainValue;
 
@@ -75,8 +76,7 @@ export const BestControls = {
             const date = new Date(year, month, day);
             // Validar que sea una fecha real (ej: no 31/02/2024)
             if (date.getFullYear() === year && date.getMonth() === month && date.getDate() === day) {
-                (date as any).isRealDate = true;
-                return date;
+                return Object.assign(date, { isRealDate: true });
             }
             return null;
         }
@@ -86,9 +86,9 @@ export const BestControls = {
 /**
  * Función principal para obtener el valor tipado según el tipo del typer.
  */
-export const getBestTypedValue = (value: any, typer: any): any => {
+export const getBestTypedValue = (valor: unknown, typer: Typer): unknown => {
 
-    value = value === '' ? typer.emptyValue : value;
+    const value = valor === '' ? typer.emptyValue : valor;
 
     const typeName = typer.typeName;
 
@@ -99,7 +99,7 @@ export const getBestTypedValue = (value: any, typer: any): any => {
         return BestControls.boolean.getTypedValue(value);
     }
     if (typeName === 'date' || (typeName && typeName.toLowerCase().includes('timestamp'))) {
-        return BestControls.date.getTypedValue(value, typer);
+        return BestControls.date.getTypedValue(value);
     }
 
     return BestControls.text.getTypedValue(value, typer);

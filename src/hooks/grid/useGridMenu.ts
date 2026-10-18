@@ -8,14 +8,15 @@ import FileUploadIcon from '@mui/icons-material/FileUpload';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { useSnackbar } from '../../contexts/SnackbarContext';
-import { DataGridOption, TableDefinition, FixedField, CallApiOptions } from '../../types';
+import { DataGridOption, FilaDeDatos, TableDefinition, FixedField, UseApiCallResult } from '../../types';
+import { mensajeDeError, requerido } from '../../utils/errores';
 
 interface UseGridMenuProps {
     tableDefinition: TableDefinition | null;
     tableName: string;
     fixedFields?: FixedField[];
-    setTableData: React.Dispatch<React.SetStateAction<any[]>>;
-    callApi: (procedureName: string, params: Record<string, any>, opts?: CallApiOptions) => Promise<any | undefined>;
+    setTableData: React.Dispatch<React.SetStateAction<FilaDeDatos[]>>;
+    callApi: UseApiCallResult['callApi'];
     resetSorting?: () => void;
     triggerImport?: () => void;
     triggerExport?: () => void;
@@ -46,12 +47,12 @@ export const useGridMenu = ({
             icon: React.createElement(RefreshIcon),
             handler: async () => {
                 try {
-                    const data = await callApi('table_data', { table: tableName, fixedFields });
+                    const data = requerido(await callApi<FilaDeDatos[]>('table_data', { table: tableName, fixedFields }), 'los datos de la tabla');
                     setTableData(data);
                     if (resetSorting) resetSorting();
                     showSuccess('Grilla refrescada correctamente');
-                } catch (err: any) {
-                    showError(`Error al refrescar: ${err.message || 'Error desconocido'}`);
+                } catch (err) {
+                    showError(`Error al refrescar: ${mensajeDeError(err, 'Error desconocido')}`);
                 }
             },
             visible: true

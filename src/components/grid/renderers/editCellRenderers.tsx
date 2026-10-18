@@ -1,15 +1,17 @@
-import { Column, RenderEditCellProps } from "react-data-grid";
+import { RenderEditCellProps } from "react-data-grid";
 import InputRenderer from "../InputRenderer";
-import { CustomColumn, DefaultColumn } from "../GenericDataGrid";
+import { ColumnaDeGrilla, esColumnaPropia } from "../GenericDataGrid";
+import { FilaDeDatos, FilaDeResumen } from "../../../types";
 
 export const allColumnsEditCellRenderer = (
-    props: RenderEditCellProps<any, any>, 
-    allColumns:Column<any>[]
+    props: RenderEditCellProps<FilaDeDatos, FilaDeResumen>, 
+    allColumns: ColumnaDeGrilla[]
 ) => {
-    const column = props.column as unknown as CustomColumn<any, unknown>;
+    const column = props.column;
+    if (!esColumnaPropia(column)) return undefined;
     switch (column.customType) {
         case 'default': {
-            const defaultColumn = column as DefaultColumn<any, unknown>;
+            const defaultColumn = column;
             const {
                 tableDefinition,
                 fixedFields,

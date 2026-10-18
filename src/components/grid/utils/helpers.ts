@@ -1,16 +1,8 @@
 // src/components/grid/utils/helpers.ts
-// @ts-ignore
-import typeStore from 'type-store';
-import { FieldDefinition } from '../../../types';
+import typeStore, { Typer } from 'type-store';
+import { DOM_TEMP_ID, FieldDefinition, FilaDeDatos } from '../../../types';
 
-/**
- * Lo que usamos de un typer de type-store (el paquete no publica tipos)
- */
-export interface Typer {
-    toLocalString(value: unknown): string;
-    fromUserInput?(value: unknown): unknown;
-    validateTypedData(value: unknown): void;
-}
+export type { Typer };
 
 export const typerFrom = (fieldDef: FieldDefinition): Typer => typeStore.typerFrom(fieldDef);
 
@@ -18,7 +10,7 @@ export const typerFrom = (fieldDef: FieldDefinition): Typer => typeStore.typerFr
  * Indicadores especiales para filas
  */
 export const NEW_ROW_INDICATOR = '$new';
-export const DOM_TEMP_ID = Symbol('domTempId');
+export { DOM_TEMP_ID };
 
 /**
  * Obtiene los valores de la clave primaria de una fila concatenados en un string único
@@ -26,7 +18,7 @@ export const DOM_TEMP_ID = Symbol('domTempId');
  * @param primaryKey - Array con los nombres de las columnas que forman la PK
  * @returns String único que identifica la fila
  */
-export const getPrimaryKeyValues = (row: any, primaryKey: string[]): string => {
+export const getPrimaryKeyValues = (row: FilaDeDatos, primaryKey: string[]): string => {
     // Si la fila tiene un ID de DOM explícito (Symbol), lo usamos
     if (row[DOM_TEMP_ID]) return String(row[DOM_TEMP_ID]);
 
@@ -41,7 +33,7 @@ export const getPrimaryKeyValues = (row: any, primaryKey: string[]): string => {
  * Compara dos valores de forma robusta, manejando Fechas y nulos.
  * Basado en sameValue de best-globals/backend-plus.
  */
-export const sameValue = (a: any, b: any): boolean => {
+export const sameValue = (a: unknown, b: unknown): boolean => {
     if (a === b) return true;
     if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
     
@@ -62,7 +54,7 @@ export const sameValue = (a: any, b: any): boolean => {
  * @param primaryKey La clave primaria de la tabla.
  * @returns Clave única de la celda (ej: "pkValue1|pkValue2|columnKey").
  */
-export const getCellKey = (row: Record<string, any>, columnKey: string, primaryKey: string[]): string => {
+export const getCellKey = (row: FilaDeDatos, columnKey: string, primaryKey: string[]): string => {
     return `${getPrimaryKeyValues(row, primaryKey)}|${columnKey}`;
 };
 
@@ -83,6 +75,21 @@ export const isNumericType = (typeName?: string): boolean => {
 export const isDateTimeType = (typeName?: string): boolean => {
     const t = typeName?.toLowerCase() || '';
     return ['date', 'time', 'timestamp', 'interval', 'tsrange', 'time_range', 'daterange'].some(type => t.includes(type));
+};
+
+/**
+ * Compara dos valores del mismo tipo (números, fechas, textos, bigint). Un número contra un texto numérico se compara
+ * como número (el valor de un filtro que no se pudo tipar sigue siendo un texto). null si no son comparables.
+ */
+export const compararValores = (a: unknown, b: unknown): number | null => {
+    if (typeof a === 'number' && typeof b === 'number') return a - b;
+    if (a instanceof Date && b instanceof Date) return a.getTime() - b.getTime();
+    if (typeof a === 'string' && typeof b === 'string') return a < b ? -1 : a > b ? 1 : 0;
+    if (typeof a === 'bigint' && typeof b === 'bigint') return a < b ? -1 : a > b ? 1 : 0;
+    const esNumerico = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v));
+    if (typeof a === 'number' && esNumerico(b)) return a - Number(b);
+    if (esNumerico(a) && typeof b === 'number') return Number(a) - b;
+    return null;
 };
 
 export const filterOperators = [

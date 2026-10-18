@@ -13,6 +13,7 @@ import { fetchClientContext } from '../store/clientContextSlice'; // Importa el 
 import { useApp } from '../contexts/AppContext'; // Sigue importando useApp para setIsLoggedIn y checkSession
 import { fetchApi } from '../utils/fetchApi'; // Tu utilidad fetchApi
 import { envConfig } from '../env';
+import { mensajeDeError } from '../utils/errores';
 
 // Define el esquema de validación con Zod
 const loginSchema = z.object({
@@ -82,11 +83,11 @@ const LoginPage = () => {
             console.log("Login exitoso y clientContext cargado.");
             navigate('/home'); // Redirige al home o dashboard
             reset(); // Limpia el formulario
-        } catch (error: any) {
+        } catch (error) {
             console.error("Error al iniciar sesión:", error);
             setIsLoggedIn(false); // Marca como no logueado en caso de error
             // setClientContext(null); // No necesitas llamar a setClientContext aquí, Redux lo maneja
-            setLoginError(error.message || 'Ocurrió un error al iniciar sesión. Inténtalo de nuevo.');
+            setLoginError(mensajeDeError(error, 'Ocurrió un error al iniciar sesión. Inténtalo de nuevo.'));
         } finally {
             setIsSubmitting(false);
         }

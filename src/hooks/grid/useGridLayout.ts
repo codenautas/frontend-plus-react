@@ -1,15 +1,16 @@
 // src/hooks/grid/useGridLayout.ts
 import { useMemo } from 'react';
 import { SummaryData } from './useGridDataView';
+import { FilaDeDatos, FilaDeFiltros, FilaDeTotales, FiltrosDeGrilla } from '../../types';
 import { FILTER_ROW_HEIGHT, HEADER_ROW_HEIGHT, MIN_BODY_HEIGHT, ROW_HEIGHT, SUMMARY_ROW_HEIGHT } from '../../components/grid/GenericDataGrid';
 
 interface UseGridLayoutProps {
-    filteredRows: any[];
+    filteredRows: FilaDeDatos[];
     isFilterRowVisible: boolean;
-    tableData: any[];
+    tableData: FilaDeDatos[];
     summaryData: SummaryData;
-    filters: Record<string, any>;
-    setFilters: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+    filters: FiltrosDeGrilla;
+    setFilters: React.Dispatch<React.SetStateAction<FiltrosDeGrilla>>;
     /** Alto que agregan las filas de detalle desplegadas */
     altoDetalles?: number;
     /** Alto mínimo cuando no hay filas para mostrar (las grillas anidadas usan uno menor) */
@@ -51,11 +52,11 @@ export const useGridLayout = ({
         return calculatedHeight;
     }, [filteredRows.length, isFilterRowVisible, tableData.length, altoDetalles, altoMinimoCuerpo, holgura, filasVisiblesMax, conPie]);
 
-    const bottomSummaryRow = useMemo(() => {
-        return { id: 'bottomSummaryRow', ...summaryData };
+    const bottomSummaryRow = useMemo((): FilaDeTotales => {
+        return { id: 'bottomSummaryRow', totales: summaryData };
     }, [summaryData]);
 
-    const summaryRows = useMemo(() => {
+    const summaryRows = useMemo((): FilaDeFiltros[] | undefined => {
         if (!isFilterRowVisible) return undefined;
         return [{ id: 'filterRow', filters, setFilters }];
     }, [isFilterRowVisible, filters, setFilters]);

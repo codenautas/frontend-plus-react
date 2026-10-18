@@ -1,9 +1,8 @@
 import { TableDefinition } from 'backend-plus';
 import { useCallback, useRef } from 'react';
-import { CellMouseArgs, CellKeyDownArgs, CellMouseEvent, CellKeyboardEvent, DataGridHandle, Column, CellSelectArgs, RowsChangeData } from 'react-data-grid';
-import { DetailColumn } from '../../components/grid/GenericDataGrid';
-import { FixedField, TeclaDeEditor } from '../../types';
-import { DOM_TEMP_ID } from '../../components/grid/utils/helpers';
+import { CellMouseArgs, CellKeyDownArgs, CellMouseEvent, CellKeyboardEvent, DataGridHandle, CellSelectArgs, RowsChangeData } from 'react-data-grid';
+import { ColumnaDeGrilla, esColumnaPropia } from '../../components/grid/GenericDataGrid';
+import { DOM_TEMP_ID, FilaDeDatos, FilaDeResumen, FixedField, TeclaDeEditor } from '../../types';
 import { esFilaDetalle } from '../../components/grid/detalles';
 import { SortColumn } from './useGridDataView';
 
@@ -12,10 +11,10 @@ interface UseGridEventsProps {
     tableDefinition: TableDefinition | null,
     fixedFields: FixedField[] | undefined
     /** Las filas tal como se muestran: filtradas, ordenadas y con las filas de detalle intercaladas */
-    filteredRows: any[],
-    tableData: any[],
-    setSelectedCell: React.Dispatch<React.SetStateAction<CellSelectArgs<any, NoInfer<{id: string;}>> | undefined>>,
-    setTableData: React.Dispatch<React.SetStateAction<any[]>>,
+    filteredRows: FilaDeDatos[],
+    tableData: FilaDeDatos[],
+    setSelectedCell: React.Dispatch<React.SetStateAction<CellSelectArgs<FilaDeDatos, FilaDeResumen> | undefined>>,
+    setTableData: React.Dispatch<React.SetStateAction<FilaDeDatos[]>>,
     setSortColumns: React.Dispatch<React.SetStateAction<readonly SortColumn[]>>
 }
 
@@ -50,14 +49,14 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         return () => { if (editorActivo.current === procesar) editorActivo.current = null; };
     }, []);
 
-    const handleKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, event: TeclaDeEditor, currentColumns: Column<any>[], handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => {
+    const handleKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, event: TeclaDeEditor, currentColumns: ColumnaDeGrilla[], handleCommit:(currentValue: unknown, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => {
         const tableDefinition = tableDefinitionRef.current;
         const filteredRows = filteredRowsRef.current;
         if (dataGridRef.current && tableDefinition) {
-            const currentColumnIndex = currentColumns.findIndex((col: Column<any>) => col.key === columnKey);
+            const currentColumnIndex = currentColumns.findIndex(col => col.key === columnKey);
             const editableColumns = currentColumns.filter(col => {
                 const fieldDefinition = tableDefinition.fields.find(f => f.name === col.key);
-                return col.key !== 'actionsColumn' && (col as DetailColumn<any, unknown>).customType !== 'detail' && (fieldDefinition?.editable !== false && !fieldDefinition?.clientSide);
+                return col.key !== 'actionsColumn' && !(esColumnaPropia(col) && col.customType === 'detail') && (fieldDefinition?.editable !== false && !fieldDefinition?.clientSide);
             });
             const {key, target} = event;
             const input = target as HTMLInputElement;
@@ -179,7 +178,7 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         }
     }, [dataGridRef]);
 
-    const handleCellKeyDown = useCallback((args: CellKeyDownArgs<any, { id: string }>, event: CellKeyboardEvent) => {
+    const handleCellKeyDown = useCallback((args: CellKeyDownArgs<FilaDeDatos, FilaDeResumen>, event: CellKeyboardEvent) => {
         if (event.key === 'F4' && !(event.target instanceof HTMLInputElement) && !esFilaDetalle(args.row)) {
             const fieldDefinition = tableDefinitionRef.current?.fields.find(f => f.name === args.column.key);
             if (fieldDefinition && fieldDefinition.editable !== false && !fieldDefinition.clientSide) {
@@ -194,19 +193,19 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         }
     }, []);
 
-    const handleCellMouseDown = useCallback((_args: CellMouseArgs<any, { id: string }>, event: CellMouseEvent) => {
+    const handleCellMouseDown = useCallback((_args: CellMouseArgs<FilaDeDatos, FilaDeResumen>, event: CellMouseEvent) => {
         event.preventGridDefault();  
     }, []);
 
-    const handleCellDoubleClick = useCallback((_args: CellMouseArgs<any, { id: string }>, event: CellMouseEvent) => {
+    const handleCellDoubleClick = useCallback((_args: CellMouseArgs<FilaDeDatos, FilaDeResumen>, event: CellMouseEvent) => {
         event.preventGridDefault();  
     }, []);
 
-    const handleSelectedCellChange = useCallback((args: CellSelectArgs<any, NoInfer<{id: string}>>|undefined) => {
+    const handleSelectedCellChange = useCallback((args: CellSelectArgs<FilaDeDatos, FilaDeResumen> | undefined) => {
         setSelectedCell(args);
     }, [setSelectedCell]);
 
-    const handleCellClick = useCallback((args: CellMouseArgs<any, { id: string }>, _event: CellMouseEvent) => {
+    const handleCellClick = useCallback((args: CellMouseArgs<FilaDeDatos, FilaDeResumen>, _event: CellMouseEvent) => {
         // la fila de detalle contiene otra grilla: los clicks son de esa grilla
         if (esFilaDetalle(args.row)) return;
         const fieldDefinition = tableDefinition?.fields.find(f => f.name === args.column.key);
@@ -219,17 +218,17 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         }
     }, [tableDefinition, fixedFields]);
 
-    const handleRowsChange = useCallback((updatedRows: any[], data: RowsChangeData<any, any>) => {
+    const handleRowsChange = useCallback((updatedRows: FilaDeDatos[], data: RowsChangeData<FilaDeDatos, FilaDeResumen>) => {
         // updatedRows son las filas visibles (filtradas y ordenadas), no todo tableData:
         // se reemplazan en tableData solo las filas editadas, buscándolas por identidad.
-        const reemplazos = new Map<any, any>();
+        const reemplazos = new Map<FilaDeDatos, FilaDeDatos>();
         data.indexes.forEach(index => {
             const oldRow = filteredRows[index];
             const newRow = updatedRows[index];
             if (!oldRow || !newRow || esFilaDetalle(oldRow)) return;
             // Preservar la identidad (DOM_TEMP_ID) de las filas editadas
             if (oldRow[DOM_TEMP_ID] && !newRow[DOM_TEMP_ID]) {
-                (newRow as any)[DOM_TEMP_ID] = oldRow[DOM_TEMP_ID];
+                newRow[DOM_TEMP_ID] = oldRow[DOM_TEMP_ID];
             }
             reemplazos.set(oldRow, newRow);
         });

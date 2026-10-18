@@ -5,18 +5,37 @@ import { Column, RenderCellProps, RenderHeaderCellProps } from "react-data-grid"
 
 export type { FieldDefinition, TableDefinition };
 
+/**
+ * Marca con la que una fila nueva conserva su identidad en la grilla mientras se edita (antes de tener su clave primaria).
+ * Es un Symbol: no aparece en Object.keys ni en JSON.stringify, pero el spread de la fila (...fila) la conserva.
+ */
+export const DOM_TEMP_ID: unique symbol = Symbol('domTempId');
+
+/** Una fila de datos de una tabla: los valores salen del servidor ya decodificados (JSON4all) */
+export type FilaDeDatos = Record<string, unknown> & { [DOM_TEMP_ID]?: string };
+
 export interface WScreenProps {
     screenName: string;
+    /**
+     * Parámetros de la pantalla como objeto plano (en backend-plus, el primer argumento de `mainAction`).
+     * Como detalle de una grilla son los fixedFields del detalle; en una ruta, la query string.
+     */
+    params?: Record<string, unknown>;
 }
 
-export interface ClientSideProps extends RenderCellProps<any, any> {
+/** Decide, para una fila, si se muestra el botón de un detalle (`condition` del DetailTable) */
+export type CondicionDeDetalle = (fila: FilaDeDatos) => boolean;
+export type CondicionesMap = Record<string, CondicionDeDetalle>;
+
+export interface ClientSideProps extends RenderCellProps<FilaDeDatos, FilaDeResumen> {
     fieldDefinition: FieldDefinition;
     tableDefinition: TableDefinition;
     primaryKey: string[];
 }
 
 export interface ResultOkProps {
-    data: any;
+    /** Lo que devolvió el procedimiento (la forma depende de cada procedimiento) */
+    data: unknown;
 }
 
 export type WScreenMap = Record<string, FC<WScreenProps>>;
@@ -30,6 +49,8 @@ export interface AppProps {
     myWScreens?: WScreenMap;
     myClientSides?: ClientSidesMap;
     myResultsOk?: ResultsOksMap;
+    /** Condiciones de los detalles, por nombre (la `condition` de un DetailTable) */
+    myConditions?: CondicionesMap;
 }
 
 export {extractPathsFromRoutes} from "../utils/routeUtils";
@@ -51,7 +72,7 @@ export type CellFeedbackMap = Map<string, CellFeedback>;
 /** Lo que el manejo de teclas del editor necesita saber de la tecla (sirve para un evento real o uno encolado) */
 export type TeclaDeEditor = Pick<React.KeyboardEvent, 'key' | 'target'>;
 
-export interface InputRendererProps<R extends Record<string, any>, S> {
+export interface InputRendererProps<R extends FilaDeDatos, S> {
     column: Column<R, S>,
     row: R,
     rowIdx: number;
@@ -59,10 +80,10 @@ export interface InputRendererProps<R extends Record<string, any>, S> {
     onClose: (commitChanges?: boolean, shouldFocusCell?: boolean) => void;
     tableDefinition: TableDefinition,
     // el feedback y los cambios locales se leen y escriben en el EstadoGrilla (ver estadoGrilla.ts)
-    onKeyPress?: (rowIndex: number, columnKey: string, event: TeclaDeEditor, handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void;
+    onKeyPress?: (rowIndex: number, columnKey: string, event: TeclaDeEditor, handleCommit:(currentValue: unknown, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void;
     /** El editor se registra para recibir las teclas (F4) que caen en la celda antes de que él tenga el foco; devuelve la baja */
     registrarEditor?: (procesar: (key: string) => void) => () => void;
-    setTableData: React.Dispatch<React.SetStateAction<any[]>>;
+    setTableData: React.Dispatch<React.SetStateAction<FilaDeDatos[]>>;
     primaryKey: string[];
 }
 
@@ -70,7 +91,7 @@ export interface InputRendererProps<R extends Record<string, any>, S> {
 
 export interface Ancestor {
     tableName: string;
-    row: any;
+    row: FilaDeDatos;
     tableDefinition: TableDefinition;
     fixedFields?: FixedField[];
 }
@@ -85,8 +106,8 @@ export interface GenericDataGridProps {
 
 export interface FixedField {
     fieldName: string;
-    value: any;
-    until?: any;
+    value: unknown;
+    until?: unknown;
 }
 
 export interface ConfirmDialogProps {
@@ -96,14 +117,37 @@ export interface ConfirmDialogProps {
     message: string;
 }
 
-export interface FilterRendererProps<R extends Record<string, any>, S> {
+/** El filtro de una columna: un texto (busca que contenga) o un operador con su valor */
+export type FiltroDeColumna = string | { operator?: string; value?: string };
+export type FiltrosDeGrilla = Record<string, FiltroDeColumna>;
+
+/** Una entrada de la fila de totales: qué se calculó (suma, promedio...) y su valor */
+export type EntradaDeTotal = { type: string; value: number };
+
+/** Fila de resumen con los filtros de cada columna (arriba de la grilla, cuando se muestran los filtros) */
+export type FilaDeFiltros = {
+    id: 'filterRow';
+    filters: FiltrosDeGrilla;
+    setFilters: React.Dispatch<React.SetStateAction<FiltrosDeGrilla>>;
+};
+
+/** Fila de resumen con los totales de las columnas que los tienen (pie de la grilla) */
+export type FilaDeTotales = {
+    id: 'bottomSummaryRow';
+    totales: Record<string, EntradaDeTotal>;
+};
+
+/** Las filas de resumen de react-data-grid: filtros o totales */
+export type FilaDeResumen = FilaDeFiltros | FilaDeTotales;
+
+export interface FilterRendererProps<R extends FilaDeDatos, S> {
     column: Column<R, S>;
-    filters: Record<string, any>;
-    setFilters: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+    filters: FiltrosDeGrilla;
+    setFilters: React.Dispatch<React.SetStateAction<FiltrosDeGrilla>>;
 }
 
 export interface GenericDataGridForDetailProps {
-    parentRow: any; // El tipo de la fila padre
+    parentRow: FilaDeDatos; // La fila padre
     detailTableDefinition: DetailTable;
     parentTableName: string; // Añadido: Propiedad parentTableName
 }
@@ -118,7 +162,7 @@ export interface MenuListItemProps {
     onMenuItemClick?: () => void;
 }
 
-export interface CustomCellProps<R extends Record<string, any>, SR> extends RenderCellProps<R, SR> {
+export interface CustomCellProps<R extends FilaDeDatos, SR> extends RenderCellProps<R, SR> {
     column: RenderCellProps<R, SR>['column'] & { isPK?: boolean };
 }
 
@@ -169,9 +213,13 @@ export interface CallApiOptions {
     isCritical?: boolean;
 }
 
-export interface UseApiCallResult<T> {
-    callApi: (procedureName: string, params: Record<string, any>, opts?: CallApiOptions) => Promise<T | undefined>;
-    callApiUpload: (procedureName: string, file: File, params: Record<string, any>, opts?: CallApiOptions) => Promise<T | undefined>;
+/** Los parámetros de un procedimiento por nombre; se codifican según la definición que manda el servidor */
+export type ParametrosDeProcedimiento = Record<string, unknown>;
+
+export interface UseApiCallResult {
+    /** R es la forma del resultado de ese procedimiento (el servidor puede no devolver nada: undefined) */
+    callApi: <R = unknown>(procedureName: string, params: ParametrosDeProcedimiento, opts?: CallApiOptions) => Promise<R | undefined>;
+    callApiUpload: <R = unknown>(procedureName: string, file: File, params: ParametrosDeProcedimiento, opts?: CallApiOptions) => Promise<R | undefined>;
     loading: boolean;
     error: Error | null;
 }
@@ -199,7 +247,8 @@ export interface RouterState {
 }
 
 export interface FetchApiOptions extends RequestInit {
-    // Puedes extender RequestInit para añadir opciones específicas si es necesario
+    /** No poner Content-Type: lo arma el navegador (por ejemplo con un FormData, que lleva su boundary) */
+    sinContentType?: boolean;
 }
 
 export interface DataGridOption {

@@ -1,13 +1,19 @@
 import { useCallback } from 'react';
 import { useApiCall } from './useApiCall';
-import { TableDefinition } from '../types';
+import { FilaDeDatos, TableDefinition } from '../types';
+import { requerido } from '../utils/errores';
+
+/** Lo que devuelve table_record_save: la fila como quedó en la base (con lo que calcularon triggers y valores por omisión) */
+export interface RespuestaDeGuardado {
+    row?: FilaDeDatos;
+}
 
 export interface SaveRecordParams {
     tableName: string;
     tableDefinition: TableDefinition;
     isNewRow: boolean;
-    formData: Record<string, any>; // The entire row state after changes (or potential updated row)
-    initialData: Record<string, any>; // The row before the change
+    formData: FilaDeDatos; // The entire row state after changes (or potential updated row)
+    initialData: FilaDeDatos; // The row before the change
     targetFieldName?: string; // If provided, it's an update to a specific field. Si no, asume mandar todo (o si es $new)
 }
 
@@ -23,7 +29,7 @@ export const useTableRecordSave = () => {
         targetFieldName
     }: SaveRecordParams) => {
         const status = isNewRow ? 'new' : 'update';
-        let rowToSend: Record<string, any> = {};
+        let rowToSend: FilaDeDatos = {};
 
         if (isNewRow) {
             tableDefinition.fields.forEach(fieldDef => {
@@ -56,7 +62,7 @@ export const useTableRecordSave = () => {
 
         const primaryKeyValuesForBackend = isNewRow ? [] : tableDefinition.primaryKey.map(key => initialData[key]);
 
-        const response = await callApi('table_record_save', {
+        const response = await callApi<RespuestaDeGuardado>('table_record_save', {
             table: tableName,
             primaryKeyValues: primaryKeyValuesForBackend,
             newRow: rowToSend,
@@ -64,7 +70,7 @@ export const useTableRecordSave = () => {
             status
         });
 
-        return response;
+        return requerido(response, 'la respuesta del guardado');
     }, [callApi]);
 
     return { saveRecord, loading, error };

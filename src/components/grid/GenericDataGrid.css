@@ -48,6 +48,17 @@
   background-color: #f3f6fa;
 }
 
+/* Detalle que es una pantalla propia (wScreen): el contenido se mide y la fila toma su alto */
+.fpr-detalle-wscreen {
+  height: 100%;
+  overflow: auto;
+}
+
+.fpr-detalle-wscreen-contenido {
+  width: max-content;
+  max-width: 100%;
+}
+
 .fpr-boton-detalle {
   display: flex;
   justify-content: center;

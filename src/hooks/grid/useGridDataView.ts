@@ -1,22 +1,20 @@
 // src/hooks/grid/useGridDataView.ts
 import { useState, useCallback, useMemo, useRef } from 'react';
-import { TableDefinition, FieldDefinition } from '../../types';
-
-// @ts-ignore
+import { TableDefinition, FieldDefinition, FilaDeDatos, FiltrosDeGrilla, EntradaDeTotal } from '../../types';
 import typeStore from 'type-store';
-import { sameValue } from '../../components/grid/utils/helpers';
+import { compararValores, sameValue } from '../../components/grid/utils/helpers';
 import { getBestTypedValue } from '../../components/grid/utils/typedControls';
 
 export type SortColumn = { columnKey: string; direction: 'ASC' | 'DESC' };
 
-export type SummaryEntry = { type: string; value: number };
+export type SummaryEntry = EntradaDeTotal;
 export type SummaryData = Record<string, SummaryEntry>;
 
 /** Si cambian más filas que esto se considera una recarga (refrescar, importar) y se vuelve a ordenar y filtrar */
 const MAXIMO_FILAS_EDICION_PUNTUAL = 3;
 
 interface UseGridDataViewProps {
-    tableData: any[];
+    tableData: FilaDeDatos[];
     tableDefinition: TableDefinition | null;
 }
 
@@ -57,7 +55,7 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
     }, []);
 
     // ── Filters ───────────────────────────────────────────────────────────────
-    const [filters, setFilters] = useState<Record<string, any>>({});
+    const [filters, setFilters] = useState<FiltrosDeGrilla>({});
     const [isFilterRowVisible, setIsFilterRowVisible] = useState(false);
 
     const toggleFilterVisibility = useCallback(() => {
@@ -70,7 +68,7 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
     // ── filteredRows ──────────────────────────────────────────────────────────
     // Lo último que se calculó, para no reordenar ni refiltrar cuando solo se editaron algunas filas
     const vistaAnteriorRef = useRef<{
-        tableData: any[], filas: any[], filters: Record<string, any>, isFilterRowVisible: boolean,
+        tableData: FilaDeDatos[], filas: FilaDeDatos[], filters: FiltrosDeGrilla, isFilterRowVisible: boolean,
         sortColumns: readonly SortColumn[], tableDefinition: TableDefinition | null
     } | null>(null);
 
@@ -86,7 +84,7 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
             // Misma vista y misma cantidad de filas: si solo cambiaron unas pocas (una edición),
             // se reemplazan en su lugar. Así la fila que se está editando no salta a otra posición
             // ni desaparece por el filtro; se reacomoda cuando el usuario cambia el orden o los filtros.
-            const reemplazos = new Map<any, any>();
+            const reemplazos = new Map<FilaDeDatos, FilaDeDatos>();
             for (let i = 0; i < tableData.length && reemplazos.size <= MAXIMO_FILAS_EDICION_PUNTUAL; i++) {
                 if (anterior.tableData[i] !== tableData[i]) reemplazos.set(anterior.tableData[i], tableData[i]);
             }
@@ -121,7 +119,7 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
                 const typer = fieldDef ? typeStore.typerFrom(fieldDef) : null;
 
                 // Intentamos parsear el valor del filtro al tipo real para comparaciones matemáticas/fechas
-                let parsedFilterValue: any = filterValue;
+                let parsedFilterValue: unknown = filterValue;
                 if (typer && filterValue !== '' && !['~', '!~', '∅', '!=∅'].includes(operator)) {
                     try {
                         parsedFilterValue = getBestTypedValue(filterValue, typer);
@@ -153,14 +151,22 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
                         case '!~': return !cellValue.includes(fValLower);
                         case '∅': return rawValue === null || rawValue === undefined || rawValue === '';
                         case '!=∅': return rawValue !== null && rawValue !== undefined && rawValue !== '';
-                        case '>':
-                            return (rawValue !== null && rawValue !== undefined) && (rawValue > parsedFilterValue);
-                        case '>=':
-                            return (rawValue !== null && rawValue !== undefined) && (rawValue >= parsedFilterValue);
-                        case '<':
-                            return (rawValue !== null && rawValue !== undefined) && (rawValue < parsedFilterValue);
-                        case '<=':
-                            return (rawValue !== null && rawValue !== undefined) && (rawValue <= parsedFilterValue);
+                        case '>': {
+                            const orden = compararValores(rawValue, parsedFilterValue);
+                            return orden !== null && orden > 0;
+                        }
+                        case '>=': {
+                            const orden = compararValores(rawValue, parsedFilterValue);
+                            return orden !== null && orden >= 0;
+                        }
+                        case '<': {
+                            const orden = compararValores(rawValue, parsedFilterValue);
+                            return orden !== null && orden < 0;
+                        }
+                        case '<=': {
+                            const orden = compararValores(rawValue, parsedFilterValue);
+                            return orden !== null && orden <= 0;
+                        }
                         default: return cellValue.includes(fValLower);
                     }
                 });
@@ -203,30 +209,30 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
             if (!agg) return;
 
             const values = filteredRows
-                .map((r: any) => r[field.name])
-                .filter((v: any) => v !== null && v !== undefined);
+                .map(r => r[field.name])
+                .filter(v => v !== null && v !== undefined);
 
             if (values.length === 0 && agg !== 'count' && agg !== 'countTrue') return;
 
             switch (agg) {
                 case 'sum':
-                    result[field.name] = { type: 'sum', value: values.reduce((a: number, b: any) => Number(a) + Number(b), 0) };
+                    result[field.name] = { type: 'sum', value: values.reduce<number>((a, b) => a + Number(b), 0) };
                     break;
                 case 'avg':
-                    const sum = values.reduce((a: number, b: any) => Number(a) + Number(b), 0);
+                    const sum = values.reduce<number>((a, b) => a + Number(b), 0);
                     result[field.name] = { type: 'avg', value: sum / values.length };
                     break;
                 case 'min':
-                    result[field.name] = { type: 'min', value: Math.min(...values.map((v: any) => Number(v))) };
+                    result[field.name] = { type: 'min', value: Math.min(...values.map(v => Number(v))) };
                     break;
                 case 'max':
-                    result[field.name] = { type: 'max', value: Math.max(...values.map((v: any) => Number(v))) };
+                    result[field.name] = { type: 'max', value: Math.max(...values.map(v => Number(v))) };
                     break;
                 case 'count':
                     result[field.name] = { type: 'count', value: values.length };
                     break;
                 case 'countTrue':
-                    result[field.name] = { type: 'countTrue', value: filteredRows.filter((r: any) => r[field.name] === true).length };
+                    result[field.name] = { type: 'countTrue', value: filteredRows.filter(r => r[field.name] === true).length };
                     break;
             }
         });

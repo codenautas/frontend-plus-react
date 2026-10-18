@@ -1,10 +1,11 @@
 import React from 'react';
 import { RenderCellProps } from 'react-data-grid';
+import { FilaDeDatos, FilaDeResumen } from '../../../types';
 import { Box, Button, Tooltip, useTheme } from '@mui/material';
 import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { ActionColumn, CustomColumn, DefaultColumn, DetailColumn, NEW_ROW_INDICATOR } from '../GenericDataGrid';
+import { DefaultColumn, esColumnaPropia, NEW_ROW_INDICATOR } from '../GenericDataGrid';
 import { clientSides } from '../clientSides';
 import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
 import { OverridableComponent } from '@mui/material/OverridableComponent';
@@ -16,16 +17,16 @@ import { BotonDetalle, CeldaDetalle, esFilaDetalle } from '../detalles';
 
 type ActionButtonDefinition = {
     action: 'insert' | 'delete' | 'vertical-edit'
-    handler: (row?: any) => void
+    handler: (row: FilaDeDatos) => void
     title: string
     icon: OverridableComponent<SvgIconTypeMap<{}, "svg">> & { muiName: string }
     color: 'success' | 'error' | 'primary'
 }
 
 interface CeldaDatoProps {
-    row: Record<string, any>;
+    row: FilaDeDatos;
     columnKey: string;
-    defaultColumn: DefaultColumn<any, unknown>;
+    defaultColumn: DefaultColumn;
 }
 
 /**
@@ -76,10 +77,10 @@ const CeldaDato = React.memo(function CeldaDato({ row, columnKey, defaultColumn 
 });
 
 export const allColumnsCellRenderer = (
-    props: RenderCellProps<any, unknown>
+    props: RenderCellProps<FilaDeDatos, FilaDeResumen>
 ) => {
-    const column = props.column as unknown as CustomColumn<any, unknown>;
-    const { row } = props;
+    const { row, column } = props;
+    if (!esColumnaPropia(column)) return undefined;
 
     // Fila de detalle: la columna de acciones ocupa todo el ancho (colSpan) y muestra la grilla anidada
     if (esFilaDetalle(row)) {
@@ -89,7 +90,7 @@ export const allColumnsCellRenderer = (
     // Lógica para renderizar una celda normal
     switch (column.customType) {
         case 'default': {
-            const defaultColumn = column as DefaultColumn<any, unknown>;
+            const defaultColumn = column;
             const { fieldDef, tableDefinition, primaryKey } = defaultColumn;
 
             if (fieldDef?.clientSide) {
@@ -104,7 +105,7 @@ export const allColumnsCellRenderer = (
         }
 
         case 'detail': {
-            const { detailTable, primaryKey } = column as DetailColumn<any, unknown>;
+            const { detailTable, primaryKey } = column;
             return (
                 <BotonDetalle
                     row={row}
@@ -116,8 +117,7 @@ export const allColumnsCellRenderer = (
         }
 
         case 'action': {
-            const actionColumn = column as ActionColumn<any, unknown>;
-            const { tableDefinition, handleDeleteRow, handleAddRow, handleVerticalEditRow } = actionColumn;
+            const { tableDefinition, handleDeleteRow, handleAddRow, handleVerticalEditRow } = column;
 
 
             const gridActionButtons: ActionButtonDefinition[] = [

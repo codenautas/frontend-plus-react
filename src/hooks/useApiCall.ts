@@ -1,25 +1,29 @@
 import { useState, useCallback } from 'react';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { executeBackendProcedure as baseExecuteBackendProcedure, executeBackendUpload as baseExecuteBackendUpload } from '../utils/fetchApi';
-import { UseApiCallResult, CallApiOptions } from '../types';
+import { UseApiCallResult, CallApiOptions, ParametrosDeProcedimiento } from '../types';
+import { mensajeDeError } from '../utils/errores';
 
-export const useApiCall = <T = any>(): UseApiCallResult<T> => {
+/** Lo que se atrapó en un catch, como Error (puede venir cualquier cosa) */
+const comoError = (err: unknown): Error => err instanceof Error ? err : new Error(mensajeDeError(err));
+
+export const useApiCall = (): UseApiCallResult => {
     const { showSnackbar } = useSnackbar();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
 
-    const callApi = useCallback(async (
+    const callApi = useCallback(async <R = unknown>(
         procedureName: string,
-        params: Record<string, any>,
+        params: ParametrosDeProcedimiento,
         opts: CallApiOptions = { isCritical: true }
-    ): Promise<T | undefined> => {
+    ): Promise<R | undefined> => {
         setLoading(true);
         if (opts.isCritical) setError(null);
         try {
-            const result = await baseExecuteBackendProcedure<T>(procedureName, params);
+            const result = await baseExecuteBackendProcedure<R>(procedureName, params);
             return result === null ? undefined : result;
-        } catch (err: any) {
-            if (opts.isCritical) setError(err);
+        } catch (err) {
+            if (opts.isCritical) setError(comoError(err));
             let snackbarMessage = `Error inesperado al ejecutar '${procedureName}'.`;
             if (err instanceof TypeError) {
                 snackbarMessage = `Problema de conexión: ${err.message}. Por favor, revisa tu internet o intenta de nuevo.`;
@@ -33,19 +37,19 @@ export const useApiCall = <T = any>(): UseApiCallResult<T> => {
         }
     }, [showSnackbar]);
 
-    const callApiUpload = useCallback(async (
+    const callApiUpload = useCallback(async <R = unknown>(
         procedureName: string,
         file: File,
-        params: Record<string, any>,
+        params: ParametrosDeProcedimiento,
         opts: CallApiOptions = { isCritical: true }
-    ): Promise<T | undefined> => {
+    ): Promise<R | undefined> => {
         setLoading(true);
         if (opts.isCritical) setError(null);
         try {
-            const result = await baseExecuteBackendUpload<T>(procedureName, file, params);
+            const result = await baseExecuteBackendUpload<R>(procedureName, file, params);
             return result === null ? undefined : result;
-        } catch (err: any) {
-            if (opts.isCritical) setError(err);
+        } catch (err) {
+            if (opts.isCritical) setError(comoError(err));
             let snackbarMessage = `Error inesperado al subir archivo en '${procedureName}'.`;
             if (err instanceof TypeError) {
                 snackbarMessage = `Problema de conexión: ${err.message}. Por favor, revisa tu internet o intenta de nuevo.`;
@@ -62,24 +66,24 @@ export const useApiCall = <T = any>(): UseApiCallResult<T> => {
     return { callApi, callApiUpload, loading, error };
 };
 
-export const useApiCallWithoutSnackbar = <T = any>(): UseApiCallResult<T> => {
+export const useApiCallWithoutSnackbar = (): UseApiCallResult => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
 
-    const callApi = useCallback(async (
+    const callApi = useCallback(async <R = unknown>(
         procedureName: string,
-        params: Record<string, any>,
-        opts: CallApiOptions = { isCritical: true }
-    ): Promise<T | undefined> => {
+        params: ParametrosDeProcedimiento,
+        _opts: CallApiOptions = { isCritical: true }
+    ): Promise<R | undefined> => {
         setLoading(true);
         setError(null);
         
         try {
-            const result = await baseExecuteBackendProcedure<T>(procedureName, params);
+            const result = await baseExecuteBackendProcedure<R>(procedureName, params);
             return result === null ? undefined : result;
-        } catch (err: any) {
+        } catch (err) {
             // Manejamos el error internamente (opcionalmente logueando) pero NO usamos el Snackbar.
-            setError(err); 
+            setError(comoError(err)); 
             console.error(`Error en la llamada API (WithoutSnackbar) para ${procedureName}:`, err);
             throw err;
         } finally {
@@ -87,20 +91,20 @@ export const useApiCallWithoutSnackbar = <T = any>(): UseApiCallResult<T> => {
         }
     }, []);
 
-    const callApiUpload = useCallback(async (
+    const callApiUpload = useCallback(async <R = unknown>(
         procedureName: string,
         file: File,
-        params: Record<string, any>,
-        opts: CallApiOptions = { isCritical: true }
-    ): Promise<T | undefined> => {
+        params: ParametrosDeProcedimiento,
+        _opts: CallApiOptions = { isCritical: true }
+    ): Promise<R | undefined> => {
         setLoading(true);
         setError(null);
         
         try {
-            const result = await baseExecuteBackendUpload<T>(procedureName, file, params);
+            const result = await baseExecuteBackendUpload<R>(procedureName, file, params);
             return result === null ? undefined : result;
-        } catch (err: any) {
-            setError(err); 
+        } catch (err) {
+            setError(comoError(err)); 
             console.error(`Error en la subida API (WithoutSnackbar) para ${procedureName}:`, err);
             throw err;
         } finally {

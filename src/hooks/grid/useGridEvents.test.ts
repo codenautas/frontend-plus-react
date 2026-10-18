@@ -4,12 +4,14 @@ import { CellKeyDownArgs, CellKeyboardEvent, DataGridHandle, RowsChangeData } fr
 import { TableDefinition } from 'backend-plus';
 import { useGridEvents } from './useGridEvents';
 import { DETALLE, FilaDetalle } from '../../components/grid/detalles';
+import { FilaDeDatos, FilaDeResumen } from '../../types';
 
-interface Fila {
+// un type y no una interface: las interfaces no tienen firma de índice y no son asignables a FilaDeDatos
+type Fila = {
     id: number;
     nombre: string;
     codigo: string;
-}
+};
 
 const definicion: TableDefinition = {
     name: 'personas',
@@ -51,7 +53,7 @@ describe('handleRowsChange', () => {
         const visibles = [todas[1], todas[3]];
         const { result, setTableData } = eventos(visibles);
         const editada: Fila = { ...todas[3], nombre: 'Editada' };
-        const datos: RowsChangeData<Fila, unknown> = { indexes: [1], column: { key: 'nombre', name: 'nombre', idx: 1 } as RowsChangeData<Fila, unknown>['column'] };
+        const datos: RowsChangeData<FilaDeDatos, FilaDeResumen> = { indexes: [1], column: { key: 'nombre', name: 'nombre', idx: 1 } as RowsChangeData<FilaDeDatos, FilaDeResumen>['column'] };
         result.current.handleRowsChange([visibles[0], editada], datos);
         const resultado = resultadoDe(setTableData);
         expect(resultado).toHaveLength(5);
@@ -60,7 +62,7 @@ describe('handleRowsChange', () => {
 
     it('si no cambió ninguna fila no toca los datos', () => {
         const { result, setTableData } = eventos(todas);
-        result.current.handleRowsChange(todas, { indexes: [], column: { key: 'nombre', name: 'nombre', idx: 1 } as RowsChangeData<Fila, unknown>['column'] });
+        result.current.handleRowsChange(todas, { indexes: [], column: { key: 'nombre', name: 'nombre', idx: 1 } as RowsChangeData<FilaDeDatos, FilaDeResumen>['column'] });
         expect(setTableData).not.toHaveBeenCalled();
     });
 });
@@ -71,7 +73,7 @@ describe('handleRowsChange', () => {
  */
 function teclaEnCelda(key: string, target: EventTarget, columna: string, row: Fila | FilaDetalle = todas[0]) {
     const preventGridDefault = vi.fn();
-    const args = { mode: 'SELECT', row, column: { key: columna }, rowIdx: 0 } as unknown as CellKeyDownArgs<Fila, { id: string }>;
+    const args = { mode: 'SELECT', row, column: { key: columna }, rowIdx: 0 } as unknown as CellKeyDownArgs<FilaDeDatos, FilaDeResumen>;
     const evento = { key, target, preventGridDefault } as unknown as CellKeyboardEvent;
     return { args, evento, preventGridDefault };
 }

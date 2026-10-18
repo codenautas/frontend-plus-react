@@ -18,16 +18,15 @@ import {
 } from '@mui/material';
 import * as XLSX from 'xlsx';
 import typeAr from 'like-ar';
-// @ts-ignore
 import typeStore from 'type-store';
-import { FieldDefinition, TableDefinition } from '../../types';
+import { FieldDefinition, FilaDeDatos, TableDefinition } from '../../types';
 
 interface ExportDialogProps {
     open: boolean;
     onClose: () => void;
     tableDefinition: TableDefinition;
-    tableData: any[];
-    filteredRows: any[];
+    tableData: FilaDeDatos[];
+    filteredRows: FilaDeDatos[];
     username?: string;
 }
 
@@ -129,7 +128,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
     const excelExport = async (fieldsToExport: FieldDefinition[]) => {
         const wb = XLSX.utils.book_new();
-        const ws: any = {};
+        const ws: XLSX.WorkSheet = {};
 
         const STYLE_HEADER = { font: { bold: true, underline: true } };
         const STYLE_PK = { font: { bold: true } };
@@ -147,7 +146,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                     const typer = typeStore.typerFrom(fieldDef);
                     const excelValue = typer.toExcelValue(value);
                     const excelType = typer.toExcelType(value);
-                    const cell: any = { t: excelType, v: excelValue };
+                    const cell: XLSX.CellObject = { t: excelType, v: excelValue };
 
                     if (fieldDef.typeName === 'interval') {
                         cell.z = '[h]:mm:ss';
@@ -168,7 +167,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         });
 
         // Hoja 2: Metadata
-        const metaWs: any = {};
+        const metaWs: XLSX.WorkSheet = {};
         let metaRow = 0;
 
         const addMetaRow = (label: string, value: string) => {
@@ -200,7 +199,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         downloadFile(buf, `${tableDefinition.name}.xlsx`, 'application/octet-stream');
     };
 
-    const downloadFile = (content: any, fileName: string, mimeType: string) => {
+    const downloadFile = (content: BlobPart, fileName: string, mimeType: string) => {
         const blob = new Blob([content], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');

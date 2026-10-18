@@ -5,10 +5,10 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import AddIcon from '@mui/icons-material/Add';
 import { RenderHeaderCellProps } from "react-data-grid";
 import { DetailTable } from "backend-plus";
-import { FieldDefinition } from "../../../types";
+import { FieldDefinition, FilaDeDatos, FilaDeResumen } from "../../../types";
 import { useVistaGrilla } from "../estadoGrilla";
 
-export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<any, unknown>, fieldDef: FieldDefinition) => {
+export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<FilaDeDatos, FilaDeResumen>, fieldDef: FieldDefinition) => {
     // react-data-grid ya informa el orden de la columna: no hace falta pasar sortColumns
     // (y así las columnas no se recrean cada vez que cambia el orden)
     const { column, sortDirection, priority } = props;
@@ -113,7 +113,7 @@ export const ActionsColumnHeaderCell = ({
     );
 };
 
-export const detailColumnCellHeaderRenderer = (props: RenderHeaderCellProps<any, unknown>, detailTable: DetailTable) =>
+export const detailColumnCellHeaderRenderer = (props: RenderHeaderCellProps<FilaDeDatos, FilaDeResumen>, detailTable: DetailTable) =>
     <Tooltip title={detailTable.label}>
         <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
             {detailTable.abr.toUpperCase()}

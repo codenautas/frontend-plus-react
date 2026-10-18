@@ -2,6 +2,7 @@ import React, { useState, FormEvent, ChangeEvent, useCallback, useMemo } from 'r
 import { ProcedureDef, ProcedureParameter } from "backend-plus";
 import { useParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
+import { mensajeDeError } from '../utils/errores';
 
 import { useApiCall } from '../hooks/useApiCall';
 
@@ -32,12 +33,12 @@ const ProcedureForm: React.FC = () => {
     const { procedureName } = useParams<{ procedureName: string }>();
     const { clientContext } = useApp();
 
-    const { callApi, loading: apiLoading, error: apiError } = useApiCall<any>();
+    const { callApi, loading: apiLoading, error: apiError } = useApiCall();
 
     const [validationErrors, setValidationErrors] = useState<Record<string, string | null>>({});
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [executionLog, setExecutionLog] = useState<string[]>([]);
-    const [procedureResultData, setProcedureResultData] = useState<any>(null);
+    const [procedureResultData, setProcedureResultData] = useState<unknown>(null);
 
     const procedure: ProcedureDef | undefined = useMemo(() => {
         if (procedureName && clientContext?.procedure) {
@@ -46,9 +47,9 @@ const ProcedureForm: React.FC = () => {
         return undefined;
     }, [procedureName, clientContext]);
 
-    const [formValues, setFormValues] = useState<Record<string, any>>(() => {
+    const [formValues, setFormValues] = useState<Record<string, unknown>>(() => {
         if (!procedure) return {};
-        const initialValues: Record<string, any> = {};
+        const initialValues: Record<string, unknown> = {};
         procedure.parameters.forEach(param => {
             if (param.defaultValue !== undefined) {
                 initialValues[param.name] = param.defaultValue;
@@ -77,7 +78,7 @@ const ProcedureForm: React.FC = () => {
             setValidationErrors({});
             setSuccessMessage(null);
             setProcedureResultData(null);
-            const newInitialValues: Record<string, any> = {};
+            const newInitialValues: Record<string, unknown> = {};
             procedure.parameters.forEach(param => {
                 if (param.defaultValue !== undefined) {
                     newInitialValues[param.name] = param.defaultValue;
@@ -108,9 +109,9 @@ const ProcedureForm: React.FC = () => {
         setExecutionLog(prev => [...prev, `[${timestamp}] ${isError ? 'ERROR: ' : ''}${message}`]);
     }, []);
 
-    const handleChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<any>, child?: React.ReactNode) => {
+    const handleChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<unknown>, child?: React.ReactNode) => {
         const { name, value } = e.target;
-        let newValue: any = value;
+        let newValue: unknown = value;
 
         if ((e.target as HTMLInputElement).type === 'checkbox') {
             newValue = (e.target as HTMLInputElement).checked;
@@ -139,13 +140,13 @@ const ProcedureForm: React.FC = () => {
 
         addLogMessage(`Iniciando ejecución del procedimiento: ${procedure.action}...`);
 
-        const paramsToSend: Record<string, any> = {};
+        const paramsToSend: Record<string, unknown> = {};
         let currentValidationErrors: Record<string, string | null> = {};
         let hasOverallError = false;
 
         for (const param of procedure.parameters) {
             let value = formValues[param.name];
-            let processedValue: any = value;
+            let processedValue: unknown = value;
             let paramError: string | null = null;
 
             switch (param.typeName) {
@@ -154,8 +155,8 @@ const ProcedureForm: React.FC = () => {
                     if (value === '' || value === null) {
                         processedValue = null;
                     } else {
-                        processedValue = parseFloat(value);
-                        if (isNaN(processedValue)) {
+                        processedValue = parseFloat(String(value));
+                        if (typeof processedValue === 'number' && isNaN(processedValue)) {
                             paramError = `El valor para "${param.label || param.name}" no es un número válido.`;
                         }
                     }
@@ -165,8 +166,8 @@ const ProcedureForm: React.FC = () => {
                     if (value === '' || value === null) {
                         processedValue = null;
                     } else {
-                        processedValue = parseInt(value, 10);
-                        if (isNaN(processedValue)) {
+                        processedValue = parseInt(String(value), 10);
+                        if (typeof processedValue === 'number' && isNaN(processedValue)) {
                             paramError = `El valor para "${param.label || param.name}" no es un entero válido.`;
                         }
                     }
@@ -180,9 +181,9 @@ const ProcedureForm: React.FC = () => {
                         processedValue = null;
                     } else {
                         try {
-                            processedValue = JSON.parse(value);
-                        } catch (jsonError: any) {
-                            paramError = `Error en el formato JSON para "${param.label || param.name}": ${jsonError.message}`;
+                            processedValue = JSON.parse(String(value));
+                        } catch (jsonError) {
+                            paramError = `Error en el formato JSON para "${param.label || param.name}": ${mensajeDeError(jsonError)}`;
                         }
                     }
                     break;
@@ -239,9 +240,9 @@ const ProcedureForm: React.FC = () => {
             } else {
                 addLogMessage('Procedimiento finalizado con errores.', true);
             }
-        } catch (err: any) {
+        } catch (err) {
             console.error('Error al ejecutar el procedimiento (capturado en ProcedureForm):', err);
-            addLogMessage(`Error en la ejecución: ${err.message || 'Error desconocido.'}`, true);
+            addLogMessage(`Error en la ejecución: ${mensajeDeError(err, 'Error desconocido.')}`, true);
         } finally {
             addLogMessage('Ejecución finalizada.');
         }
@@ -251,7 +252,7 @@ const ProcedureForm: React.FC = () => {
         const hasError = !!validationErrors[param.name];
         const errorMessage = validationErrors[param.name];
 
-        const commonProps: any = {
+        const commonProps = {
             id: param.name,
             name: param.name,
             label: param.label || param.name,

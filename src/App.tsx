@@ -1,6 +1,6 @@
 // frontend-plus-react/src/App.tsx (modificado en tu librería)
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import './App.css';
 import { BrowserRouter, Routes, Route, useLocation, Navigate, Outlet } from 'react-router-dom';
 import MainLayout from './components/MainLayout';
@@ -22,13 +22,14 @@ import { setCurrentPath } from './store/routerSlice';
 
 import { SnackbarProvider } from './contexts/SnackbarContext';
 import GenericDataGridPage from './pages/GenericDataGridPage';
+import { PantallaDeRuta } from './pages/PantallaDeRuta';
 import MenuTablePage from './pages/MenuTablePage';
 
 import { wScreens, FallbackWScreen, extendWScreens } from './pages/WScreens';
 import { extendClientSides } from './components/grid/clientSides';
+import { extendConditions } from './components/grid/condiciones';
 import { extendResultsOk } from './pages/procedure-results/resultsOk';
 import { Box } from '@mui/material';
-// @ts-ignore
 import typeStore from 'type-store';
 
 import {
@@ -37,7 +38,6 @@ import {
     WScreenMap,
     ClientSidesMap,
     ResultsOksMap,
-    WScreenProps,
     ClientSideProps,
     ResultOkProps
 } from './types';
@@ -88,14 +88,7 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
                     <Route
                         key={screenName}
                         path={`/wScreens/${screenName}`}
-                        element={React.createElement(
-                            Box,
-                            {
-                                sx: { pt: 3, pl: 4 },
-                            },
-                            React.createElement(wScreens[screenName], ({ screenName } as WScreenProps))
-
-                        )}
+                        element={<PantallaDeRuta screenName={screenName} />}
                     />
                 ))}
                 <Route
@@ -142,15 +135,13 @@ const App = ({
     unloggedLayout,
     myWScreens,
     myClientSides,
-    myResultsOk
+    myResultsOk,
+    myConditions
 }: AppProps) => {
-    useEffect(() => {
-        // --- DINAMICO: Configuración de TypeStore en español ---
-        typeStore.messages = typeStore.i18n.messages.es;
-        typeStore.locale = typeStore.i18n.locale.es;
-
+    // Lo que aporta la aplicación se registra antes del primer render (y no en un efecto): las rutas de las wScreens
+    // se arman a partir del registro al renderizar, y un detalle puede necesitar una condición o una wScreen enseguida.
+    useMemo(() => {
         if (myClientSides) {
-
             extendClientSides(myClientSides);
         }
         if (myResultsOk) {
@@ -159,6 +150,15 @@ const App = ({
         if (myWScreens) {
             extendWScreens(myWScreens);
         }
+        if (myConditions) {
+            extendConditions(myConditions);
+        }
+    }, [myClientSides, myResultsOk, myWScreens, myConditions]);
+
+    useEffect(() => {
+        // --- DINAMICO: Configuración de TypeStore en español ---
+        typeStore.messages = typeStore.i18n.messages.es;
+        typeStore.locale = typeStore.i18n.locale.es;
 
         // --- DINAMICO: Favicon desde el Backend ---
         const link = (document.querySelector("link[rel*='icon']") || document.createElement('link')) as HTMLLinkElement;
@@ -166,7 +166,7 @@ const App = ({
         link.rel = 'shortcut icon';
         link.href = `${envConfig.backendUrl}/img/logo-128.png`;
         document.getElementsByTagName('head')[0].appendChild(link);
-    }, [myClientSides, myResultsOk, myWScreens]);
+    }, []);
 
     const safePaths = React.useMemo(() => {
         const extracted = extractPathsFromRoutes(myUnloggedRoutes);

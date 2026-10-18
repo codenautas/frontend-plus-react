@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { TableDefinition } from 'backend-plus';
 import { useGridDataView } from './useGridDataView';
+import { FilaDeDatos } from '../../types';
 
-interface Persona {
+// un type y no una interface: las interfaces no tienen firma de índice y no son asignables a FilaDeDatos
+type Persona = {
     id: number;
     nombre: string;
     edad: number | null;
-}
+};
 
 const definicion: TableDefinition = {
     name: 'personas',
@@ -33,7 +35,7 @@ function vista(tableData: Persona[]) {
     );
 }
 
-const nombres = (filas: Persona[]) => filas.map(f => f.nombre);
+const nombres = (filas: FilaDeDatos[]) => filas.map(f => f.nombre);
 
 describe('useGridDataView', () => {
     it('ordena por la columna elegida y por las siguientes en cada desempate', () => {

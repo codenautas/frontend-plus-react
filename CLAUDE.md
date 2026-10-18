@@ -10,8 +10,12 @@ Se consume desde las aplicaciones (`mi-frontend`, `dmencu-frontend`, y las que v
 
 Son las de `dmencu` (que aplican a todo proyecto compartido de esta carpeta), escritas acá porque esta librería no depende de `dmencu` y no puede importar su `CLAUDE.md`:
 
-- **Todos los tipos explícitos.** Prohibido `any`, casts vía `unknown` o magia sin justificación. Si un callback recibe un parámetro, tiparlo. El código de bajo nivel que no se pueda tipar va encapsulado en un lugar muy delimitado y se trata como excepción: `type-store` no publica tipos, así que se importa con `// @ts-ignore` y se usa a través de `typerFrom` / la interfaz `Typer` de `components/grid/utils/helpers.ts`; los tests usan dobles de eventos de react-data-grid con una aserción de tipo.
-  - **Deuda conocida**: el código heredado todavía tiene unos 135 `any` y varios `@ts-ignore` (en `App.tsx`, `ExportDialog`, `TypedField`, `DynamicField`, `VerticalEditorPage`, `MenuTablePage`). No sumar nuevos; al tocar una línea, tiparla bien.
+- **Todos los tipos explícitos.** Prohibido `any`, `@ts-ignore`, casts vía `unknown` o magia sin justificación. Hoy el código no tiene ninguno y tiene que seguir así. Si un callback recibe un parámetro, tiparlo.
+  - Lo que viene del servidor o de un catch es `unknown`: `mensajeDeError(err)` para el mensaje de un error y `requerido(valor, 'qué faltó')` para algo que tiene que existir (ambos en `utils/errores.ts`). Las filas son `FilaDeDatos`; las filas de resumen (filtros y totales), `FilaDeResumen`; los parámetros de un procedimiento, `ParametrosDeProcedimiento`.
+  - `callApi<R>(...)` lleva la forma del resultado de ese procedimiento; la única afirmación de tipo sobre lo que manda el servidor está en `resultadoDeProcedimiento` (`utils/fetchApi.ts`).
+  - `type-store` no publica tipos: están declarados en `src/types/type-store.d.ts`, escritos para mudarse tal cual a `types.d.ts` (`modules/type-store/index.d.ts`). Las columnas propias se distinguen con `esColumnaPropia` y `customType`, no con casts.
+  - Una excepción acotada: los tests usan dobles de los eventos de react-data-grid con una aserción de tipo, en un único helper por archivo.
+  - Si una `interface` no cabe en `FilaDeDatos` (`Record<string, unknown>`), es porque las interfaces no tienen firma de índice: usar `type`.
 - **Preservar el estilo existente** y **no tocar el formato de lo que ya existe**: el diff muestra solo las líneas que cambian de verdad. Sin reindentar, sin tocar espacios finales, sin agregar ni quitar el salto de línea final.
 - **Respetar el fin de línea de cada archivo**: hay archivos con CRLF y otros con LF. Las líneas nuevas llevan el mismo que el resto del archivo (`git ls-files --eol <archivo>`). No editar con `sed -i` ni con herramientas que reescriban el archivo entero. Antes de commitear, `git diff --stat` tiene que coincidir con `git diff --ignore-all-space --ignore-cr-at-eol --stat`; si no, hay formato que revertir.
 - **Nombres de dominio, funciones, variables y comentarios en castellano** (consistente con las aplicaciones y las bases). Los identificadores que son API de terceros se dejan como están.
@@ -65,7 +69,10 @@ Son las de `dmencu` (que aplican a todo proyecto compartido de esta carpeta), es
 - Anchos: una grilla anidada es tan ancha como sus columnas; si un detalle abierto es más ancho, informa su ancho hacia arriba y el padre se ensancha.
 - Un cache compartido por la jerarquía (`CacheGrillasContext`) permite volver a mostrar un detalle que salió de pantalla por la virtualización sin pedirlo otra vez.
 - El título de una grilla anidada es el de su tabla, igual que el de la principal.
-- Los detalles de tipo `wScreen` y la `condition` de cada detalle todavía no están soportados.
+- **Detalle `wScreen`** (`{wScreen:'ticket', fields:[...]}`, como las anotaciones de un ticket en gestik): se dibuja la pantalla registrada en `myWScreens` y recibe `params` (los fixedFields del detalle como objeto plano, igual que `mainAction(params, div)` de backend-plus). La fila toma el alto de lo que la pantalla dibuja, hasta el máximo disponible, y scrollea por dentro. Las grillas que la pantalla arma (`<GenericDataGrid anidada .../>`) reciben ese máximo por `AltoDisponibleContext`. Con Ctrl+click o el botón del medio se abre en otra pestaña, en `/wScreens/<nombre>?campo=valor` (`PantallaDeRuta` pasa la query string como `params`).
+- **`condition`** de un detalle: el nombre de una función registrada en `myConditions` (o `extendConditions`) que recibe la fila y dice si se muestra el botón; sin ella o si da falso, la celda queda vacía. Si el nombre no está registrado se avisa una vez por consola y se muestra el detalle.
+- Lo que aporta la aplicación (`myWScreens`, `myClientSides`, `myResultsOk`, `myConditions`) se registra **antes del primer render**, no en un efecto: las rutas de las wScreens se arman al renderizar a partir del registro.
+- El `ff` de un ítem de menú puede ser un arreglo `[{fieldName, value}]` (lo que documenta backend-plus) o un objeto `{campo: valor}` (lo que usa dmencu); `fixedFieldsDeMenu` entiende los dos.
 
 ### Sesión y arranque
 - Con el estado todavía sin cargar (`idle`), `PrivateRoute` manda a `/login` guardando la ruta pedida; `InitialRedirectHandler` (montado fuera de las rutas privadas) vuelve a esa ruta cuando la sesión resulta válida. Tiene una guarda para no caer en `/home` mientras la ruta guardada se limpia.
@@ -86,7 +93,8 @@ Son las de `dmencu` (que aplican a todo proyecto compartido de esta carpeta), es
 
 - **Framework**: Vitest + jsdom + Testing Library. **Comandos**: `npm test` (una pasada), `npx vitest` (modo vigilancia), `npm run typecheck`.
 - Los tests viven al lado de lo que prueban (`*.test.ts` / `*.test.tsx`) y están en castellano. La preparación común está en `src/test/preparacion.ts`.
-- Se cubren las funcionalidades críticas y, sobre todo, **cada bug que se arregla lleva su test**: se verifica que falle si se reintroduce el bug. Hoy: codificación de parámetros, fixedFields de los detalles, el store de la grilla, la vista de datos (orden, filtros, edición en el lugar), la edición con filtro, la cola de F4, la vuelta a la ruta pedida tras el login y el cartel de sesión expirada.
+- Se cubren las funcionalidades críticas y, sobre todo, **cada bug que se arregla lleva su test**: se verifica que falle si se reintroduce el bug. Hoy (74 casos): codificación de parámetros, fixedFields de los detalles, detalle wScreen y `condition`, `PantallaDeRuta`, `ff` del menú, el store de la grilla, la vista de datos (orden, filtros, edición en el lugar), la edición con filtro, la cola de F4, la vuelta a la ruta pedida tras el login, el cartel de sesión expirada y los helpers.
+- jsdom no calcula medidas ni trae `ResizeObserver`: lo que depende del layout (alturas, anchos, virtualización) se prueba en el navegador con `mi-frontend`, no en Vitest.
 - Para el mock de `fetch` y de `fetchApi` usar `vi.stubGlobal` / `vi.mock`; no levantar servidores en los tests.
 - Antes de commitear: `npm run typecheck`, `npm test` y `npm run build`.
 

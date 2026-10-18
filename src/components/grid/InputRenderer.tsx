@@ -3,20 +3,20 @@ import { Column } from "react-data-grid";
 import { useSnackbar } from "../../contexts/SnackbarContext";
 import { useApiCall } from "../../hooks/useApiCall";
 import { useTableRecordSave } from "../../hooks/useTableRecordSave";
+import { mensajeDeError, requerido } from "../../utils/errores";
 import InputBase from "@mui/material/InputBase";
 // Importamos CellFeedbackMap junto con InputRendererProps
-import { InputRendererProps, CellFeedback, CellFeedbackMap } from "../../types";
+import { InputRendererProps, CellFeedback, FilaDeDatos } from "../../types";
 // getCellKey deben provenir de tu archivo GenericDataGrid
 import { NEW_ROW_INDICATOR } from "./GenericDataGrid";
 import { Tooltip, useTheme } from "@mui/material";
 import { useEstadoGrilla, useFeedbackCelda } from "./estadoGrilla";
 import { getPrimaryKeyValues, getCellKey, isNumericType, sameValue } from "./utils/helpers";
 import { getBestTypedValue } from "./utils/typedControls";
-// @ts-ignore
 import typeStore from 'type-store';
 
 
-function findChangedValues(oldRowData: any, newRowData: any, isNewRow: boolean) {
+function findChangedValues(oldRowData: FilaDeDatos, newRowData: FilaDeDatos, isNewRow: boolean) {
     let changes: string[] = [];
     for (const key in newRowData) {
         // Si la propiedad existe en ambos Y el valor es diferente, O es una nueva fila
@@ -27,7 +27,7 @@ function findChangedValues(oldRowData: any, newRowData: any, isNewRow: boolean) 
     return changes;
 }
 
-function InputRenderer<R extends Record<string, any>, S>({
+function InputRenderer<R extends FilaDeDatos, S>({
     column,
     row,
     rowIdx,
@@ -42,9 +42,10 @@ function InputRenderer<R extends Record<string, any>, S>({
     const estadoGrilla = useEstadoGrilla();
     const setCellFeedbackMap = estadoGrilla.setFeedback;
     const setLocalCellChanges = estadoGrilla.setCambiosLocales;
-    const fieldDefinition = tableDefinition.fields.find(f => f.name === column.key);
+    // el editor solo se abre para columnas de campos de la tabla
+    const fieldDefinition = requerido(tableDefinition.fields.find(f => f.name === column.key), `el campo '${column.key}'`);
     const typer = useMemo(() => typeStore.typerFrom(fieldDefinition), [fieldDefinition]);
-    const [editingValue, setEditingValue] = useState(() => row[column.key] !== null ? isNumericType(fieldDefinition?.typeName) ? row[column.key] : typer.toLocalString(row[column.key]) : null);
+    const [editingValue, setEditingValue] = useState<unknown>(() => row[column.key] !== null ? isNumericType(fieldDefinition?.typeName) ? row[column.key] : typer.toLocalString(row[column.key]) : null);
     const isCommitInProgress = React.useRef(false);
 
     const theme = useTheme();
@@ -73,29 +74,29 @@ function InputRenderer<R extends Record<string, any>, S>({
 
     const initialRowId = useMemo(() => getPrimaryKeyValues(row, primaryKey), [row, primaryKey]);
 
-    const handleCommit = useCallback(async (currentValue: any, closeEditor: boolean, focusNextCell: boolean) => {
+    const handleCommit = useCallback(async (currentValue: unknown, closeEditor: boolean, focusNextCell: boolean) => {
         if (isCommitInProgress.current) return;
         isCommitInProgress.current = true;
 
-        let processedNewValue;
+        let processedNewValue: unknown;
         try {
             // Usamos la lógica de BestControls portada de TypedControls.js a getBestTypedValue
             processedNewValue = getBestTypedValue(currentValue, typer);
             // Validamos contra el esquema del typer
             typer.validateTypedData(processedNewValue);
-        } catch (err: any) {
-            showError(err.message);
+        } catch (err) {
+            showError(mensajeDeError(err));
             isCommitInProgress.current = false;
             return; // Detenemos el commit ante errores
         }
 
 
-        const potentialUpdatedRow = { ...row, [column.key]: processedNewValue } as R;
+        const potentialUpdatedRow: FilaDeDatos = { ...row, [column.key]: processedNewValue };
 
         const arePKValuesFilled = tableDefinition.primaryKey.every(key =>
             potentialUpdatedRow[key] !== undefined && potentialUpdatedRow[key] !== null && String(potentialUpdatedRow[key]).trim() !== ''
         );
-        const isNewRow = !arePKValuesFilled || potentialUpdatedRow[NEW_ROW_INDICATOR];
+        const isNewRow = !arePKValuesFilled || !!potentialUpdatedRow[NEW_ROW_INDICATOR];
 
         const isMandatoryField = tableDefinition.primaryKey.includes(column.key) || (tableDefinition.fields.find(f => f.name === column.key)?.nullable === false);
         const isMandatoryFieldEmpty = isNewRow && isMandatoryField && (processedNewValue === null || processedNewValue === undefined || String(processedNewValue).trim() === '');
@@ -111,7 +112,7 @@ function InputRenderer<R extends Record<string, any>, S>({
         const primaryKeyValuesForBackend = tableDefinition.primaryKey.map(key => potentialUpdatedRow[key]);
         const currentRowIdBeforeUpdate = getPrimaryKeyValues(oldRowData, tableDefinition.primaryKey);
 
-        onRowChange({ ...row, [column.key]: processedNewValue } as R, true);
+        onRowChange({ ...row, [column.key]: processedNewValue }, true);
 
         if (isNewRow) {
             const areAllMandatoryFieldsFilled = tableDefinition.fields.every(fieldDef => {
@@ -162,13 +163,14 @@ function InputRenderer<R extends Record<string, any>, S>({
             });
 
 
-            const responseRow = response.row;
+            // si el servidor no devolvió la fila se sigue con la que se mandó
+            const responseRow: FilaDeDatos = response.row ?? potentialUpdatedRow;
 
             let finalRowIdForFeedback: string;
-            let persistedRowData: R;
+            let persistedRowData: FilaDeDatos;
 
             if (response.row && isNewRow) {
-                persistedRowData = { ...responseRow } as R;
+                persistedRowData = { ...responseRow };
                 setTableData(prevData => {
                     const newData = [...prevData];
                     const originalRowId = getPrimaryKeyValues(oldRowData, tableDefinition.primaryKey);
@@ -186,7 +188,7 @@ function InputRenderer<R extends Record<string, any>, S>({
                 });
                 finalRowIdForFeedback = getPrimaryKeyValues(persistedRowData, tableDefinition.primaryKey);
             } else {
-                persistedRowData = responseRow as R;
+                persistedRowData = responseRow;
                 const isPrimaryKeyColumn = tableDefinition.primaryKey.includes(column.key);
                 finalRowIdForFeedback = isPrimaryKeyColumn
                     ? getPrimaryKeyValues(potentialUpdatedRow, tableDefinition.primaryKey)
@@ -194,8 +196,8 @@ function InputRenderer<R extends Record<string, any>, S>({
                 // La fila que devolvió el servidor (con lo que calcularon triggers y defaults) reemplaza a la que tenemos.
                 // Se hace sobre los datos y no con onRowChange del editor: para cuando llega la respuesta el editor ya se cerró
                 // y el foco puede estar en otra celda; onRowChange(fila, true) cerraría el editor de esa otra celda.
-                const mismaFila = (fila: Record<string, any>) => tableDefinition.primaryKey.every(k => fila[k] === potentialUpdatedRow[k]);
-                setTableData(prevData => prevData.map(fila => mismaFila(fila) ? { ...(fila as object), ...responseRow } : fila));
+                const mismaFila = (fila: FilaDeDatos) => tableDefinition.primaryKey.every(k => fila[k] === potentialUpdatedRow[k]);
+                setTableData(prevData => prevData.map(fila => mismaFila(fila) ? { ...fila, ...responseRow } : fila));
             }
 
             // --- MULTI-FEEDBACK DE ÉXITO ---
@@ -214,7 +216,7 @@ function InputRenderer<R extends Record<string, any>, S>({
             });
             // -------------------------------
 
-        } catch (err: any) {
+        } catch (err) {
             console.error('Error al guardar el registro:', err);
 
             // --- MULTI-FEEDBACK DE ERROR ---
@@ -226,8 +228,8 @@ function InputRenderer<R extends Record<string, any>, S>({
                     rowId: currentRowIdBeforeUpdate,
                     columnKey: column.key,
                     type: 'error',
-                    message: err.message
-                } as CellFeedback);
+                    message: mensajeDeError(err)
+                } satisfies CellFeedback);
                 return newFeedback;
             });
             // -------------------------------

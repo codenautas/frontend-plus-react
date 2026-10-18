@@ -9,15 +9,16 @@ import {
     useTheme
 } from '@mui/material';
 import { FieldDefinition } from '../../types';
-// @ts-ignore
 import typeStore from 'type-store';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { isNumericType } from '../grid/utils/helpers';
+import { mensajeDeError } from '../../utils/errores';
 
 interface DynamicFieldProps {
     fieldDef: FieldDefinition;
-    value: any;
-    onChange: (fieldName: string, newValue: any, isValid: boolean) => void;
-    onCommit?: (fieldName: string, newValue: any, isValid: boolean) => void;
+    value: unknown;
+    onChange: (fieldName: string, newValue: unknown, isValid: boolean) => void;
+    onCommit?: (fieldName: string, newValue: unknown, isValid: boolean) => void;
     disabled?: boolean;
     isFilterMode?: boolean; // Para usarse en los headers de filtro (más compacto)
     feedback?: 'success' | 'error'; // Indicador de éxito/error proveniente del evento save
@@ -62,9 +63,9 @@ export const DynamicField: React.FC<DynamicFieldProps> = ({ fieldDef, value, onC
             try {
                 parsedValue = typer.fromLocalString(newValueString);
                 typer.validateTypedData(parsedValue);
-            } catch (err: any) {
+            } catch (err) {
                 isValid = false;
-                pErrorMsg = err.message;
+                pErrorMsg = mensajeDeError(err);
             }
         }
 
@@ -85,7 +86,7 @@ export const DynamicField: React.FC<DynamicFieldProps> = ({ fieldDef, value, onC
             try {
                 parsedValue = typer.fromLocalString(localString);
                 typer.validateTypedData(parsedValue);
-            } catch (err: any) {
+            } catch (err) {
                 isValid = false;
             }
         }
@@ -100,7 +101,7 @@ export const DynamicField: React.FC<DynamicFieldProps> = ({ fieldDef, value, onC
         }
     }, [handleTextCommit]);
 
-    const handleBooleanChange = useCallback((e: any) => {
+    const handleBooleanChange = useCallback((e: SelectChangeEvent<string>) => {
         const val = e.target.value;
         let finalValue: boolean | null = null;
         if (val === 'true') finalValue = true;

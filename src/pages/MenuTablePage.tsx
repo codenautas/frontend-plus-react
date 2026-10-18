@@ -6,6 +6,19 @@ import { Box, Alert, Typography } from '@mui/material';
 import GenericDataGridPage from './GenericDataGridPage'; // Importamos el contenedor de tabs
 import { useApp } from '../contexts/AppContext'; // Necesitamos el contexto para acceder al menú
 import { MenuInfoBase, MenuInfoMenu, MenuInfoTable } from 'backend-plus'; // Asegúrate de importar tus tipos de menú
+import { FixedField } from '../types';
+
+/**
+ * Los fixedFields que declara un ítem de menú (`ff`). backend-plus admite dos formas, igual que su cliente (my-menu.js):
+ * un arreglo [{fieldName, value}] o un objeto {campo: valor}.
+ */
+export function fixedFieldsDeMenu(ff: MenuInfoTable['ff'] | Record<string, unknown> | undefined): FixedField[] {
+    if (!ff) return [];
+    if (Array.isArray(ff)) {
+        return ff.map(({ fieldName, value }) => ({ fieldName, value }));
+    }
+    return Object.entries(ff).map(([fieldName, value]) => ({ fieldName, value }));
+}
 
 const MenuTablePage: React.FC = () => {
     // Obtiene el `menuName` de la URL para buscar en clientContext.menu
@@ -29,21 +42,13 @@ const MenuTablePage: React.FC = () => {
     // Usa useMemo para determinar el tableName y los fixedFields desde el menú
     const { currentTableName, currentFixedFields } = useMemo(() => {
         let tableName: string | undefined = undefined;
-        let fixedFields: any[] = [];
+        let fixedFields: FixedField[] = [];
     
         if (menuName && clientContext && clientContext.menu) {
             const menuItem = findMenuItem(clientContext.menu, menuName);
             if (menuItem) {
                 tableName = menuItem.table || menuItem.name;
-                if(menuItem.ff){
-                    Object.keys(menuItem.ff || []).forEach((fixedFieldKey)=>{
-                        fixedFields.push({
-                            fieldName:fixedFieldKey,
-                            //@ts-ignore
-                            value: menuItem.ff![fixedFieldKey]
-                        })
-                    })
-                }
+                fixedFields = fixedFieldsDeMenu(menuItem.ff);
             } else {
                 console.warn(`[${menuName}] Ítem de menú '${menuName}' no encontrado o no es de tipo 'table' en clientContext.menu.`);
                 // Opcional: podrías redirigir o mostrar un error más amigable

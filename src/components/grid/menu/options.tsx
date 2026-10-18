@@ -7,7 +7,8 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
-import { DataGridOption, TableDefinition, FixedField } from '../../../types';
+import { DataGridOption, FilaDeDatos, TableDefinition, FixedField, UseApiCallResult } from '../../../types';
+import { mensajeDeError, requerido } from '../../../utils/errores';
 
 /**
  * Parámetros para construir las opciones del menú
@@ -16,8 +17,8 @@ export interface BuildMenuOptionsParams {
     tableDefinition: TableDefinition | null;
     tableName: string;
     fixedFields?: FixedField[];
-    setTableData: React.Dispatch<React.SetStateAction<any[]>>;
-    callApi: (service: string, params: any) => Promise<any>;
+    setTableData: React.Dispatch<React.SetStateAction<FilaDeDatos[]>>;
+    callApi: UseApiCallResult['callApi'];
     showSuccess: (message: string) => void;
     showError: (message: string) => void;
     showWarning: (message: string) => void;
@@ -56,15 +57,15 @@ export const buildMenuOptions = (params: BuildMenuOptionsParams): DataGridOption
         icon: <RefreshIcon />,
         handler: async () => {
             try {
-                const data = await callApi('table_data', {
+                const data = requerido(await callApi<FilaDeDatos[]>('table_data', {
                     table: tableName,
                     fixedFields: fixedFields
-                });
+                }), 'los datos de la tabla');
                 setTableData(data);
                 if (resetSorting) resetSorting();
                 showSuccess('Grilla refrescada correctamente');
-            } catch (err: any) {
-                showError(`Error al refrescar: ${err.message || 'Error desconocido'}`);
+            } catch (err) {
+                showError(`Error al refrescar: ${mensajeDeError(err, 'Error desconocido')}`);
             }
         },
         visible: true

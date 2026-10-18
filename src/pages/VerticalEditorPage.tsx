@@ -11,21 +11,21 @@ import {
     Typography
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { TableDefinition, FixedField } from '../types';
+import { FilaDeDatos, TableDefinition, FixedField } from '../types';
 import { TypedField } from '../components/forms/TypedField';
 import { useTableRecordSave } from '../hooks/useTableRecordSave';
 import { getPrimaryKeyValues, sameValue } from '../components/grid/utils/helpers';
 
-// @ts-ignore
 import typeStore from 'type-store';
+import { mensajeDeError } from '../utils/errores';
 
 export interface VerticalEditorPageProps {
     tableName: string;
     tableDefinition: TableDefinition;
-    initialData: Record<string, any>; // Puede tener nulos
+    initialData: FilaDeDatos; // Puede tener nulos
     fixedFields?: FixedField[];
     isNewRow?: boolean;
-    onSaveSuccess: (savedRow: any, isNewRow: boolean) => void;
+    onSaveSuccess: (savedRow: FilaDeDatos, isNewRow: boolean) => void;
     onClose: () => void;
 }
 
@@ -44,10 +44,10 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
     const [internalIsNewRow, setInternalIsNewRow] = useState(isNewRow);
 
     // Estado principal del formulario
-    const [formData, setFormData] = useState<Record<string, any>>(initialData);
+    const [formData, setFormData] = useState<FilaDeDatos>(initialData);
 
     // Rastreamos el último estado guardado en backend para evitar tráfico redundante
-    const [lastSavedData, setLastSavedData] = useState<Record<string, any>>(initialData);
+    const [lastSavedData, setLastSavedData] = useState<FilaDeDatos>(initialData);
 
     // Rastreamos validez de campos individualmente
     const [validityMap, setValidityMap] = useState<Record<string, boolean>>({});
@@ -58,7 +58,7 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
     const [fieldFeedback, setFieldFeedback] = useState<Record<string, 'success' | 'error'>>({});
     const feedbackTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({}); // timer por campo
 
-    const handleFieldChange = useCallback((fieldName: string, newValue: any, isValid: boolean) => {
+    const handleFieldChange = useCallback((fieldName: string, newValue: unknown, isValid: boolean) => {
         setFormData(prev => ({ ...prev, [fieldName]: newValue }));
 
         setValidityMap(prev => ({ ...prev, [fieldName]: isValid }));
@@ -85,7 +85,7 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
         return true;
     }, [formData, validityMap, tableDefinition.fields]);
 
-    const handleCommit = useCallback(async (fieldName: string, newValue: any, isValid: boolean) => {
+    const handleCommit = useCallback(async (fieldName: string, newValue: unknown, isValid: boolean) => {
         // En un autosave, si el campo es inválido localmente, no enviamos
         if (!isValid) return;
 
@@ -163,8 +163,8 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
 
             onSaveSuccess(responseRow, wasNewItem);
 
-        } catch (err: any) {
-            setGlobalError(err.message || 'Error desconocido al guardar.');
+        } catch (err) {
+            setGlobalError(mensajeDeError(err, 'Error desconocido al guardar.'));
             // Error multi-feedback: cada campo tiene su propio timer
             setFieldFeedback(prev => ({ ...prev, [fieldName]: 'error' }));
             if (feedbackTimersRef.current[fieldName]) clearTimeout(feedbackTimersRef.current[fieldName]);

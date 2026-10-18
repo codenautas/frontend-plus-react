@@ -1,10 +1,11 @@
 import { RenderSummaryCellProps } from "react-data-grid";
-import { FixedField } from "../../../types";
+import { FilaDeDatos, FilaDeResumen, FixedField } from "../../../types";
 import FilterInputRenderer from "../FilterInputRender";
+import { esColumnaPropia } from "../GenericDataGrid";
 import { Box } from "@mui/material";
 
 // La fila de filtros solo existe en topSummaryRows cuando está visible, por eso no hace falta recibir isFilterRowVisible
-export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<any, any>, fixedFields: FixedField[] | undefined) => {
+export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<FilaDeResumen, FilaDeDatos>, fixedFields: FixedField[] | undefined) => {
     const { column, row } = props;
 
     // Solo mostramos filtros en la fila dedicada a filtros
@@ -15,7 +16,7 @@ export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<a
         // El filtro solo se muestra si NO es un campo fijo O si es un campo fijo que sí tiene 'until' o bien si el filtro está deshabilitado
         if (fixedFieldEntry && fixedFieldEntry.until === undefined) return null;
 
-        const fieldDef = (column as any).fieldDef;
+        const fieldDef = esColumnaPropia(column) && column.customType === 'default' ? column.fieldDef : undefined;
         return (
             <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center' }}>
                 <FilterInputRenderer
@@ -28,13 +29,13 @@ export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<a
         );
     }
 
-    // Para la fila de resumen inferior (bottomSummaryRow) o cualquier otra que no sea de filtros:
-    const summaryData = row[column.key];
-    if (!summaryData || typeof summaryData !== 'object') return null;
+    // Para la fila de totales (el pie de la grilla):
+    const summaryData = row.totales[column.key];
+    if (!summaryData) return null;
 
     const { type, value } = summaryData;
     let label = '';
-    let formattedValue = value;
+    let formattedValue: string | number = value;
 
     // Formateo básico para números
     if (typeof value === 'number') {
@@ -70,6 +71,6 @@ export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<a
     );
 }
 
-export const actionsColumnSummaryCellRenderer = (props: RenderSummaryCellProps<any, unknown>) => null
+export const actionsColumnSummaryCellRenderer = (_props: RenderSummaryCellProps<FilaDeResumen, FilaDeDatos>) => null
 
-export const detailColumnCellSummaryRenderer = (props: RenderSummaryCellProps<any, unknown>) => null
+export const detailColumnCellSummaryRenderer = (_props: RenderSummaryCellProps<FilaDeResumen, FilaDeDatos>) => null

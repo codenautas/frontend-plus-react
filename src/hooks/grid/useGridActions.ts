@@ -1,20 +1,33 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useSnackbar } from '../../contexts/SnackbarContext';
-import { NEW_ROW_INDICATOR, DOM_TEMP_ID, getPrimaryKeyValues } from '../../components/grid/utils/helpers';
-import { FixedField, TableDefinition, CallApiOptions } from '../../types';
+import { NEW_ROW_INDICATOR, getPrimaryKeyValues } from '../../components/grid/utils/helpers';
+import { DOM_TEMP_ID, FilaDeDatos, FixedField, TableDefinition, UseApiCallResult } from '../../types';
 import { ImportOptions } from '../../components/grid/ImportDialog';
+import { mensajeDeError, requerido } from '../../utils/errores';
+
+/** Lo que devuelve table_upload al terminar la importación de un archivo */
+interface RespuestaDeImportacion {
+    uploaded?: {
+        inserted: number;
+        updated: number;
+        skipped: number;
+        deleted: number;
+        skippedColumns?: string[];
+    };
+    message?: string;
+}
 
 interface UseGridActionsProps {
     tableDefinition: TableDefinition | null,
     tableName: string,
     fixedFields?: FixedField[];
-    setTableData: React.Dispatch<React.SetStateAction<any[]>>;
+    setTableData: React.Dispatch<React.SetStateAction<FilaDeDatos[]>>;
     setSelectedRows: React.Dispatch<React.SetStateAction<ReadonlySet<string>>>;
     primaryKey: string[],
     setLocalCellChanges: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>,
     setExitingRowIds: React.Dispatch<React.SetStateAction<Set<string>>>,
-    callApi: (procedureName: string, params: Record<string, any>, opts?: CallApiOptions) => Promise<any | undefined>;
-    callApiUpload: (procedureName: string, file: File, params: Record<string, any>, opts?: CallApiOptions) => Promise<any | undefined>;
+    callApi: UseApiCallResult['callApi'];
+    callApiUpload: UseApiCallResult['callApiUpload'];
     resetView?: () => void;
 }
 
@@ -24,12 +37,12 @@ export const useGridActions = ({
     setExitingRowIds, callApi, callApiUpload, resetView
 }: UseGridActionsProps) => {
 
-    const [rowToDelete, setRowToDelete] = useState<any | null>(null);
+    const [rowToDelete, setRowToDelete] = useState<FilaDeDatos | null>(null);
     const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
 
     // Estado para Vertical Editor
     const [openVerticalEditDialog, setOpenVerticalEditDialog] = useState(false);
-    const [rowToEditVertical, setRowToEditVertical] = useState<any | null>(null);
+    const [rowToEditVertical, setRowToEditVertical] = useState<FilaDeDatos | null>(null);
 
     const { showSuccess, showError, showWarning, showInfo } = useSnackbar();
 
@@ -42,7 +55,7 @@ export const useGridActions = ({
     }, [tableName, setLocalCellChanges]);
 
 
-    const handleAddRow = useCallback((currentRow?: any) => {
+    const handleAddRow = useCallback((currentRow?: FilaDeDatos) => {
         if (!tableDefinition) {
             showWarning('No se puede agregar una fila sin la definición de la tabla.');
             return;
@@ -51,7 +64,7 @@ export const useGridActions = ({
         // 1. Resetear filtros y sorters para que la fila aparezca donde corresponde
         if (resetView) resetView();
 
-        const newRow: Record<string, any> = {};
+        const newRow: FilaDeDatos = {};
         tableDefinition.fields.forEach(field => {
             newRow[field.name] = null;
         });
@@ -60,7 +73,7 @@ export const useGridActions = ({
         // 1.5. Generar un ID temporal único usando un Symbol para evitar duplicados en la vista (React Keys)
         // Usamos un Symbol para que NO aparezca en JSON.stringify ni Object.keys, pero 
         // al asignarlo directamente es ENUMERABLE, por lo que el operador spread (...row) lo conserva.
-        (newRow as any)[DOM_TEMP_ID] = `new_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        newRow[DOM_TEMP_ID] = `new_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
         // 2. Autocompletar con fixedFields
         if (fixedFields) {
@@ -103,12 +116,12 @@ export const useGridActions = ({
 
     }, [tableDefinition, fixedFields, primaryKey, showWarning, setTableData, setSelectedRows, setLocalCellChanges, resetView]);
 
-    const handleDeleteRow = useCallback((row: any) => {
+    const handleDeleteRow = useCallback((row: FilaDeDatos) => {
         setRowToDelete(row);
         setOpenConfirmDialog(true);
     }, []);
 
-    const handleVerticalEditRow = useCallback((row: any) => {
+    const handleVerticalEditRow = useCallback((row: FilaDeDatos) => {
         setRowToEditVertical(row);
         setOpenVerticalEditDialog(true);
     }, []);
@@ -186,9 +199,9 @@ export const useGridActions = ({
                     setRowToDelete(null);
                 }, 500);
 
-            } catch (err: any) {
+            } catch (err) {
                 console.error(`Error al eliminar la fila '${rowId}':`, err);
-                showError(`Error al eliminar la fila '${rowId}': ${err.message || 'Error desconocido'}`);
+                showError(`Error al eliminar la fila '${rowId}': ${mensajeDeError(err, 'Error desconocido')}`);
                 setExitingRowIds(prev => {
                     const newSet = new Set(prev);
                     newSet.delete(rowId);
@@ -206,7 +219,7 @@ export const useGridActions = ({
 
     const handleImportFile = useCallback(async (file: File, options: ImportOptions) => {
         try {
-            const result = await callApiUpload('table_upload', file, {
+            const result = await callApiUpload<RespuestaDeImportacion>('table_upload', file, {
                 table: tableName,
                 prefilledFields: fixedFields,
                 ...options
@@ -219,22 +232,22 @@ export const useGridActions = ({
                 if (updated > 0) messages.push(`${updated} fila(s) actualizada(s).`);
                 if (skipped > 0) messages.push(`${skipped} fila(s) omitida(s).`);
                 if (deleted > 0) messages.push(`${deleted} fila(s) eliminada(s).`);
-                if (skippedColumns?.length > 0) messages.push(`Columnas omitidas: ${skippedColumns.join(', ')}`);
+                if (skippedColumns && skippedColumns.length > 0) messages.push(`Columnas omitidas: ${skippedColumns.join(', ')}`);
 
                 showSuccess(messages.join('\n') || 'Importación finalizada sin cambios detectados.');
 
                 // Refrescar los datos después de la importación
-                const newData = await callApi('table_data', {
+                const newData = requerido(await callApi<FilaDeDatos[]>('table_data', {
                     table: tableName,
                     fixedFields: fixedFields
-                });
+                }), 'los datos de la tabla');
                 setTableData(newData);
             } else if (result && result.message) {
                 showSuccess(result.message);
             }
-        } catch (err: any) {
+        } catch (err) {
             console.error('Error durante la importación:', err);
-            showError(`Importación cancelada: ${err.message || 'Error desconocido'}`);
+            showError(`Importación cancelada: ${mensajeDeError(err, 'Error desconocido')}`);
         }
     }, [tableName, fixedFields, callApiUpload, callApi, showSuccess, showError, setTableData]);
 

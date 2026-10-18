@@ -1,6 +1,6 @@
 // src/components/GenericDataGrid.tsx
 import React, { useState, useEffect, useCallback, useContext, useMemo, useRef } from 'react';
-import { DataGrid, DataGridHandle, RenderCellProps, CellSelectArgs, Column } from 'react-data-grid';
+import { DataGrid, DataGridHandle, RenderCellProps, CellSelectArgs, Column, ColumnWidth } from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
 import './GenericDataGrid.css';
 
@@ -8,8 +8,10 @@ import { useApiCall } from '../../hooks/useApiCall';
 import { CircularProgress, Typography, Box, Alert, useTheme, Dialog } from '@mui/material';
 
 import { useSnackbar } from '../../contexts/SnackbarContext';
+import { useClientContext } from '../../store';
+import { mensajeDeError, requerido } from '../../utils/errores';
 
-import { FixedField, TableDefinition, Ancestor, TeclaDeEditor } from '../../types';
+import { FilaDeDatos, FilaDeResumen, FixedField, TableDefinition, Ancestor, TeclaDeEditor } from '../../types';
 
 import { ConfirmDialog } from '../ConfirmDialog';
 import { DataGridOptionsDialog } from './DataGridOptionsDialog';
@@ -28,7 +30,7 @@ import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 import { crearEstadoGrilla, EstadoGrillaContext, MapaFeedback, VistaGrillaContext } from './estadoGrilla';
 import {
-    ALTO_INICIAL_DETALLE, ALTO_MINIMO_DETALLE, CacheGrillasContext, calcularFixedFieldsDetalle,
+    AltoDisponibleContext, ALTO_INICIAL_DETALLE, ALTO_MINIMO_DETALLE, CacheGrillasContext, DetalleWScreen, calcularFixedFieldsDetalle,
     claveDetalle, DETALLE, DetallesGrillaContext, esFilaDetalle, FilaDetalle, GrillaGuardada
 } from './detalles';
 
@@ -86,7 +88,10 @@ interface GenericDataGridProps {
 }
 
 export { NEW_ROW_INDICATOR };
-interface BaseCustomColumn<TRow, TSummaryRow = unknown> extends Column<TRow, TSummaryRow> {
+/** Las filas de datos y de resumen que maneja esta grilla */
+export type ColumnaDeGrilla = Column<FilaDeDatos, FilaDeResumen>;
+
+interface BaseCustomColumn extends ColumnaDeGrilla {
     customType: 'default' | 'detail' | 'action',
     tableDefinition: TableDefinition,
 }
@@ -95,43 +100,43 @@ interface BaseCustomColumn<TRow, TSummaryRow = unknown> extends Column<TRow, TSu
  * Columna de un campo. Solo lleva datos que no cambian mientras se edita
  * (el feedback y los cambios locales viven en el EstadoGrilla).
  */
-export interface DefaultColumn<TRow, TSummaryRow = unknown> extends BaseCustomColumn<TRow, TSummaryRow> {
+export interface DefaultColumn extends BaseCustomColumn {
     customType: 'default';
     fieldDef: FieldDefinition;
     typer: Typer;
     isMandatory: boolean;
     isNumeric: boolean;
-    setTableData: React.Dispatch<React.SetStateAction<any[]>>,
+    setTableData: React.Dispatch<React.SetStateAction<FilaDeDatos[]>>,
     primaryKey: string[],
     fixedFields: FixedField[] | undefined,
     registrarEditor: (procesar: (key: string) => void) => () => void,
-    handleKeyPressInEditor: (rowIndex: number, columnKey: string, event: TeclaDeEditor, currentColumns: Column<any>[], handleCommit: (currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void
+    handleKeyPressInEditor: (rowIndex: number, columnKey: string, event: TeclaDeEditor, currentColumns: ColumnaDeGrilla[], handleCommit: (currentValue: unknown, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void
 }
 
-export interface DetailColumn<TRow, TSummaryRow = unknown> extends BaseCustomColumn<TRow, TSummaryRow> {
+export interface DetailColumn extends BaseCustomColumn {
     customType: 'detail';
     detailTable: DetailTable,
     primaryKey: string[],
     detailKey: string
 }
 
-export interface ActionColumn<TRow, TSummaryRow = unknown> extends BaseCustomColumn<TRow, TSummaryRow> {
+export interface ActionColumn extends BaseCustomColumn {
     customType: 'action';
-    handleDeleteRow: (row: any) => void;
-    handleAddRow: (row?: any) => void;
-    handleVerticalEditRow: (row: any) => void;
+    handleDeleteRow: (row: FilaDeDatos) => void;
+    handleAddRow: (row?: FilaDeDatos) => void;
+    handleVerticalEditRow: (row: FilaDeDatos) => void;
 }
 
 
-export type CustomColumn<TRow, TSummaryRow = unknown> =
-    | DefaultColumn<TRow, TSummaryRow>
-    | DetailColumn<TRow, TSummaryRow>
-    | ActionColumn<TRow, TSummaryRow>;
+export type CustomColumn = DefaultColumn | DetailColumn | ActionColumn;
+
+/** ¿Es una de las columnas que arma esta librería (campo, detalle o acciones)? */
+export const esColumnaPropia = (columna: ColumnaDeGrilla): columna is CustomColumn => 'customType' in columna;
 
 const SIN_ANCESTROS: Ancestor[] = [];
 
 /** Cargas de tabla (estructura + datos) que están en curso, por tabla y filtros */
-const cargasEnCurso = new Map<string, Promise<{ definition: TableDefinition, data: any[] }>>();
+const cargasEnCurso = new Map<string, Promise<{ definition: TableDefinition, data: FilaDeDatos[] }>>();
 
 /**
  * Componente auxiliar para mostrar un registro padre como una grilla estática.
@@ -146,7 +151,7 @@ const StaticAncestorGrid: React.FC<{
     const theme = useTheme();
     const { tableDefinition, row } = ancestor; // ya no usamos fixedFields del propio objeto para filtrar SE a sí mismo
 
-    const columns: Column<any>[] = useMemo(() => {
+    const columns: Column<FilaDeDatos>[] = useMemo(() => {
         // Ocultamos los campos que el nivel SUPERIOR usó para filtrar a ESTE ancestro
         const filteredFields = tableDefinition.fields.filter(field =>
             !fieldsToHide?.some(ff => ff.fieldName === field.name)
@@ -173,7 +178,7 @@ const StaticAncestorGrid: React.FC<{
                         </Typography>
                     </Box>
                 ),
-                renderCell: (props: RenderCellProps<any>) => (
+                renderCell: (props: RenderCellProps<FilaDeDatos>) => (
                     <Box sx={{ px: 1, height: '100%', display: 'flex', alignItems: 'center' }}>
                         <Typography variant="body2" sx={{ fontSize: '0.875rem' }} noWrap>
                             {String(props.row[field.name] ?? '')}
@@ -253,7 +258,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const claveCargadaRef = useRef<string | null>(guardada ? `${tableName}|${claveFixedFields}` : null);
 
     const [tableDefinition, setTableDefinition] = useState<TableDefinition | null>(guardada?.tableDefinition ?? null);
-    const [tableData, setTableData] = useState<any[]>(guardada?.tableData ?? []);
+    const [tableData, setTableData] = useState<FilaDeDatos[]>(guardada?.tableData ?? []);
     const [cargandoInicial, setCargandoInicial] = useState(!guardada);
     const [errorDeCarga, setErrorDeCarga] = useState<string | null>(null);
     const [anchosCalculados, setAnchosCalculados] = useState<Map<string, number>>(() => guardada?.anchosCalculados ?? new Map());
@@ -263,7 +268,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     // Ancho que pidió cada grilla anidada (para ensanchar esta grilla si el detalle es más ancho que sus columnas)
     const [anchosDetalle, setAnchosDetalle] = useState<Map<string, number>>(() => new Map());
     const [selectedRows, setSelectedRows] = useState((): ReadonlySet<string> => new Set());
-    const [, setSelectedCell] = useState<CellSelectArgs<any, NoInfer<{ id: string }>> | undefined>(undefined);
+    const [, setSelectedCell] = useState<CellSelectArgs<FilaDeDatos, FilaDeResumen> | undefined>(undefined);
 
     // feedback y cambios locales por celda: fuera del estado de React (ver estadoGrilla.ts)
     const [estadoGrilla] = useState(crearEstadoGrilla);
@@ -275,11 +280,12 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const [exitingRowIds, setExitingRowIds] = useState<Set<string>>(new Set());
 
     const { showError } = useSnackbar();
+    const { username: usuario } = useClientContext();
     const dataGridRef = useRef<DataGridHandle>(null);
-    const rowAtEditStartRef = useRef<any>(null); // Captura la fila cuando abre el vertical editor
+    const rowAtEditStartRef = useRef<FilaDeDatos | null>(null); // Captura la fila cuando abre el vertical editor
     const [openImportDialog, setOpenImportDialog] = useState(false);
     const [openExportDialog, setOpenExportDialog] = useState(false);
-    const [columnWidths, setColumnWidths] = useState<ReadonlyMap<string, any>>(() => new Map());
+    const [columnWidths, setColumnWidths] = useState<ReadonlyMap<string, ColumnWidth>>(() => new Map());
     // loading solo indica que hay una llamada en curso (borrar, importar, refrescar):
     // ya no reemplaza la grilla por un spinner, eso es solo para la carga inicial
     const { callApi, callApiUpload, loading } = useApiCall();
@@ -307,7 +313,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         if (abiertos.size === 0 || detailTables.length === 0) return filteredRows;
         const anteriores = filasDetalleRef.current;
         const nuevas = new Map<string, FilaDetalle>();
-        const filas: any[] = [];
+        const filas: FilaDeDatos[] = [];
         filteredRows.forEach(row => {
             filas.push(row);
             const rowId = getPrimaryKeyValues(row, primaryKey);
@@ -403,21 +409,28 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 const clavePedido = `${tableName}|${claveFixedFields}`;
                 let pedido = cargasEnCurso.get(clavePedido);
                 if (!pedido) {
-                    pedido = (async () => {
-                        const definition: TableDefinition = await callApi('table_structure', { table: tableName }, { isCritical: true });
+                    const nuevo = (async () => {
+                        const definition = requerido(
+                            await callApi<TableDefinition>('table_structure', { table: tableName }, { isCritical: true }),
+                            `la estructura de '${tableName}'`
+                        );
                         const validFixedFields = fixedFields?.filter(ff =>
                             definition.fields.some(field => field.name === ff.fieldName)
                         );
-                        const data = await callApi('table_data', {
-                            table: tableName,
-                            fixedFields: validFixedFields ?? []
-                        }, { isCritical: true });
+                        const data = requerido(
+                            await callApi<FilaDeDatos[]>('table_data', {
+                                table: tableName,
+                                fixedFields: validFixedFields ?? []
+                            }, { isCritical: true }),
+                            `los datos de '${tableName}'`
+                        );
                         return { definition, data };
                     })();
-                    cargasEnCurso.set(clavePedido, pedido);
+                    cargasEnCurso.set(clavePedido, nuevo);
                     // cuando termina se saca: un refrescar posterior tiene que volver a pedir
                     const sacar = () => { cargasEnCurso.delete(clavePedido); };
-                    pedido.then(sacar, sacar);
+                    nuevo.then(sacar, sacar);
+                    pedido = nuevo;
                 }
                 const { definition, data } = await pedido;
                 if (!vigente) return;
@@ -426,11 +439,11 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 setSortColumns(getInitialSortColumns(definition));
                 setAnchosCalculados(calcularAnchosDeColumnas(definition, data));
                 setTableData(data);
-            } catch (err: any) {
+            } catch (err) {
                 if (!vigente) return;
                 setTableDefinition(null);
                 setTableData([]);
-                const mensaje = `Error al cargar datos para la tabla '${tableName}': ${err.message || 'Error desconocido'}`;
+                const mensaje = `Error al cargar datos para la tabla '${tableName}': ${mensajeDeError(err)}`;
                 setErrorDeCarga(mensaje);
                 showError(mensaje);
             } finally {
@@ -497,7 +510,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setOpenDataGridOptions(true);
     }, []);
 
-    const editarEnFicha = useCallback((row: any) => {
+    const editarEnFicha = useCallback((row: FilaDeDatos) => {
         rowAtEditStartRef.current = { ...row }; // Capturar snapshot antes de abrir
         handleVerticalEditRow(row);
     }, [handleVerticalEditRow]);
@@ -518,7 +531,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     });
 
     /** Abre el detalle en otra pestaña (lo que antes hacía siempre el botón del detalle) */
-    const abrirDetalleEnPestana = useCallback((row: Record<string, any>, detailTable: DetailTable) => {
+    const abrirDetalleEnPestana = useCallback((row: FilaDeDatos, detailTable: DetailTable) => {
         if (!onOpenDetail || !tableDefinition || !detailTable.table) return;
         // Se acumulan los filtros que ya tiene la grilla actual (heredados de arriba), sin repetir campos
         const porCampo = new Map<string, FixedField>();
@@ -532,14 +545,25 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         onOpenDetail(detailTable.table, allFixedFields, label, newAncestors);
     }, [onOpenDetail, tableDefinition, fixedFields, ancestors]);
 
-    const alternarDetalle = useCallback((row: Record<string, any>, rowId: string, detailTable: DetailTable, enOtraPestana: boolean) => {
+    /** Un detalle wScreen en otra pestaña: la ruta de la pantalla con los fixedFields del detalle como query string */
+    const abrirWScreenEnPestana = useCallback((row: FilaDeDatos, detailTable: DetailTable) => {
+        const parametros = new URLSearchParams();
+        calcularFixedFieldsDetalle(detailTable, row).forEach(ff => parametros.set(ff.fieldName, String(ff.value)));
+        window.open(`${window.location.origin}/wScreens/${detailTable.wScreen}?${parametros}`, '_blank');
+    }, []);
+
+    const alternarDetalle = useCallback((row: FilaDeDatos, rowId: string, detailTable: DetailTable, enOtraPestana: boolean) => {
+        if (enOtraPestana && detailTable.wScreen) {
+            abrirWScreenEnPestana(row, detailTable);
+            return;
+        }
         if (enOtraPestana && onOpenDetail) {
             abrirDetalleEnPestana(row, detailTable);
             return;
         }
         const clave = claveDetalle(rowId, detailTable);
         setDetallesAbiertos(anteriores => anteriores.includes(clave) ? anteriores.filter(c => c !== clave) : [...anteriores, clave]);
-    }, [onOpenDetail, abrirDetalleEnPestana]);
+    }, [onOpenDetail, abrirDetalleEnPestana, abrirWScreenEnPestana]);
 
     // Lo que se ve de esta grilla (el área de scroll de react-data-grid) y el ancho de su barra de scroll vertical
     const [medidas, setMedidas] = useState<{ ancho: number, alto: number, barra: number } | null>(null);
@@ -570,7 +594,11 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         window.addEventListener('resize', calcular);
         return () => window.removeEventListener('resize', calcular);
     }, [anidada, tableDefinition, cargandoInicial]);
-    const altoDeEstaGrilla = anidada ? altoDisponible : altoDeVentana ?? undefined;
+    // Una grilla que una wScreen arma dentro de un detalle recibe su alto máximo por contexto (menos el título de la grilla)
+    const altoDeContexto = useContext(AltoDisponibleContext);
+    const altoDeEstaGrilla = anidada
+        ? altoDisponible ?? (altoDeContexto === undefined ? undefined : altoDeContexto - ALTO_TITULO_ANIDADA)
+        : altoDeVentana ?? undefined;
 
     // Los detalles de esta grilla se acotan a ese alto (menos el encabezado, el pie y la fila padre), así el detalle
     // completo —con su propio pie— entra sin tener que scrollear la grilla de arriba. Con más contenido que eso
@@ -610,7 +638,14 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         onOpenDetail={onOpenDetail}
                         ancestors={tableDefinition ? [...ancestors, { tableName: tableDefinition.name, row: fila.filaPadre, tableDefinition, fixedFields: fila.fixedFields }] : ancestors}
                     />
-                    : <Alert severity="info">El detalle '{detailTable.abr}' es una wScreen ({detailTable.wScreen}): todavía no se puede desplegar acá.</Alert>
+                    : detailTable.wScreen
+                        ? <DetalleWScreen
+                            fila={fila}
+                            altoMaximo={altoMaximoDetalleEfectivo}
+                            onAlto={(alto) => cambiarAltoDetalle(fila.clave, alto)}
+                            onAncho={(ancho) => cambiarAnchoDetalle(fila.clave, ancho)}
+                        />
+                        : <Alert severity="warning">El detalle '{detailTable.abr}' no tiene ni tabla ni wScreen.</Alert>
                 }
             </div>
         );
@@ -624,11 +659,11 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         onAltoDeseado?.(altoDeseado);
     }, [onAltoDeseado, altoDeseado]);
 
-    const rowKeyGetter = useCallback((row: any) => esFilaDetalle(row) ? `detalle:${row.clave}` : getPrimaryKeyValues(row, primaryKey), [primaryKey]);
-    const rowHeight = useCallback((row: any) => esFilaDetalle(row) ? altoDeDetalle(row.clave) : ROW_HEIGHT, [altoDeDetalle]);
+    const rowKeyGetter = useCallback((row: FilaDeDatos) => esFilaDetalle(row) ? `detalle:${row.clave}` : getPrimaryKeyValues(row, primaryKey), [primaryKey]);
+    const rowHeight = useCallback((row: FilaDeDatos) => esFilaDetalle(row) ? altoDeDetalle(row.clave) : ROW_HEIGHT, [altoDeDetalle]);
     // Las filas que se están borrando se marcan con una clase en lugar de copiar cada fila con un style:
     // copiar las filas en cada render anula la memorización de filas de react-data-grid
-    const rowClass = useCallback((row: any) =>
+    const rowClass = useCallback((row: FilaDeDatos) =>
         esFilaDetalle(row) ? 'fpr-fila-detalle'
             : exitingRowIds.has(getPrimaryKeyValues(row, primaryKey)) ? 'fpr-fila-saliendo' : undefined
     , [exitingRowIds, primaryKey]);
@@ -737,7 +772,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
             <Box
                 sx={{
-                    height: `min(${gridHeight}px, 100%)`, // Altura dinámica aquí
+                    // Una grilla anidada se acota con px (el alto que le dio la de arriba, o el de una wScreen): una wScreen
+                    // tiene alto automático y ahí un porcentaje no se resuelve. La principal ocupa lo que quede de la pantalla.
+                    height: anidada ? `${altoDeEstaGrilla === undefined ? gridHeight : Math.min(gridHeight, altoDeEstaGrilla)}px` : `min(${gridHeight}px, 100%)`,
                     maxHeight: '100%',
                     boxSizing: 'border-box',
                     position: 'relative', // CRÍTICO para el centrado del fallback
@@ -751,10 +788,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 <EstadoGrillaContext.Provider value={estadoGrilla}>
                     <VistaGrillaContext.Provider value={vistaGrilla}>
                     <DetallesGrillaContext.Provider value={detallesGrilla}>
-                        <DataGrid
+                        <DataGrid<FilaDeDatos, FilaDeResumen, string>
                             className='rdg-light'
                             ref={dataGridRef}
-                            columns={columns as Column<any, any>[]}
+                            columns={columns}
                             rows={filasMostradas}
                             rowClass={rowClass}
                             columnWidths={columnWidths}
@@ -811,7 +848,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 tableDefinition={tableDefinition}
                 tableData={tableData}
                 filteredRows={filteredRows}
-                username={(window as any).my?.config?.username || 'anonymous'}
+                username={usuario || 'anonymous'}
             />
             <ConfirmDialog
                 open={openConfirmDialog}

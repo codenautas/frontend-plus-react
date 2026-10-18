@@ -1,10 +1,11 @@
 export { default as GenericDataGrid } from './components/grid/GenericDataGrid';
 export { clientSides, extendClientSides } from './components/grid/clientSides';
+export { extendConditions } from './components/grid/condiciones';
 export { ConfirmDialog } from './components/ConfirmDialog';
 
 // Componente de rutas genérico
 export { FrontendPlusReactRoutes, FrontendPlusProviders, default as App } from './App';
-export type { WScreenMap, ResultsOksMap, ClientSidesMap, AppProps } from './types';
+export type { WScreenMap, ResultsOksMap, ClientSidesMap, AppProps, CondicionDeDetalle, CondicionesMap, FilaDeDatos } from './types';
 
 export { default as MainLayout } from './components/MainLayout';
 

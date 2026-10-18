@@ -1,9 +1,9 @@
 // src/hooks/grid/useGridColumns.ts
 import React, { useMemo } from 'react';
-import { RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, RenderEditCellProps, Column, ColSpanArgs } from 'react-data-grid';
+import { RenderCellProps, RenderHeaderCellProps, RenderSummaryCellProps, RenderEditCellProps, ColSpanArgs } from 'react-data-grid';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
-import { FieldDefinition, FixedField, TableDefinition } from '../../types';
-import { CustomColumn, DefaultColumn, DetailColumn, ActionColumn } from '../../components/grid/GenericDataGrid';
+import { FieldDefinition, FilaDeDatos, FilaDeResumen, FixedField, TableDefinition } from '../../types';
+import { ColumnaDeGrilla, CustomColumn, DefaultColumn, DetailColumn, ActionColumn } from '../../components/grid/GenericDataGrid';
 import { ActionsColumnHeaderCell, defaultColumnHeaderCellRenderer, detailColumnCellHeaderRenderer } from '../../components/grid/renderers/headerCellRenderers';
 import { actionsColumnSummaryCellRenderer, defaultColumnSummaryCellRenderer, detailColumnCellSummaryRenderer } from '../../components/grid/renderers/summaryCellRenderers';
 import { allColumnsCellRenderer } from '../../components/grid/renderers/cellRenderers';
@@ -48,12 +48,12 @@ interface UseGridColumnsProps {
     anchosCalculados: Map<string, number>;
     fixedFields?: FixedField[];
     primaryKey: string[];
-    setTableData: React.Dispatch<React.SetStateAction<any[]>>;
-    handleKeyPressInEditor: DefaultColumn<any>['handleKeyPressInEditor'];
-    registrarEditor: DefaultColumn<any>['registrarEditor'];
-    handleDeleteRow: (row: any) => void;
-    handleAddRow: (row?: any) => void;
-    handleVerticalEditRow: (row: any) => void;
+    setTableData: React.Dispatch<React.SetStateAction<FilaDeDatos[]>>;
+    handleKeyPressInEditor: DefaultColumn['handleKeyPressInEditor'];
+    registrarEditor: DefaultColumn['registrarEditor'];
+    handleDeleteRow: (row: FilaDeDatos) => void;
+    handleAddRow: (row?: FilaDeDatos) => void;
+    handleVerticalEditRow: (row: FilaDeDatos) => void;
     toggleFilterVisibility: () => void;
     abrirOpcionesDeGrilla: (anchorEl: HTMLElement) => void;
 }
@@ -79,18 +79,18 @@ export const useGridColumns = ({
     abrirOpcionesDeGrilla,
 }: UseGridColumnsProps) => {
 
-    const columns: CustomColumn<any>[] = useMemo(() => {
+    const columns: CustomColumn[] = useMemo(() => {
         if (!tableDefinition) return [];
         const fieldsToShow = tableDefinition.fields.filter((field: FieldDefinition) => {
             const isFixedField = fixedFields?.some(f => f.fieldName === field.name);
             return !isFixedField && field.visible !== false;
         });
 
-        const defaultColumns: CustomColumn<any>[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
+        const defaultColumns: CustomColumn[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
             const isFixedField = fixedFields?.some(f => f.fieldName === fieldDef.name);
             const isFieldEditable = fieldDef.editable !== false && !isFixedField;
             const colWidth = anchosCalculados.get(fieldDef.name) ?? estimateTextWidth(fieldDef.label || fieldDef.name) + 20;
-            const column: DefaultColumn<any> = {
+            const column: DefaultColumn = {
                 key: fieldDef.name,
                 customType: 'default',
                 tableDefinition,
@@ -109,8 +109,8 @@ export const useGridColumns = ({
                 registrarEditor,
                 width: colWidth,
                 minWidth: 40,
-                renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
-                renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => defaultColumnSummaryCellRenderer(props, fixedFields),
+                renderHeaderCell: (props: RenderHeaderCellProps<FilaDeDatos, FilaDeResumen>) => defaultColumnHeaderCellRenderer(props, fieldDef),
+                renderSummaryCell: (props: RenderSummaryCellProps<FilaDeResumen, FilaDeDatos>) => defaultColumnSummaryCellRenderer(props, fixedFields),
             };
             return column;
         });
@@ -122,7 +122,7 @@ export const useGridColumns = ({
         ].filter(Boolean).length;
         const actionColumnWidth = 60 + (availableActions * 10);
 
-        const actionsColumn: ActionColumn<any> = {
+        const actionsColumn: ActionColumn = {
             key: 'actionsColumn',
             customType: 'action',
             tableDefinition,
@@ -140,12 +140,12 @@ export const useGridColumns = ({
                 handleAddRow,
                 allowInsert: tableDefinition.allow?.insert,
             }),
-            renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => actionsColumnSummaryCellRenderer(props),
+            renderSummaryCell: (props: RenderSummaryCellProps<FilaDeResumen, FilaDeDatos>) => actionsColumnSummaryCellRenderer(props),
         };
 
-        const detailColumns: CustomColumn<any>[] = (tableDefinition.detailTables ?? []).map(detailTable => {
+        const detailColumns: CustomColumn[] = (tableDefinition.detailTables ?? []).map(detailTable => {
             const detailKey = `detail_${detailTable.abr}`;
-            const column: DetailColumn<any> = {
+            const column: DetailColumn = {
                 key: detailKey,
                 customType: 'detail',
                 tableDefinition,
@@ -158,22 +158,22 @@ export const useGridColumns = ({
                 editable: false,
                 width: 30,
                 minWidth: 30,
-                renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => detailColumnCellHeaderRenderer(props, detailTable),
-                renderSummaryCell: (props: RenderSummaryCellProps<any, unknown>) => detailColumnCellSummaryRenderer(props),
+                renderHeaderCell: (props: RenderHeaderCellProps<FilaDeDatos, FilaDeResumen>) => detailColumnCellHeaderRenderer(props, detailTable),
+                renderSummaryCell: (props: RenderSummaryCellProps<FilaDeResumen, FilaDeDatos>) => detailColumnCellSummaryRenderer(props),
             };
             return column;
         });
 
-        const allColumns: CustomColumn<any>[] = [actionsColumn, ...detailColumns, ...defaultColumns];
+        const allColumns: CustomColumn[] = [actionsColumn, ...detailColumns, ...defaultColumns];
         const cantidadDeColumnas = allColumns.length;
         // En una fila de detalle la columna de acciones ocupa todo el ancho y muestra la grilla anidada
-        const colSpanDetalle = (args: ColSpanArgs<any, unknown>) => args.type === 'ROW' && esFilaDetalle(args.row) ? cantidadDeColumnas : undefined;
+        const colSpanDetalle = (args: ColSpanArgs<FilaDeDatos, FilaDeResumen>) => args.type === 'ROW' && esFilaDetalle(args.row) ? cantidadDeColumnas : undefined;
         return allColumns.map(col => ({
             ...col,
             colSpan: col.customType === 'action' ? colSpanDetalle : col.colSpan,
             editorOptions: { closeOnExternalRowChange: false },
-            renderEditCell: (props: RenderEditCellProps<any, unknown>) => allColumnsEditCellRenderer(props, allColumns as Column<any>[]),
-            renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props),
+            renderEditCell: (props: RenderEditCellProps<FilaDeDatos, FilaDeResumen>) => allColumnsEditCellRenderer(props, allColumns as ColumnaDeGrilla[]),
+            renderCell: (props: RenderCellProps<FilaDeDatos, FilaDeResumen>) => allColumnsCellRenderer(props),
         }));
 
     }, [tableDefinition, anchosCalculados, fixedFields, primaryKey, setTableData, handleKeyPressInEditor, registrarEditor, handleDeleteRow, handleAddRow, handleVerticalEditRow, toggleFilterVisibility, abrirOpcionesDeGrilla]);

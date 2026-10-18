@@ -4,6 +4,7 @@ import { MenuInfoBase, ProcedureDef, AppConfigClientSetup } from "backend-plus";
 import { Details } from 'express-useragent'; // Asumiendo que 'Details' viene de aquí
 import { fetchApi } from '../utils/fetchApi'; // Tu utilidad fetchApi
 import { ClientContextState } from '../types';
+import { mensajeDeError } from '../utils/errores';
 
 // Estado inicial para el slice de clientContext
 const initialState: ClientContextState = {
@@ -33,9 +34,9 @@ export const fetchClientContext = createAsyncThunk(
             // Retorna los datos cargados. El 'status' y 'error' se manejan automáticamente
             // en los 'extraReducers'.
             return clientSetup as Omit<ClientContextState, 'status' | 'error'>;
-        } catch (error: any) {
+        } catch (error) {
             // Usa rejectWithValue para pasar el mensaje de error al estado 'failed'
-            return rejectWithValue(error.message || 'Error desconocido al cargar el contexto');
+            return rejectWithValue(mensajeDeError(error, 'Error desconocido al cargar el contexto'));
         }
     }
 );

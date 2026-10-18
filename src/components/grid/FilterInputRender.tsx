@@ -1,15 +1,15 @@
 import { InputBase, Box } from "@mui/material";
 import React from "react";
-import { FilterRendererProps } from "../../types";
-import { DefaultColumn, FILTER_ROW_HEIGHT } from "./GenericDataGrid";
+import { FieldDefinition, FiltroDeColumna, FiltrosDeGrilla } from "../../types";
+import { FILTER_ROW_HEIGHT } from "./GenericDataGrid";
 import { TypedField } from "../forms/TypedField";
 import { filterOperators, getDefaultOperatorForType } from "./utils/helpers";
 
 interface FilterInputRendererProps {
     columnKey: string;
-    currentFilter: any;
-    setFilters: React.Dispatch<React.SetStateAction<Record<string, any>>>;
-    fieldDef: any;
+    currentFilter: FiltroDeColumna | undefined;
+    setFilters: React.Dispatch<React.SetStateAction<FiltrosDeGrilla>>;
+    fieldDef: FieldDefinition | undefined;
 }
 
 function FilterInputRenderer({
@@ -24,13 +24,13 @@ function FilterInputRenderer({
         let operator = getDefaultOperatorForType(fieldDef.typeName);
         let val = '';
         if (currentFilter && typeof currentFilter === 'object') {
-            operator = (currentFilter as any).operator || operator;
-            val = (currentFilter as any).value || '';
+            operator = currentFilter.operator || operator;
+            val = currentFilter.value || '';
         } else if (typeof currentFilter === 'string') {
             val = currentFilter;
         }
 
-        const handleFilterChange = (newOp: string, newVal: any) => {
+        const handleFilterChange = (newOp: string, newVal: unknown) => {
             const formattedVal = (newVal === null || newVal === undefined) ? '' : String(newVal);
             setFilters(prev => ({
                 ...prev,
