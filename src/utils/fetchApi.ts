@@ -37,7 +37,7 @@ function codificarParametro(valor: unknown, encoding: string | undefined, proced
  * Si el procedimiento no se conoce todavía (por ejemplo antes de cargar client-setup)
  * se usa la codificación anterior: primitivos tal cual y objetos con JSON4all.
  */
-function codificarParametros(procedureName: string, params: Record<string, unknown>): { codificados: Record<string, string>, method: 'get' | 'post' } {
+export function codificarParametros(procedureName: string, params: Record<string, unknown>): { codificados: Record<string, string>, method: 'get' | 'post' } {
     const definicion = obtenerDefinicionesDeProcedimientos()?.[procedureName];
     const codificados: Record<string, string> = {};
     if (!definicion) {

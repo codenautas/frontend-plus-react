@@ -63,6 +63,10 @@ interface RoutesProps {
 
 export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: Layout = MainLayout, unloggedLayout: UnloggedLayout }: RoutesProps) {
     return (
+        <>
+        {/* Fuera de las rutas privadas: con la sesión válida pero el estado todavía sin cargar, PrivateRoute manda
+            a /login; desde acá se vuelve a la ruta guardada (o a /home) apenas el estado termina de cargarse. */}
+        <InitialRedirectHandler />
         <Routes>
             <Route element={UnloggedLayout ? <UnloggedLayout /> : <Outlet />}>
                 <Route path="/login" element={<LoginPage />} />
@@ -72,7 +76,6 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
 
             <Route element={
                 <PrivateRoute>
-                    <InitialRedirectHandler />
                     <Layout />
                 </PrivateRoute>
             }>
@@ -107,6 +110,7 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
 
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </>
     );
 }
 

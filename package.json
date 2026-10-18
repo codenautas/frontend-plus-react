@@ -21,7 +21,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run"
   },
   "keywords": [
     "react",
@@ -62,6 +63,8 @@
     "json4all": "^1.4.2"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/express-useragent": "^1.0.5",
     "@types/node": "^20.14.8",
     "@types/react": "^18.3.3",
@@ -71,9 +74,11 @@
     "@types/redux": "^3.6.31",
     "@types/redux-persist": "^4.0.0",
     "backend-plus": "^2.5.2-betha.10",
+    "jsdom": "^26.1.0",
     "kill-9": "^0.4.3",
     "tsup": "8.3.0",
     "typescript": "^5.8.3",
+    "vitest": "^3.2.7",
     "type-store": "^0.4.8",
     "xlsx": "^0.20.2",
     "like-ar": "^0.5.2"

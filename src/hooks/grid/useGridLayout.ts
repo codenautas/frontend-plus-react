@@ -21,6 +21,8 @@ interface UseGridLayoutProps {
      * la grilla crece según su contenido hasta ese tope. Sin valor, crece sin límite.
      */
     filasVisiblesMax?: number;
+    /** Si la grilla muestra la fila de pie (totales); sin ella no se reserva su alto */
+    conPie?: boolean;
 }
 
 export const useGridLayout = ({
@@ -32,19 +34,22 @@ export const useGridLayout = ({
     setFilters,
     altoDetalles = 0,
     altoMinimoCuerpo = MIN_BODY_HEIGHT,
-    holgura = 40,
+    // 24 px de margen inferior de la caja que contiene la grilla + lo que ocupa una barra de scroll horizontal (que le quita
+    // alto a la grilla y, si no sobra lugar, hace aparecer una barra vertical aunque haya una sola fila)
+    holgura = 24 + 24,
     filasVisiblesMax,
+    conPie = true,
 }: UseGridLayoutProps) => {
 
     const gridHeight = useMemo(() => {
         const filterHeight = isFilterRowVisible ? FILTER_ROW_HEIGHT : 0;
         const filasParaAlto = filasVisiblesMax === undefined ? filteredRows.length : Math.min(filteredRows.length, filasVisiblesMax);
-        let calculatedHeight = (filasParaAlto * ROW_HEIGHT) + altoDetalles + HEADER_ROW_HEIGHT + filterHeight + SUMMARY_ROW_HEIGHT + holgura;
+        let calculatedHeight = (filasParaAlto * ROW_HEIGHT) + altoDetalles + HEADER_ROW_HEIGHT + filterHeight + (conPie ? SUMMARY_ROW_HEIGHT : 0) + holgura;
         if (tableData.length > 0 && filteredRows.length === 0 && isFilterRowVisible || tableData.length === 0) {
             calculatedHeight = Math.max(calculatedHeight, altoMinimoCuerpo) + filterHeight;
         }
         return calculatedHeight;
-    }, [filteredRows.length, isFilterRowVisible, tableData.length, altoDetalles, altoMinimoCuerpo, holgura, filasVisiblesMax]);
+    }, [filteredRows.length, isFilterRowVisible, tableData.length, altoDetalles, altoMinimoCuerpo, holgura, filasVisiblesMax, conPie]);
 
     const bottomSummaryRow = useMemo(() => {
         return { id: 'bottomSummaryRow', ...summaryData };

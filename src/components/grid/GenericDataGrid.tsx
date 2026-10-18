@@ -47,11 +47,13 @@ const ALTO_TITULO_ANIDADA = 26;
 /** Alto mínimo de una grilla anidada sin filas (alcanza para el mensaje "No hay filas") */
 const ALTO_MINIMO_CUERPO_ANIDADA = 120;
 /** Espacio extra bajo una grilla anidada: lo justo para una barra de scroll horizontal */
-const HOLGURA_ANIDADA = 18;
+const HOLGURA_ANIDADA = 24;
 /** Ancho mínimo de una grilla anidada: que alcance para el título */
 const ANCHO_MINIMO_ANIDADA = 240;
 /** Lo que el detalle ocupa de más que su grilla: sangría a la izquierda, margen a la derecha y la línea de color */
 const SANGRIA_DETALLE = 28 + 8 + 3;
+/** Espacio que se deja bajo la grilla principal al calcular cuánto alto tiene disponible */
+const MARGEN_INFERIOR_PAGINA = 24;
 /** Valores por omisión de backend-plus (myOwn.firstDisplayCount y myOwn.firstDisplayOverLimit) */
 const PRIMERAS_FILAS_ANIDADA = 20;
 const LIMITE_PRIMERAS_FILAS_ANIDADA = 30;
@@ -65,7 +67,7 @@ interface GenericDataGridProps {
     ancestors?: Ancestor[];
     /** Es una grilla de detalle desplegada dentro de otra grilla */
     anidada?: boolean;
-    /** Título a mostrar en lugar del de la tabla (lo usan las grillas anidadas) */
+    /** Título a mostrar en lugar del de la tabla (por omisión, el título o nombre de la tabla, igual que la grilla principal) */
     titulo?: string;
     /** Clave en el CacheGrillasContext para volver a mostrarse sin recargar */
     claveCache?: string;
@@ -73,6 +75,8 @@ interface GenericDataGridProps {
     onAltoDeseado?: (alto: number) => void;
     /** La grilla anidada informa el ancho que necesita (sus columnas y los detalles que tenga abiertos) */
     onAnchoDeseado?: (ancho: number) => void;
+    /** Alto máximo que puede tener esta grilla anidada (lo calcula la de arriba a partir de la ventana) */
+    altoDisponible?: number;
     /**
      * Tope opcional para el alto de las filas de detalle (en px). Sin tope (lo normal) cada detalle
      * se muestra completo, como en backend-plus; con tope, el detalle más alto scrollea por dentro
@@ -125,6 +129,9 @@ export type CustomColumn<TRow, TSummaryRow = unknown> =
     | ActionColumn<TRow, TSummaryRow>;
 
 const SIN_ANCESTROS: Ancestor[] = [];
+
+/** Cargas de tabla (estructura + datos) que están en curso, por tabla y filtros */
+const cargasEnCurso = new Map<string, Promise<{ definition: TableDefinition, data: any[] }>>();
 
 /**
  * Componente auxiliar para mostrar un registro padre como una grilla estática.
@@ -228,6 +235,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     claveCache,
     onAltoDeseado,
     onAnchoDeseado,
+    altoDisponible,
     altoMaximoDetalle,
 }) => {
     // fixedFields suele llegar como un array nuevo en cada render del padre:
@@ -347,11 +355,15 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const firstDisplayOverLimit = tableDefinition?.firstDisplayOverLimit ?? LIMITE_PRIMERAS_FILAS_ANIDADA;
     const filasVisiblesMax = anidada ? (filteredRows.length <= firstDisplayOverLimit ? filteredRows.length : firstDisplayCount) : undefined;
 
+    // Una grilla anidada sin campos con totales no necesita pie: era una fila vacía que ocupaba lugar
+    const conPie = !anidada || !!tableDefinition?.fields.some(field => field.aggregate);
+
     const { gridHeight, bottomSummaryRow, summaryRows, filterHeight } = useGridLayout({
         filteredRows, isFilterRowVisible, tableData, summaryData, filters, setFilters, altoDetalles,
         altoMinimoCuerpo: anidada ? ALTO_MINIMO_CUERPO_ANIDADA : MIN_BODY_HEIGHT,
         holgura: anidada ? HOLGURA_ANIDADA : undefined,
         filasVisiblesMax,
+        conPie,
     });
 
     const { handleCellDoubleClick, handleCellClick, handleCellKeyDown, handleCellMouseDown, handleKeyPressInEditor, registrarEditor, handleSelectedCellChange, handleRowsChange } = useGridEvents({
@@ -387,14 +399,27 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             setCargandoInicial(true);
             setErrorDeCarga(null);
             try {
-                const definition: TableDefinition = await callApi('table_structure', { table: tableName }, { isCritical: true });
-                const validFixedFields = fixedFields?.filter(ff =>
-                    definition.fields.some(field => field.name === ff.fieldName)
-                );
-                const data = await callApi('table_data', {
-                    table: tableName,
-                    fixedFields: validFixedFields ?? []
-                }, { isCritical: true });
+                // Si ya hay una carga igual en curso (el modo desarrollo de React monta los efectos dos veces) se espera esa
+                const clavePedido = `${tableName}|${claveFixedFields}`;
+                let pedido = cargasEnCurso.get(clavePedido);
+                if (!pedido) {
+                    pedido = (async () => {
+                        const definition: TableDefinition = await callApi('table_structure', { table: tableName }, { isCritical: true });
+                        const validFixedFields = fixedFields?.filter(ff =>
+                            definition.fields.some(field => field.name === ff.fieldName)
+                        );
+                        const data = await callApi('table_data', {
+                            table: tableName,
+                            fixedFields: validFixedFields ?? []
+                        }, { isCritical: true });
+                        return { definition, data };
+                    })();
+                    cargasEnCurso.set(clavePedido, pedido);
+                    // cuando termina se saca: un refrescar posterior tiene que volver a pedir
+                    const sacar = () => { cargasEnCurso.delete(clavePedido); };
+                    pedido.then(sacar, sacar);
+                }
+                const { definition, data } = await pedido;
                 if (!vigente) return;
                 claveCargadaRef.current = claveCarga;
                 setTableDefinition(definition);
@@ -532,11 +557,26 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     }, [tableDefinition, cargandoInicial]);
     const anchoVisible = medidas?.ancho ?? null;
 
-    // Los detalles de esta grilla se acotan a lo que se ve de ella (menos el encabezado, el pie y la fila padre),
-    // así el detalle completo —con su propio pie— entra sin tener que scrollear la grilla de arriba.
-    // Un detalle con más contenido que eso scrollea por dentro y virtualiza sus filas.
-    const altoMaximoDetalleEfectivo = altoMaximoDetalle ?? (medidas
-        ? Math.max(ALTO_MINIMO_DETALLE, medidas.alto - HEADER_ROW_HEIGHT - SUMMARY_ROW_HEIGHT - ROW_HEIGHT - (isFilterRowVisible ? FILTER_ROW_HEIGHT : 0))
+    // Alto que puede ocupar esta grilla: la principal, lo que queda de la ventana; una anidada, lo que le asigna la de arriba.
+    // Se calcula de arriba hacia abajo y no con el alto medido: una grilla de pocas filas es baja, y si se acotara a
+    // su propio alto el detalle quedaría aplastado.
+    const [altoDeVentana, setAltoDeVentana] = useState<number | null>(null);
+    useEffect(() => {
+        if (anidada) return;
+        const elemento = dataGridRef.current?.element;
+        if (!elemento) return;
+        const calcular = () => setAltoDeVentana(Math.max(0, Math.round(window.innerHeight - elemento.getBoundingClientRect().top - MARGEN_INFERIOR_PAGINA)));
+        calcular();
+        window.addEventListener('resize', calcular);
+        return () => window.removeEventListener('resize', calcular);
+    }, [anidada, tableDefinition, cargandoInicial]);
+    const altoDeEstaGrilla = anidada ? altoDisponible : altoDeVentana ?? undefined;
+
+    // Los detalles de esta grilla se acotan a ese alto (menos el encabezado, el pie y la fila padre), así el detalle
+    // completo —con su propio pie— entra sin tener que scrollear la grilla de arriba. Con más contenido que eso
+    // el detalle scrollea por dentro y virtualiza sus filas.
+    const altoMaximoDetalleEfectivo = altoMaximoDetalle ?? (altoDeEstaGrilla !== undefined
+        ? Math.max(ALTO_MINIMO_DETALLE, altoDeEstaGrilla - HEADER_ROW_HEIGHT - (conPie ? SUMMARY_ROW_HEIGHT : 0) - ROW_HEIGHT - (isFilterRowVisible ? FILTER_ROW_HEIGHT : 0))
         : undefined);
 
     const cambiarAnchoDetalle = useCallback((clave: string, ancho: number) => {
@@ -550,7 +590,6 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     const renderDetalle = useCallback((fila: FilaDetalle) => {
         const { detailTable } = fila;
-        const titulo = `${detailTable.label || cambiarGuionesBajosPorEspacios(detailTable.table ?? detailTable.abr)}`;
         return (
             <div
                 className="fpr-detalle"
@@ -564,10 +603,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         tableName={detailTable.table}
                         fixedFields={fila.fixedFields}
                         anidada
-                        titulo={titulo}
                         claveCache={`${claveCache ?? tableName}>${fila.clave}`}
                         onAltoDeseado={(alto) => cambiarAltoDetalle(fila.clave, alto)}
                         onAnchoDeseado={(ancho) => cambiarAnchoDetalle(fila.clave, ancho)}
+                        altoDisponible={altoMaximoDetalleEfectivo === undefined ? undefined : altoMaximoDetalleEfectivo - ALTO_TITULO_ANIDADA - 8}
                         onOpenDetail={onOpenDetail}
                         ancestors={tableDefinition ? [...ancestors, { tableName: tableDefinition.name, row: fila.filaPadre, tableDefinition, fixedFields: fila.fixedFields }] : ancestors}
                     />
@@ -575,7 +614,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 }
             </div>
         );
-    }, [anchoVisible, claveCache, tableName, cambiarAltoDetalle, onOpenDetail, tableDefinition, ancestors]);
+    }, [anchoVisible, claveCache, tableName, cambiarAltoDetalle, cambiarAnchoDetalle, altoMaximoDetalleEfectivo, onOpenDetail, tableDefinition, ancestors]);
 
     const detallesGrilla = useMemo(() => ({ abiertos, alternarDetalle, renderDetalle }), [abiertos, alternarDetalle, renderDetalle]);
 
@@ -610,7 +649,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         if (anchoContenido !== undefined) onAnchoDeseado?.(anchoContenido);
     }, [onAnchoDeseado, anchoContenido]);
     const estiloGrilla = useMemo<React.CSSProperties>(() => ({ height: '100%', width: '100%', boxSizing: 'border-box', ...gridStyles }), [gridStyles]);
-    const bottomSummaryRows = useMemo(() => [bottomSummaryRow], [bottomSummaryRow]);
+    const bottomSummaryRows = useMemo(() => conPie ? [bottomSummaryRow] : [], [conPie, bottomSummaryRow]);
     const vistaGrilla = useMemo(() => ({ isFilterRowVisible }), [isFilterRowVisible]);
 
     const getFallBackMessage = () => {
@@ -749,7 +788,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         sx={{
                             position: 'absolute',
                             top: filterHeight + HEADER_ROW_HEIGHT + 1,
-                            bottom: anidada ? SUMMARY_ROW_HEIGHT + 4 : 102,
+                            bottom: anidada ? (conPie ? SUMMARY_ROW_HEIGHT : 0) + 4 : 102,
                             left: 18,
                             right: 0,
                             display: 'flex',

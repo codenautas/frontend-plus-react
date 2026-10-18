@@ -199,7 +199,7 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
         const result: SummaryData = {};
 
         tableDefinition.fields.forEach((field: FieldDefinition) => {
-            const agg = (field as any).aggregate;
+            const agg = field.aggregate;
             if (!agg) return;
 
             const values = filteredRows

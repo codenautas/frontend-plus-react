@@ -30,11 +30,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, publicPaths=
     const [showSessionExpiredMessage, setShowSessionExpiredMessage] = useState(false);
 
     const isRedirectingRef = useRef(false);
+    // ¿Esta persona tuvo una sesión (en esta carga de la página o guardada de antes)? Solo entonces corresponde
+    // avisar que "la sesión expiró"; quien entra por primera vez sin sesión va al login sin ese cartel.
+    const huboSesionRef = useRef(false);
     
     
     
     const dispatch = useDispatch<AppDispatch>();
     const clientContext = useSelector((state: RootState) => state.clientContext);
+    // si lo guardado de la visita anterior decía que había sesión, vencerse es un "expiró" y no una primera visita
+    if (clientContext.status === 'succeeded') huboSesionRef.current = true;
     
     const navigate = useNavigate();
 
@@ -69,6 +74,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, publicPaths=
             const response = await fetchApi('/keep-alive.json', { method: 'GET' });
             if (isRedirectingRef.current) return;
             if (response.ok) {
+                huboSesionRef.current = true;
                 setIsLoggedIn(true);
                 setShowSessionExpiredMessage(false);
 
@@ -91,11 +97,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, publicPaths=
                 setIsLoggedIn(false);
                 dispatch(clearClientContext()); // Disparar la acción para limpiar el clientContext en Redux
 
-                if (!showSessionExpiredMessage && !isCurrentPathPublic()) {
+                if (!showSessionExpiredMessage && !isCurrentPathPublic() && huboSesionRef.current) {
                     console.warn("Sesión inválida en ruta protegida. Mostrando modal.");
                     setShowSessionExpiredMessage(true);
                 } else {
-                    console.log("Sesión inválida, pero estamos en ruta pública. Todo bien.");
+                    console.log("Sesión inválida, pero no hay nada que avisar (ruta pública o nunca hubo sesión).");
                 }
             }
         } catch (error: any) {
@@ -103,11 +109,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, publicPaths=
             setIsLoggedIn(false);
             dispatch(clearClientContext()); // Limpiar clientContext en Redux
             const isPublic = publicPaths.some(p => location.pathname === p || location.pathname.startsWith(p + '/'));
-            if (!showSessionExpiredMessage && !isCurrentPathPublic()) {
+            if (!showSessionExpiredMessage && !isCurrentPathPublic() && huboSesionRef.current) {
                 setShowSessionExpiredMessage(true);
             }
         }
-    }, [dispatch, clientContext.status, showSessionExpiredMessage]); // Dependencias: dispatch (estable), y el estado de carga del clientContext
+    }, [dispatch, clientContext.status, showSessionExpiredMessage, isCurrentPathPublic]); // Dependencias: dispatch (estable), y el estado de carga del clientContext
 
     useEffect(() => {
         checkSession();
