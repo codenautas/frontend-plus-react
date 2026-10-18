@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Column } from "react-data-grid";
 import { useSnackbar } from "../../contexts/SnackbarContext";
 import { useApiCall } from "../../hooks/useApiCall";
@@ -35,6 +35,7 @@ function InputRenderer<R extends Record<string, any>, S>({
     onRowChange,
     onClose,
     onKeyPress,
+    registrarEditor,
     setTableData,
     primaryKey
 }: InputRendererProps<R, S>) {
@@ -190,7 +191,11 @@ function InputRenderer<R extends Record<string, any>, S>({
                 finalRowIdForFeedback = isPrimaryKeyColumn
                     ? getPrimaryKeyValues(potentialUpdatedRow, tableDefinition.primaryKey)
                     : currentRowIdBeforeUpdate;
-                onRowChange({ ...responseRow } as R, true);
+                // La fila que devolvió el servidor (con lo que calcularon triggers y defaults) reemplaza a la que tenemos.
+                // Se hace sobre los datos y no con onRowChange del editor: para cuando llega la respuesta el editor ya se cerró
+                // y el foco puede estar en otra celda; onRowChange(fila, true) cerraría el editor de esa otra celda.
+                const mismaFila = (fila: Record<string, any>) => tableDefinition.primaryKey.every(k => fila[k] === potentialUpdatedRow[k]);
+                setTableData(prevData => prevData.map(fila => mismaFila(fila) ? { ...(fila as object), ...responseRow } : fila));
             }
 
             // --- MULTI-FEEDBACK DE ÉXITO ---
@@ -248,12 +253,24 @@ function InputRenderer<R extends Record<string, any>, S>({
         }
 
         if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft'].includes(event.key)) {
-            await handleCommit(editingValue, true, true);
+            // El cambio de la fila se aplica en el acto (dentro de handleCommit, antes de su primer await);
+            // lo que sigue es el guardado en el servidor, que no tiene por qué demorar el paso a la celda siguiente.
+            void handleCommit(editingValue, true, true);
             if (onKeyPress) {
                 onKeyPress(rowIdx, column.key, event, handleCommit);
             }
         }
     }, [handleCommit, editingValue, column.key, rowIdx, onKeyPress]);
+
+    // Teclas (F4) que caen en la celda antes de que este editor tenga el foco (o antes de que exista):
+    // el grid se las pasa a través de registrarEditor; siempre se usa la versión más reciente del manejador
+    const procesarTecla = React.useRef<(key: string) => void>(() => {});
+    procesarTecla.current = (key: string) => {
+        if (key === 'F4' && onKeyPress) {
+            onKeyPress(rowIdx, column.key, { key, target: document.activeElement ?? document.body }, handleCommit);
+        }
+    };
+    useEffect(() => registrarEditor?.((key) => procesarTecla.current(key)), []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleBlur = useCallback(() => {
         handleCommit(editingValue, true, false);

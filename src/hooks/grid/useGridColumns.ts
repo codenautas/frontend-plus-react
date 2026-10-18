@@ -50,6 +50,7 @@ interface UseGridColumnsProps {
     primaryKey: string[];
     setTableData: React.Dispatch<React.SetStateAction<any[]>>;
     handleKeyPressInEditor: DefaultColumn<any>['handleKeyPressInEditor'];
+    registrarEditor: DefaultColumn<any>['registrarEditor'];
     handleDeleteRow: (row: any) => void;
     handleAddRow: (row?: any) => void;
     handleVerticalEditRow: (row: any) => void;
@@ -70,6 +71,7 @@ export const useGridColumns = ({
     primaryKey,
     setTableData,
     handleKeyPressInEditor,
+    registrarEditor,
     handleDeleteRow,
     handleAddRow,
     handleVerticalEditRow,
@@ -104,6 +106,7 @@ export const useGridColumns = ({
                 sortable: true,
                 editable: isFieldEditable,
                 handleKeyPressInEditor,
+                registrarEditor,
                 width: colWidth,
                 minWidth: 40,
                 renderHeaderCell: (props: RenderHeaderCellProps<any, unknown>) => defaultColumnHeaderCellRenderer(props, fieldDef),
@@ -173,7 +176,7 @@ export const useGridColumns = ({
             renderCell: (props: RenderCellProps<any, unknown>) => allColumnsCellRenderer(props),
         }));
 
-    }, [tableDefinition, anchosCalculados, fixedFields, primaryKey, setTableData, handleKeyPressInEditor, handleDeleteRow, handleAddRow, handleVerticalEditRow, toggleFilterVisibility, abrirOpcionesDeGrilla]);
+    }, [tableDefinition, anchosCalculados, fixedFields, primaryKey, setTableData, handleKeyPressInEditor, registrarEditor, handleDeleteRow, handleAddRow, handleVerticalEditRow, toggleFilterVisibility, abrirOpcionesDeGrilla]);
 
     return { columns };
 };

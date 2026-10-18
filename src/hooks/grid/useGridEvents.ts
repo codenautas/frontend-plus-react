@@ -2,7 +2,7 @@ import { TableDefinition } from 'backend-plus';
 import { useCallback, useRef } from 'react';
 import { CellMouseArgs, CellKeyDownArgs, CellMouseEvent, CellKeyboardEvent, DataGridHandle, Column, CellSelectArgs, RowsChangeData } from 'react-data-grid';
 import { DetailColumn } from '../../components/grid/GenericDataGrid';
-import { FixedField } from '../../types';
+import { FixedField, TeclaDeEditor } from '../../types';
 import { DOM_TEMP_ID } from '../../components/grid/utils/helpers';
 import { esFilaDetalle } from '../../components/grid/detalles';
 import { SortColumn } from './useGridDataView';
@@ -19,6 +19,12 @@ interface UseGridEventsProps {
     setSortColumns: React.Dispatch<React.SetStateAction<readonly SortColumn[]>>
 }
 
+/** Cuánto tiempo (ms) espera una tecla encolada a que se monte el editor (si no, se descarta) */
+const VIGENCIA_TECLA_PENDIENTE = 400;
+
+/** Cuánto tiempo (ms) vale el valor que F4 acaba de copiar para la pulsación siguiente */
+const VIGENCIA_VALOR_PENDIENTE_F4 = 1000;
+
 export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, tableData, fixedFields, setSelectedCell, setTableData, setSortColumns}: UseGridEventsProps) => {
 
     // handleKeyPressInEditor viaja dentro de las columnas: tiene que ser estable para no recrearlas
@@ -27,8 +33,24 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
     filteredRowsRef.current = filteredRows;
     const tableDefinitionRef = useRef(tableDefinition);
     tableDefinitionRef.current = tableDefinition;
+    // F4 copia el valor de la fila de arriba: lo que se copió y todavía no llegó a las filas (fila|columna → valor)
+    const valoresF4Pendientes = useRef(new Map<string, { valor: unknown, cuando: number }>());
 
-    const handleKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, event: React.KeyboardEvent, currentColumns: Column<any>[], handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => {
+    // F4 apretado manda más teclas por segundo que lo que tarda en abrirse el editor de la celda siguiente:
+    // las que llegan en el hueco caen en la celda y no en el editor. Cada editor se registra acá; si hay uno,
+    // la tecla se le pasa directo; si no hay (todavía no se montó), se guarda y la toma el próximo que se registre.
+    const teclasPendientes = useRef<{ key: string, cuando: number }[]>([]);
+    const editorActivo = useRef<((key: string) => void) | null>(null);
+    const registrarEditor = useCallback((procesar: (key: string) => void): (() => void) => {
+        editorActivo.current = procesar;
+        const cola = teclasPendientes.current;
+        while (cola.length > 0 && Date.now() - cola[0].cuando > VIGENCIA_TECLA_PENDIENTE) cola.shift();
+        const pendiente = cola.shift();
+        if (pendiente) procesar(pendiente.key);
+        return () => { if (editorActivo.current === procesar) editorActivo.current = null; };
+    }, []);
+
+    const handleKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, event: TeclaDeEditor, currentColumns: Column<any>[], handleCommit:(currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => {
         const tableDefinition = tableDefinitionRef.current;
         const filteredRows = filteredRowsRef.current;
         if (dataGridRef.current && tableDefinition) {
@@ -44,8 +66,11 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
                 const editableColumnKeys = editableColumns.map(col => col.key);
                 let currentEditableColumnIndex = editableColumnKeys.indexOf(columnKey);
                 
-                const hacerFoco = ({rowIdx, idx}:{rowIdx:number, idx: number}) => 
-                    setTimeout(()=>dataGridRef.current?.selectCell({ rowIdx, idx }, { enableEditor: true, shouldFocusCell: true }),10);
+                // Se llama en el mismo tick que el commit de la celda: react-data-grid junta ambos cambios y pasa directo
+                // del editor de una celda al de la siguiente. Con un setTimeout en el medio, las teclas que llegan
+                // mientras el editor nuevo todavía no existe se pierden (sobre todo con F4 apretado).
+                const hacerFoco = ({rowIdx, idx}:{rowIdx:number, idx: number}) =>
+                    dataGridRef.current?.selectCell({ rowIdx, idx }, { enableEditor: true, shouldFocusCell: true });
                 
                 // Índice de la próxima fila de datos en la dirección indicada, salteando las filas de detalle (-1 si no hay)
                 const filaDeDatos = (desde: number, paso: 1 | -1) => {
@@ -129,7 +154,21 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
                             const indiceAnterior = filaDeDatos(rowIndex, -1);
                             const previousRow = indiceAnterior === -1 ? undefined : filteredRows[indiceAnterior]
                             if(previousRow){
-                                handleCommit(previousRow[columnKey], true, true).then(()=>hacerFoco({rowIdx ,idx}))
+                                // El valor de la fila de arriba puede ser uno que acabamos de copiar y que todavía no se
+                                // redibujó (con la tecla apretada llegan más pulsaciones que renders): se usa el pendiente.
+                                const pendiente = valoresF4Pendientes.current.get(`${indiceAnterior}|${columnKey}`);
+                                const valorACopiar = pendiente && Date.now() - pendiente.cuando < VIGENCIA_VALOR_PENDIENTE_F4
+                                    ? pendiente.valor
+                                    : previousRow[columnKey];
+                                valoresF4Pendientes.current.set(`${rowIndex}|${columnKey}`, { valor: valorACopiar, cuando: Date.now() });
+                                // El guardado sigue en segundo plano y el foco avanza ya: esperar la respuesta del servidor
+                                // antes de pasar a la fila siguiente hacía perder las pulsaciones que llegaban mientras tanto
+                                // (el feedback o el error de cada celda igual se muestran cuando llega la respuesta).
+                                void handleCommit(valorACopiar, true, true)
+                                // este editor se va: las teclas que lleguen hasta que se registre el de la fila siguiente
+                                // se guardan (si no, se procesarían otra vez sobre esta fila y no avanzarían)
+                                editorActivo.current = null;
+                                hacerFoco({rowIdx ,idx})
                             }
                             break;
                         }
@@ -141,6 +180,15 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
     }, [dataGridRef]);
 
     const handleCellKeyDown = useCallback((args: CellKeyDownArgs<any, { id: string }>, event: CellKeyboardEvent) => {
+        if (event.key === 'F4' && !(event.target instanceof HTMLInputElement) && !esFilaDetalle(args.row)) {
+            const fieldDefinition = tableDefinitionRef.current?.fields.find(f => f.name === args.column.key);
+            if (fieldDefinition && fieldDefinition.editable !== false && !fieldDefinition.clientSide) {
+                if (editorActivo.current) editorActivo.current(event.key);
+                else teclasPendientes.current.push({ key: event.key, cuando: Date.now() });
+                event.preventGridDefault();
+                return;
+            }
+        }
         if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp','ArrowRight', 'ArrowLeft'].includes(event.key)) {
             event.preventGridDefault();
         }
@@ -195,6 +243,7 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         handleCellClick,
         handleCellKeyDown,
         handleKeyPressInEditor,
+        registrarEditor,
         handleSelectedCellChange,
         handleRowsChange
     };

@@ -15,7 +15,8 @@ export const allColumnsEditCellRenderer = (
                 fixedFields,
                 primaryKey,
                 setTableData,
-                handleKeyPressInEditor
+                handleKeyPressInEditor,
+                registrarEditor
             } = defaultColumn
             
             if (column.editable) { 
@@ -36,6 +37,7 @@ export const allColumnsEditCellRenderer = (
                         {...props}
                         tableDefinition={tableDefinition}
                         onKeyPress={(rowIndex, columnKey, event, handleCommit) => handleKeyPressInEditor(rowIndex, columnKey, event, allColumns, handleCommit)}
+                        registrarEditor={registrarEditor}
                         setTableData={setTableData}
                         primaryKey={primaryKey}
                     />

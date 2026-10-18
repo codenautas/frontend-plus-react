@@ -9,7 +9,7 @@ import { CircularProgress, Typography, Box, Alert, useTheme, Dialog } from '@mui
 
 import { useSnackbar } from '../../contexts/SnackbarContext';
 
-import { FixedField, TableDefinition, Ancestor } from '../../types';
+import { FixedField, TableDefinition, Ancestor, TeclaDeEditor } from '../../types';
 
 import { ConfirmDialog } from '../ConfirmDialog';
 import { DataGridOptionsDialog } from './DataGridOptionsDialog';
@@ -48,6 +48,10 @@ const ALTO_TITULO_ANIDADA = 26;
 const ALTO_MINIMO_CUERPO_ANIDADA = 120;
 /** Espacio extra bajo una grilla anidada: lo justo para una barra de scroll horizontal */
 const HOLGURA_ANIDADA = 18;
+/** Ancho mínimo de una grilla anidada: que alcance para el título */
+const ANCHO_MINIMO_ANIDADA = 240;
+/** Lo que el detalle ocupa de más que su grilla: sangría a la izquierda, margen a la derecha y la línea de color */
+const SANGRIA_DETALLE = 28 + 8 + 3;
 /** Valores por omisión de backend-plus (myOwn.firstDisplayCount y myOwn.firstDisplayOverLimit) */
 const PRIMERAS_FILAS_ANIDADA = 20;
 const LIMITE_PRIMERAS_FILAS_ANIDADA = 30;
@@ -67,6 +71,8 @@ interface GenericDataGridProps {
     claveCache?: string;
     /** La grilla anidada informa el alto que necesita para mostrarse completa */
     onAltoDeseado?: (alto: number) => void;
+    /** La grilla anidada informa el ancho que necesita (sus columnas y los detalles que tenga abiertos) */
+    onAnchoDeseado?: (ancho: number) => void;
     /**
      * Tope opcional para el alto de las filas de detalle (en px). Sin tope (lo normal) cada detalle
      * se muestra completo, como en backend-plus; con tope, el detalle más alto scrollea por dentro
@@ -94,7 +100,8 @@ export interface DefaultColumn<TRow, TSummaryRow = unknown> extends BaseCustomCo
     setTableData: React.Dispatch<React.SetStateAction<any[]>>,
     primaryKey: string[],
     fixedFields: FixedField[] | undefined,
-    handleKeyPressInEditor: (rowIndex: number, columnKey: string, event: React.KeyboardEvent, currentColumns: Column<any>[], handleCommit: (currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void
+    registrarEditor: (procesar: (key: string) => void) => () => void,
+    handleKeyPressInEditor: (rowIndex: number, columnKey: string, event: TeclaDeEditor, currentColumns: Column<any>[], handleCommit: (currentValue: any, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void
 }
 
 export interface DetailColumn<TRow, TSummaryRow = unknown> extends BaseCustomColumn<TRow, TSummaryRow> {
@@ -220,6 +227,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     titulo,
     claveCache,
     onAltoDeseado,
+    onAnchoDeseado,
     altoMaximoDetalle,
 }) => {
     // fixedFields suele llegar como un array nuevo en cada render del padre:
@@ -244,6 +252,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     // Detalles desplegados (claves `${rowId}|${abr}`) y el alto que pidió cada grilla anidada
     const [detallesAbiertos, setDetallesAbiertos] = useState<string[]>(guardada?.detallesAbiertos ?? []);
     const [altosDetalle, setAltosDetalle] = useState<Map<string, number>>(() => guardada?.altosDetalle ?? new Map());
+    // Ancho que pidió cada grilla anidada (para ensanchar esta grilla si el detalle es más ancho que sus columnas)
+    const [anchosDetalle, setAnchosDetalle] = useState<Map<string, number>>(() => new Map());
     const [selectedRows, setSelectedRows] = useState((): ReadonlySet<string> => new Set());
     const [, setSelectedCell] = useState<CellSelectArgs<any, NoInfer<{ id: string }>> | undefined>(undefined);
 
@@ -344,7 +354,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         filasVisiblesMax,
     });
 
-    const { handleCellDoubleClick, handleCellClick, handleCellKeyDown, handleCellMouseDown, handleKeyPressInEditor, handleSelectedCellChange, handleRowsChange } = useGridEvents({
+    const { handleCellDoubleClick, handleCellClick, handleCellKeyDown, handleCellMouseDown, handleKeyPressInEditor, registrarEditor, handleSelectedCellChange, handleRowsChange } = useGridEvents({
         dataGridRef, filteredRows: filasMostradas, fixedFields, tableData, tableDefinition, setSelectedCell, setTableData, setSortColumns
     });
 
@@ -474,6 +484,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         primaryKey,
         setTableData,
         handleKeyPressInEditor,
+        registrarEditor,
         handleDeleteRow,
         handleAddRow,
         handleVerticalEditRow: editarEnFicha,
@@ -505,21 +516,37 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         setDetallesAbiertos(anteriores => anteriores.includes(clave) ? anteriores.filter(c => c !== clave) : [...anteriores, clave]);
     }, [onOpenDetail, abrirDetalleEnPestana]);
 
-    const cambiarAltoDetalle = useCallback((clave: string, altoDeseado: number) => {
-        // sin tope: la fila de detalle crece hasta mostrar completa la grilla anidada (y sus propios detalles)
-        const alto = Math.min(Math.max(Math.round(altoDeseado), ALTO_MINIMO_DETALLE), altoMaximoDetalle ?? Infinity);
-        setAltosDetalle(anteriores => anteriores.get(clave) === alto ? anteriores : new Map(anteriores).set(clave, alto));
-    }, [altoMaximoDetalle]);
-
-    // Ancho visible de la grilla: la grilla anidada no se estira a todas las columnas del padre (como en backend-plus)
-    const [anchoVisible, setAnchoVisible] = useState<number | null>(null);
+    // Lo que se ve de esta grilla (el área de scroll de react-data-grid) y el ancho de su barra de scroll vertical
+    const [medidas, setMedidas] = useState<{ ancho: number, alto: number, barra: number } | null>(null);
     useEffect(() => {
         const elemento = dataGridRef.current?.element;
         if (!elemento) return;
-        const observador = new ResizeObserver(() => setAnchoVisible(elemento.clientWidth));
+        const medir = () => setMedidas(anteriores => {
+            const nuevas = { ancho: elemento.clientWidth, alto: elemento.clientHeight, barra: elemento.offsetWidth - elemento.clientWidth };
+            return anteriores && anteriores.ancho === nuevas.ancho && anteriores.alto === nuevas.alto && anteriores.barra === nuevas.barra ? anteriores : nuevas;
+        });
+        medir();
+        const observador = new ResizeObserver(medir);
         observador.observe(elemento);
         return () => observador.disconnect();
     }, [tableDefinition, cargandoInicial]);
+    const anchoVisible = medidas?.ancho ?? null;
+
+    // Los detalles de esta grilla se acotan a lo que se ve de ella (menos el encabezado, el pie y la fila padre),
+    // así el detalle completo —con su propio pie— entra sin tener que scrollear la grilla de arriba.
+    // Un detalle con más contenido que eso scrollea por dentro y virtualiza sus filas.
+    const altoMaximoDetalleEfectivo = altoMaximoDetalle ?? (medidas
+        ? Math.max(ALTO_MINIMO_DETALLE, medidas.alto - HEADER_ROW_HEIGHT - SUMMARY_ROW_HEIGHT - ROW_HEIGHT - (isFilterRowVisible ? FILTER_ROW_HEIGHT : 0))
+        : undefined);
+
+    const cambiarAnchoDetalle = useCallback((clave: string, ancho: number) => {
+        setAnchosDetalle(anteriores => anteriores.get(clave) === ancho ? anteriores : new Map(anteriores).set(clave, ancho));
+    }, []);
+
+    const cambiarAltoDetalle = useCallback((clave: string, altoDeseado: number) => {
+        const alto = Math.min(Math.max(Math.round(altoDeseado), ALTO_MINIMO_DETALLE), altoMaximoDetalleEfectivo ?? Infinity);
+        setAltosDetalle(anteriores => anteriores.get(clave) === alto ? anteriores : new Map(anteriores).set(clave, alto));
+    }, [altoMaximoDetalleEfectivo]);
 
     const renderDetalle = useCallback((fila: FilaDetalle) => {
         const { detailTable } = fila;
@@ -540,7 +567,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         titulo={titulo}
                         claveCache={`${claveCache ?? tableName}>${fila.clave}`}
                         onAltoDeseado={(alto) => cambiarAltoDetalle(fila.clave, alto)}
-                        altoMaximoDetalle={altoMaximoDetalle}
+                        onAnchoDeseado={(ancho) => cambiarAnchoDetalle(fila.clave, ancho)}
                         onOpenDetail={onOpenDetail}
                         ancestors={tableDefinition ? [...ancestors, { tableName: tableDefinition.name, row: fila.filaPadre, tableDefinition, fixedFields: fila.fixedFields }] : ancestors}
                     />
@@ -548,7 +575,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 }
             </div>
         );
-    }, [anchoVisible, claveCache, tableName, cambiarAltoDetalle, altoMaximoDetalle, onOpenDetail, tableDefinition, ancestors]);
+    }, [anchoVisible, claveCache, tableName, cambiarAltoDetalle, onOpenDetail, tableDefinition, ancestors]);
 
     const detallesGrilla = useMemo(() => ({ abiertos, alternarDetalle, renderDetalle }), [abiertos, alternarDetalle, renderDetalle]);
 
@@ -566,6 +593,22 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         esFilaDetalle(row) ? 'fpr-fila-detalle'
             : exitingRowIds.has(getPrimaryKeyValues(row, primaryKey)) ? 'fpr-fila-saliendo' : undefined
     , [exitingRowIds, primaryKey]);
+    // Una grilla anidada es tan ancha como sus columnas (más la barra de scroll si la tiene), como las tablas de backend-plus;
+    // sin esto el título y el pie quedaban estirados mucho más allá de los datos
+    const anchoContenido = useMemo(() => {
+        if (!anidada || columns.length === 0) return undefined;
+        const sumaColumnas = columns.reduce((total, col) => {
+            const medido = columnWidths.get(col.key as string)?.width;
+            return total + (typeof medido === 'number' ? medido : typeof col.width === 'number' ? col.width : 100);
+        }, 0);
+        const propio = sumaColumnas + (medidas?.barra ?? 0) + 2;
+        // si algún detalle abierto es más ancho que las columnas, esta grilla se ensancha para contenerlo
+        const anchoDetalleMax = detallesAbiertos.reduce((max, clave) => Math.max(max, anchosDetalle.get(clave) ?? 0), 0);
+        return Math.max(ANCHO_MINIMO_ANIDADA, propio, anchoDetalleMax > 0 ? anchoDetalleMax + SANGRIA_DETALLE + (medidas?.barra ?? 0) + 2 : 0);
+    }, [anidada, columns, columnWidths, medidas?.barra, detallesAbiertos, anchosDetalle]);
+    useEffect(() => {
+        if (anchoContenido !== undefined) onAnchoDeseado?.(anchoContenido);
+    }, [onAnchoDeseado, anchoContenido]);
     const estiloGrilla = useMemo<React.CSSProperties>(() => ({ height: '100%', width: '100%', boxSizing: 'border-box', ...gridStyles }), [gridStyles]);
     const bottomSummaryRows = useMemo(() => [bottomSummaryRow], [bottomSummaryRow]);
     const vistaGrilla = useMemo(() => ({ isFilterRowVisible }), [isFilterRowVisible]);
@@ -609,7 +652,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     }
     return (
         <CacheGrillasContext.Provider value={cache}>
-        <Box sx={{ pt: anidada ? 0 : 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
+        <Box sx={{ pt: anidada ? 0 : 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box', width: anchoContenido ?? undefined, maxWidth: '100%' }}>
             {/* Primero los ancestros jerárquicos (en una grilla anidada el padre está justo arriba) */}
             {!anidada && ancestors.length > 0 && (
                 <Box sx={{ px: 2, pt: 0, pb: 1, display: 'flex', flexDirection: 'column' }}>

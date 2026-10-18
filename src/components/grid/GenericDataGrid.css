@@ -42,7 +42,6 @@
   height: 100%;
   /* el ancho lo da el contenido (las columnas de la grilla anidada), hasta lo visible */
   width: max-content;
-  min-width: 100%;
   box-sizing: border-box;
   padding: 4px 8px 4px 28px; /* sangría: se ve de qué fila es el detalle */
   border-left: 3px solid #90caf9;
