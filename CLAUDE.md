@@ -105,6 +105,23 @@ Son las de `dmencu` (que aplican a todo proyecto compartido de esta carpeta), es
 
 ---
 
+## Publicación en npm
+
+Es automática, igual que `dmencu`: `.github/workflows/publish.yml` llama al workflow reutilizable `codenautas/.github@v3` (`npm ci`, `npm run build`, tests y `npm publish`). No hay token: npm confía en el repo (Trusted Publisher configurado en npmjs.com para `codenautas/frontend-plus-react`, workflow `publish.yml`, sin environment).
+
+Para publicar una versión (solo cuando el usuario lo pide):
+1. Subir la versión: `npm version X.Y.Z --no-git-tag-version` (toca `package.json` y `package-lock.json`; npm no deja republicar un número ya publicado).
+2. Commit y `git push origin main`.
+3. Crear y subir el tag: `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`. El tag tiene que coincidir con la versión de `package.json` o el workflow falla.
+4. Verificar en la pestaña Actions de GitHub y con `npm view frontend-plus-react version`. En esta máquina no está `gh`.
+
+- Alternativa: correr el workflow a mano desde Actions en `main` (crea él mismo el tag `v<versión>`).
+- Las versiones con `beta`, `alpha` o `rc` en el número se publican con ese dist-tag, no como `latest`.
+- `package.json` necesita el campo `repository`; sin él npm no valida la publicación.
+- `npm ci` exige el lock sincronizado: probar con `npm ci --dry-run` antes de taguear.
+
+---
+
 ## Cuándo parar y preguntar
 
 - Si hace falta cambiar `backend-plus` para que algo ande: parar. Casi siempre hay un punto de extensión (o el cambio va en el protocolo del cliente).
