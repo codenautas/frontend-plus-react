@@ -32,6 +32,7 @@
     "data-grid",
     "component-library"
   ],
+  "repository": "codenautas/frontend-plus-react",
   "author": "Codenautas <codenautas@googlegroups.com>",
   "contributors": [
     {
