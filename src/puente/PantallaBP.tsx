@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Box, CircularProgress } from '@mui/material';
 import { MenuInfoBase, MenuInfoMenu } from 'backend-plus';
 import { envConfig } from '../env';
@@ -7,7 +7,7 @@ import { useApp } from '../contexts/AppContext';
 import { FallbackWScreen } from '../pages/WScreens';
 import { mensajeDeError } from '../utils/errores';
 import { cargarClienteBP } from './clienteBP';
-import { resolverPantallaBP } from './pantallaDeBP';
+import { resolverPantallaBP, rutaDeEnlaceBP } from './pantallaDeBP';
 import { puenteBPHabilitado } from './habilitacion';
 
 function buscarItemDeMenu(items: MenuInfoBase[], tipo: string): MenuInfoBase | undefined {
@@ -27,18 +27,14 @@ interface PantallaBPProps {
 
 /** Una wScreen de backend-plus (la de la propia aplicación o una de las del framework) dibujada en su `#main_layout` */
 export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre }) => {
-    const [busqueda] = useSearchParams();
+    const { search } = useLocation();
+    const navigate = useNavigate();
     const { clientContext } = useApp();
     const [cargando, setCargando] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [noExiste, setNoExiste] = useState<boolean>(false);
     const contenedor = useRef<HTMLDivElement>(null);
     const menu = clientContext.menu;
-    // como en backend-plus, la pantalla recibe lo que declara su ítem de menú, y la query string lo pisa
-    const parametros = useMemo<Record<string, unknown>>(() => {
-        const item = menu ? buscarItemDeMenu(menu, nombre) : undefined;
-        return { ...item, ...Object.fromEntries(busqueda.entries()) };
-    }, [menu, nombre, busqueda]);
 
     useEffect(() => {
         const elemento = contenedor.current;
@@ -47,6 +43,18 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre }) => {
         setError(null);
         setNoExiste(false);
         setCargando(true);
+        // «proceder» y los vínculos de backend-plus recargan la página con la pantalla y sus parámetros en la dirección:
+        // acá se resuelven navegando dentro de la aplicación (con Ctrl o el botón del medio se abren, como siempre, aparte)
+        const alHacerClick = (evento: MouseEvent) => {
+            if (evento.defaultPrevented || evento.button !== 0 || evento.ctrlKey || evento.metaKey || evento.shiftKey) return;
+            const enlace = evento.target instanceof Element ? evento.target.closest('a[href]') : null;
+            const ruta = enlace && rutaDeEnlaceBP(enlace.getAttribute('href') ?? '', document.baseURI, envConfig.backendUrl);
+            if (ruta) {
+                evento.preventDefault();
+                navigate(ruta);
+            }
+        };
+        elemento.addEventListener('click', alHacerClick);
         cargarClienteBP(envConfig.backendUrl)
             .then(myOwn => {
                 if (!vigente) return;
@@ -57,7 +65,11 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre }) => {
                     return;
                 }
                 elemento.replaceChildren();
-                // como showPage de backend-plus: título y atributo de la página, y la pantalla se ejecuta con myOwn como `this`
+                // como en backend-plus: lo que declara el ítem de menú, pisado por la dirección (leída con su propio decodificador:
+                // `up`, `ff`, `detailing` llegan como objetos), y la pantalla se ejecuta con myOwn como `this`
+                const item = menu ? buscarItemDeMenu(menu, nombre) : undefined;
+                const desdeLaDireccion = myOwn.UriSearchToObject?.(search) ?? Object.fromEntries(new URLSearchParams(search).entries());
+                const parametros: Record<string, unknown> = { ...item, ...desdeLaDireccion };
                 myOwn.preDisplayPage?.(parametros, pantalla.definicion, nombre);
                 pantalla.ejecutar.call(myOwn, parametros);
             })
@@ -68,9 +80,10 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre }) => {
             });
         return () => {
             vigente = false;
+            elemento.removeEventListener('click', alHacerClick);
             elemento.replaceChildren();
         };
-    }, [nombre, parametros]);
+    }, [nombre, search, menu, navigate]);
 
     if (noExiste) return <FallbackWScreen screenName={nombre} />;
     return (

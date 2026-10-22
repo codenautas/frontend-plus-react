@@ -6,6 +6,20 @@ export interface PantallaResuelta {
     ejecutar: PantallaBP;
 }
 
+/**
+ * Los enlaces de backend-plus entre pantallas (el botón «proceder» de una wScreen con parámetros, los vínculos de la
+ * ayuda) apuntan a `<base-url>/menu#w=<pantalla>&...` y recargan la página con eso. Dentro de esta aplicación hay que
+ * quedarse en ella: devuelve la ruta equivalente (con los mismos parámetros) o null si el enlace es de otra cosa.
+ */
+export function rutaDeEnlaceBP(href: string, baseDelDocumento: string, urlBackend: string): string | null {
+    const enlace = new URL(href, baseDelDocumento);
+    const paginaDelMenu = new URL(`${urlBackend.replace(/\/*$/, '/')}menu`, baseDelDocumento);
+    if (enlace.origin !== paginaDelMenu.origin || enlace.pathname !== paginaDelMenu.pathname) return null;
+    const texto = (enlace.hash || enlace.search).slice(1);
+    const nombre = new URLSearchParams(texto).get('w');
+    return nombre ? `/wScreens-fallback/${encodeURIComponent(nombre)}?${texto}` : null;
+}
+
 /** La función que dibuja la pantalla, o null si backend-plus no la tiene (o no tiene cómo dibujarla) */
 export function resolverPantallaBP(myOwn: MyOwnBP, nombre: string, contenedor: HTMLElement): PantallaResuelta | null {
     const registrada = myOwn.wScreens[nombre];

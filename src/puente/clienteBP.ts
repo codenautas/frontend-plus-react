@@ -29,6 +29,8 @@ export interface DefinicionPantallaBP {
 export interface MyOwnBP {
     autoSetup(): Promise<unknown>;
     wScreens: Record<string, PantallaBP | DefinicionPantallaBP | undefined>;
+    /** Lee una dirección de backend-plus (`#w=...&up=...` o `?...`) con los decodificadores de cada parámetro */
+    UriSearchToObject?(direccion: string): Record<string, unknown>;
     preDisplayPage?(parametros: Record<string, unknown>, pantalla: DefinicionPantallaBP, nombre: string): void;
     tableGrid(nombreTabla: string, elemento: HTMLElement, opciones: OpcionesGrillaBP): unknown;
 }
