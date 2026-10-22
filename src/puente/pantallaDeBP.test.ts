@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DefinicionPantallaBP, MyOwnBP, PantallaBP } from './clienteBP';
-import { resolverPantallaBP, rutaDeEnlaceBP } from './pantallaDeBP';
+import { resolverPantallaBP, rutaDeEnlaceBP, rutaDePantallaBP } from './pantallaDeBP';
 
 function clienteCon(pantallas: Record<string, PantallaBP | DefinicionPantallaBP>): MyOwnBP {
     return { autoSetup: async () => undefined, wScreens: pantallas, tableGrid: vi.fn() };
@@ -45,12 +45,17 @@ describe('rutaDeEnlaceBP', () => {
     it('el enlace «proceder» de backend-plus (menu#w=...) se convierte en la ruta de esa pantalla con los mismos parámetros', () => {
         const href = 'menu#w=abrir_encuesta&name=abrir_encuesta&up=,operativo:GGS_2026,tarea:encu,enc:130031&autoproced=true';
         expect(rutaDeEnlaceBP(href, 'http://localhost:5173/ggs2026/', '/ggs2026'))
-            .toBe('/wScreens-fallback/abrir_encuesta?w=abrir_encuesta&name=abrir_encuesta&up=,operativo:GGS_2026,tarea:encu,enc:130031&autoproced=true');
+            .toBe('/bp/menu#w=abrir_encuesta&name=abrir_encuesta&up=,operativo:GGS_2026,tarea:encu,enc:130031&autoproced=true');
     });
 
     it('también acepta la forma con query string y con la URL del backend completa', () => {
         expect(rutaDeEnlaceBP('menu?w=ayuda&i=a', 'http://localhost:5173/ggs2026/', 'http://localhost:5173/ggs2026'))
-            .toBe('/wScreens-fallback/ayuda?w=ayuda&i=a');
+            .toBe('/bp/menu#w=ayuda&i=a');
+    });
+
+    it('las páginas de login y logout del backend (al vencer la sesión, o el «salir» de dmencu) van a las de la aplicación', () => {
+        expect(rutaDeEnlaceBP('login', 'http://localhost:5173/ggs2026/', '/ggs2026')).toBe('/login');
+        expect(rutaDeEnlaceBP('http://localhost:5173/ggs2026/logout', base, '/ggs2026')).toBe('/logout');
     });
 
     it('lo que no es la página del menú de backend-plus, o no trae pantalla, no se toca', () => {
@@ -58,5 +63,16 @@ describe('rutaDeEnlaceBP', () => {
         expect(rutaDeEnlaceBP('/ggs2026/img/logo.png', base, '/ggs2026')).toBeNull();
         expect(rutaDeEnlaceBP('menu#sinpantalla=1', 'http://localhost:5173/ggs2026/', '/ggs2026')).toBeNull();
         expect(rutaDeEnlaceBP('#ancla', base, '/ggs2026')).toBeNull();
+    });
+});
+
+describe('rutaDePantallaBP', () => {
+    it('arma la dirección con el formato de backend-plus: la pantalla en el hash y después sus parámetros', () => {
+        expect(rutaDePantallaBP('ayuda')).toBe('/bp/menu#w=ayuda');
+        expect(rutaDePantallaBP('abrir_encuesta', '?up=,enc:1&autoproced=true')).toBe('/bp/menu#w=abrir_encuesta&up=,enc:1&autoproced=true');
+    });
+
+    it('no repite la pantalla si ya venía en los parámetros', () => {
+        expect(rutaDePantallaBP('ayuda', '#w=ayuda&i=a')).toBe('/bp/menu#w=ayuda&i=a');
     });
 });

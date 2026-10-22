@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { MyOwnBP, PantallaBP as PantallaDeBP } from './clienteBP';
-import { PantallaDeRespaldo } from './PantallaBP';
+import { PaginaBP, PantallaDeRespaldo } from './PantallaBP';
 import { habilitarPuenteBP } from './habilitacion';
 
 const { cargarClienteBP } = vi.hoisted(() => ({ cargarClienteBP: vi.fn() }));
@@ -20,7 +20,11 @@ function clienteConPantallas(pantallas: Record<string, PantallaDeBP>): MyOwnBP {
 function renderizar(direccion: string) {
     return render(
         <MemoryRouter initialEntries={[direccion]}>
-            <Routes><Route path="/wScreens-fallback/:screenName" element={<PantallaDeRespaldo />} /></Routes>
+            <Routes>
+                <Route path="/wScreens-fallback/:screenName" element={<PantallaDeRespaldo />} />
+                <Route path="/bp/menu" element={<PaginaBP />} />
+                <Route path="/" element={<span>inicio</span>} />
+            </Routes>
         </MemoryRouter>
     );
 }
@@ -44,6 +48,22 @@ describe('PantallaDeRespaldo', () => {
         await waitFor(() => expect(pantalla).toHaveBeenCalledTimes(1));
         expect(pantalla.mock.calls[0][0]).toMatchObject({ menuType: 'ticket', name: 'nuevo', proyecto: 'p1', ticket: '7' });
         expect(container.querySelector('#main_layout')?.textContent).toBe('pantalla de backend-plus');
+    });
+
+    it('con el puente encendido, la ruta de respaldo pasa a /bp/menu#w=... (la dirección que imitan las de backend-plus) y conserva los parámetros', async () => {
+        habilitarPuenteBP();
+        const pantalla = vi.fn<PantallaDeBP>();
+        cargarClienteBP.mockResolvedValue(clienteConPantallas({ ticket: pantalla }));
+        renderizar('/wScreens-fallback/ticket?up=a');
+        await waitFor(() => expect(pantalla).toHaveBeenCalledTimes(1));
+        expect(pantalla.mock.calls[0][0]).toMatchObject({ w: 'ticket', up: 'a' });
+    });
+
+    it('/bp/menu sin #w=... avisa que falta la pantalla', () => {
+        habilitarPuenteBP();
+        const { container } = renderizar('/bp/menu');
+        expect(container.textContent).toContain('Falta la pantalla de backend-plus');
+        expect(cargarClienteBP).not.toHaveBeenCalled();
     });
 
     it('si backend-plus tampoco tiene la wScreen, avisa que no está implementada', async () => {

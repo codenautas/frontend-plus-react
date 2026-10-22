@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Box, CircularProgress } from '@mui/material';
 import { MenuInfoBase, MenuInfoMenu } from 'backend-plus';
 import { envConfig } from '../env';
@@ -7,7 +7,8 @@ import { useApp } from '../contexts/AppContext';
 import { FallbackWScreen } from '../pages/WScreens';
 import { mensajeDeError } from '../utils/errores';
 import { cargarClienteBP } from './clienteBP';
-import { resolverPantallaBP, rutaDeEnlaceBP } from './pantallaDeBP';
+import { capturarNavegacionBP } from './capturaDeNavegacion';
+import { resolverPantallaBP, rutaDePantallaBP } from './pantallaDeBP';
 import { puenteBPHabilitado } from './habilitacion';
 
 function buscarItemDeMenu(items: MenuInfoBase[], tipo: string): MenuInfoBase | undefined {
@@ -23,11 +24,12 @@ function buscarItemDeMenu(items: MenuInfoBase[], tipo: string): MenuInfoBase | u
 
 interface PantallaBPProps {
     nombre: string;
+    /** Los parámetros en el formato de dirección de backend-plus: `#w=...&up=...` (o con `?`) */
+    direccion: string;
 }
 
 /** Una wScreen de backend-plus (la de la propia aplicación o una de las del framework) dibujada en su `#main_layout` */
-export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre }) => {
-    const { search } = useLocation();
+export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre, direccion }) => {
     const navigate = useNavigate();
     const { clientContext } = useApp();
     const [cargando, setCargando] = useState<boolean>(true);
@@ -43,18 +45,8 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre }) => {
         setError(null);
         setNoExiste(false);
         setCargando(true);
-        // «proceder» y los vínculos de backend-plus recargan la página con la pantalla y sus parámetros en la dirección:
-        // acá se resuelven navegando dentro de la aplicación (con Ctrl o el botón del medio se abren, como siempre, aparte)
-        const alHacerClick = (evento: MouseEvent) => {
-            if (evento.defaultPrevented || evento.button !== 0 || evento.ctrlKey || evento.metaKey || evento.shiftKey) return;
-            const enlace = evento.target instanceof Element ? evento.target.closest('a[href]') : null;
-            const ruta = enlace && rutaDeEnlaceBP(enlace.getAttribute('href') ?? '', document.baseURI, envConfig.backendUrl);
-            if (ruta) {
-                evento.preventDefault();
-                navigate(ruta);
-            }
-        };
-        elemento.addEventListener('click', alHacerClick);
+        // «proceder», los vínculos y `location.href = ...` de backend-plus apuntan a páginas del backend: se resuelven acá adentro
+        const dejarDeCapturar = capturarNavegacionBP(envConfig.backendUrl, navigate);
         cargarClienteBP(envConfig.backendUrl)
             .then(myOwn => {
                 if (!vigente) return;
@@ -68,7 +60,7 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre }) => {
                 // como en backend-plus: lo que declara el ítem de menú, pisado por la dirección (leída con su propio decodificador:
                 // `up`, `ff`, `detailing` llegan como objetos), y la pantalla se ejecuta con myOwn como `this`
                 const item = menu ? buscarItemDeMenu(menu, nombre) : undefined;
-                const desdeLaDireccion = myOwn.UriSearchToObject?.(search) ?? Object.fromEntries(new URLSearchParams(search).entries());
+                const desdeLaDireccion = myOwn.UriSearchToObject?.(direccion) ?? Object.fromEntries(new URLSearchParams(direccion.replace(/^[#?]/, '')).entries());
                 const parametros: Record<string, unknown> = { ...item, ...desdeLaDireccion };
                 myOwn.preDisplayPage?.(parametros, pantalla.definicion, nombre);
                 pantalla.ejecutar.call(myOwn, parametros);
@@ -80,10 +72,10 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre }) => {
             });
         return () => {
             vigente = false;
-            elemento.removeEventListener('click', alHacerClick);
+            dejarDeCapturar();
             elemento.replaceChildren();
         };
-    }, [nombre, search, menu, navigate]);
+    }, [nombre, direccion, menu, navigate]);
 
     if (noExiste) return <FallbackWScreen screenName={nombre} />;
     return (
@@ -96,11 +88,27 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre }) => {
     );
 };
 
-/** Ruta de las wScreens que la aplicación no registró: se piden a backend-plus si el puente está encendido */
+/** Ruta de las wScreens que la aplicación no registró: con el puente encendido se pasan a la ruta de las pantallas de backend-plus */
 export const PantallaDeRespaldo: React.FC = () => {
     const { screenName = '' } = useParams<{ screenName: string }>();
+    const { search } = useLocation();
     if (!puenteBPHabilitado()) {
         return <Box sx={{ p: 3 }}><FallbackWScreen screenName={screenName} /></Box>;
     }
-    return <PantallaBP key={screenName} nombre={screenName} />;
+    return <Navigate to={rutaDePantallaBP(screenName, search)} replace />;
+};
+
+/**
+ * La página de backend-plus dentro de la aplicación: `/bp/menu#w=<pantalla>&...`. Se parece a `<base-url>/menu` a propósito:
+ * el código de backend-plus y de las aplicaciones arma direcciones a partir de la ubicación (`location.pathname + '/../menu#...'`,
+ * `location.pathname + '#w=...'` para abrir en otra pestaña) y así caen en esta misma ruta, que lee los parámetros como BP
+ * (del hash, o de la query).
+ */
+export const PaginaBP: React.FC = () => {
+    const { hash, search } = useLocation();
+    const direccion = hash || search;
+    const nombre = new URLSearchParams(direccion.replace(/^[#?]/, '')).get('w');
+    if (!puenteBPHabilitado()) return <Navigate to="/" replace />;
+    if (!nombre) return <Box sx={{ p: 3 }}><Alert severity="warning">Falta la pantalla de backend-plus (<code>#w=...</code>).</Alert></Box>;
+    return <PantallaBP key={nombre} nombre={nombre} direccion={direccion} />;
 };

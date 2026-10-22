@@ -26,7 +26,7 @@ import { PantallaDeRuta } from './pages/PantallaDeRuta';
 import MenuTablePage from './pages/MenuTablePage';
 
 import { wScreens, extendWScreens } from './pages/WScreens';
-import { PantallaDeRespaldo } from './puente/PantallaBP';
+import { PantallaDeRespaldo, PaginaBP } from './puente/PantallaBP';
 import { PaginaGrillaBP } from './puente/GrillaBP';
 import { habilitarPuenteBP, puenteBPHabilitado } from './puente/habilitacion';
 import { extendClientSides } from './components/grid/clientSides';
@@ -95,6 +95,7 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
                     />
                 ))}
                 <Route path="/wScreens-fallback/:screenName" element={<PantallaDeRespaldo />} />
+                {puenteBPHabilitado() && <Route path="/bp/menu" element={<PaginaBP />} />}
                 {puenteBPHabilitado() && <Route path="/bp/table/:tableName" element={<PaginaGrillaBP />} />}
 
                 {myRoutes}

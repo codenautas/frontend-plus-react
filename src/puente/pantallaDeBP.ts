@@ -6,18 +6,31 @@ export interface PantallaResuelta {
     ejecutar: PantallaBP;
 }
 
+/** Ruta de las pantallas de backend-plus dentro de la aplicación: se parece a la página de BP (`<base-url>/menu#w=...`) */
+export const RUTA_PANTALLA_BP = '/bp/menu';
+
+/** La ruta de una pantalla de backend-plus con sus parámetros, en el formato de dirección de BP (`#w=<pantalla>&...`) */
+export function rutaDePantallaBP(nombre: string, parametros: string = ''): string {
+    const resto = parametros.replace(/^[#?]/, '').replace(/(^|&)w=[^&]*/, '').replace(/^&/, '');
+    return `${RUTA_PANTALLA_BP}#w=${encodeURIComponent(nombre)}${resto ? `&${resto}` : ''}`;
+}
+
 /**
- * Los enlaces de backend-plus entre pantallas (el botón «proceder» de una wScreen con parámetros, los vínculos de la
- * ayuda) apuntan a `<base-url>/menu#w=<pantalla>&...` y recargan la página con eso. Dentro de esta aplicación hay que
- * quedarse en ella: devuelve la ruta equivalente (con los mismos parámetros) o null si el enlace es de otra cosa.
+ * Las direcciones de backend-plus a las que apunta lo que él arma (el botón «proceder» de una wScreen con parámetros, los
+ * vínculos de la ayuda, `location.href = 'login'` al vencer la sesión): son páginas del backend y recargan todo. Dentro de
+ * esta aplicación hay que quedarse en ella: devuelve la ruta equivalente, o null si la dirección es de otra cosa.
  */
 export function rutaDeEnlaceBP(href: string, baseDelDocumento: string, urlBackend: string): string | null {
     const enlace = new URL(href, baseDelDocumento);
-    const paginaDelMenu = new URL(`${urlBackend.replace(/\/*$/, '/')}menu`, baseDelDocumento);
-    if (enlace.origin !== paginaDelMenu.origin || enlace.pathname !== paginaDelMenu.pathname) return null;
+    const base = `${urlBackend.replace(/\/*$/, '/')}`;
+    const pagina = (nombre: string) => new URL(`${base}${nombre}`, baseDelDocumento);
+    if (enlace.origin !== pagina('menu').origin) return null;
+    if (enlace.pathname === pagina('login').pathname) return '/login';
+    if (enlace.pathname === pagina('logout').pathname) return '/logout';
+    if (enlace.pathname !== pagina('menu').pathname) return null;
     const texto = (enlace.hash || enlace.search).slice(1);
     const nombre = new URLSearchParams(texto).get('w');
-    return nombre ? `/wScreens-fallback/${encodeURIComponent(nombre)}?${texto}` : null;
+    return nombre ? rutaDePantallaBP(nombre, texto) : null;
 }
 
 /** La función que dibuja la pantalla, o null si backend-plus no la tiene (o no tiene cómo dibujarla) */
