@@ -28,6 +28,7 @@ import { ImportDialog } from './ImportDialog';
 import { ExportDialog } from './ExportDialog';
 import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
+import { rutaBase } from '../../rutaBase';
 import { crearEstadoGrilla, EstadoGrillaContext, MapaFeedback, VistaGrillaContext } from './estadoGrilla';
 import {
     AltoDisponibleContext, ALTO_INICIAL_DETALLE, ALTO_MINIMO_DETALLE, CacheGrillasContext, DetalleWScreen, calcularFixedFieldsDetalle,
@@ -549,7 +550,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const abrirWScreenEnPestana = useCallback((row: FilaDeDatos, detailTable: DetailTable) => {
         const parametros = new URLSearchParams();
         calcularFixedFieldsDetalle(detailTable, row).forEach(ff => parametros.set(ff.fieldName, String(ff.value)));
-        window.open(`${window.location.origin}/wScreens/${detailTable.wScreen}?${parametros}`, '_blank');
+        window.open(`${window.location.origin}${rutaBase}/wScreens/${detailTable.wScreen}?${parametros}`, '_blank');
     }, []);
 
     const alternarDetalle = useCallback((row: FilaDeDatos, rowId: string, detailTable: DetailTable, enOtraPestana: boolean) => {

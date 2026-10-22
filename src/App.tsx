@@ -25,11 +25,13 @@ import GenericDataGridPage from './pages/GenericDataGridPage';
 import { PantallaDeRuta } from './pages/PantallaDeRuta';
 import MenuTablePage from './pages/MenuTablePage';
 
-import { wScreens, FallbackWScreen, extendWScreens } from './pages/WScreens';
+import { wScreens, extendWScreens } from './pages/WScreens';
+import { PantallaDeRespaldo } from './puente/PantallaBP';
+import { PaginaGrillaBP } from './puente/GrillaBP';
+import { habilitarPuenteBP, puenteBPHabilitado } from './puente/habilitacion';
 import { extendClientSides } from './components/grid/clientSides';
 import { extendConditions } from './components/grid/condiciones';
 import { extendResultsOk } from './pages/procedure-results/resultsOk';
-import { Box } from '@mui/material';
 import typeStore from 'type-store';
 
 import {
@@ -44,6 +46,7 @@ import {
 
 
 import { envConfig } from './env';
+import { rutaBase } from './rutaBase';
 
 const LocationTracker: React.FC = () => {
     const location = useLocation();
@@ -91,10 +94,8 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
                         element={<PantallaDeRuta screenName={screenName} />}
                     />
                 ))}
-                <Route
-                    path="/wScreens-fallback/:screenName"
-                    element={<Box sx={{ p: 3 }}><FallbackWScreen screenName=":screenName" /></Box>}
-                />
+                <Route path="/wScreens-fallback/:screenName" element={<PantallaDeRespaldo />} />
+                {puenteBPHabilitado() && <Route path="/bp/table/:tableName" element={<PaginaGrillaBP />} />}
 
                 {myRoutes}
 
@@ -115,7 +116,7 @@ export const FrontendPlusProviders: React.FC<{ children: React.ReactNode, public
     return (
         <Provider store={store}>
             <PersistGate loading={null} persistor={persistor}>
-                <BrowserRouter>
+                <BrowserRouter basename={rutaBase}>
                     <LocationTracker /> {/* El tracker necesita estar dentro del Router */}
                     <AppProvider publicPaths={publicPaths}>
                         <SnackbarProvider>
@@ -136,8 +137,12 @@ const App = ({
     myWScreens,
     myClientSides,
     myResultsOk,
-    myConditions
-}: AppProps) => {
+    myConditions,
+    puenteBP
+}: AppProps & {
+    /** Las wScreens que la aplicación no registró se piden al cliente de backend-plus (mismo origen que el backend) */
+    puenteBP?: boolean
+}) => {
     // Lo que aporta la aplicación se registra antes del primer render (y no en un efecto): las rutas de las wScreens
     // se arman a partir del registro al renderizar, y un detalle puede necesitar una condición o una wScreen enseguida.
     useMemo(() => {
@@ -153,7 +158,10 @@ const App = ({
         if (myConditions) {
             extendConditions(myConditions);
         }
-    }, [myClientSides, myResultsOk, myWScreens, myConditions]);
+        if (puenteBP) {
+            habilitarPuenteBP();
+        }
+    }, [myClientSides, myResultsOk, myWScreens, myConditions, puenteBP]);
 
     useEffect(() => {
         // --- DINAMICO: Configuración de TypeStore en español ---

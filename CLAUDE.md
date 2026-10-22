@@ -80,6 +80,20 @@ Son las de `dmencu` (que aplican a todo proyecto compartido de esta carpeta), es
 
 ---
 
+## Puente con el cliente de backend-plus (opcional, `src/puente/`)
+
+Para no perder lo que la grilla de `backend-plus` ya hace y que acá todavía no está: la aplicación pasa `puenteBP` a `App` y las wScreens que **no** registró en `myWScreens` se piden al cliente de `backend-plus` (`myOwn.wScreens[nombre]`), en lugar de mostrar «no implementada». `GrillaBP` pone `myOwn.tableGrid` dentro de una página React; `/bp/table/:tableName` sirve para comparar las dos grillas. Lo propio de React siempre tiene prioridad.
+
+- **Mismo origen que el backend, obligatoriamente.** Los scripts de `backend-plus` solo se sirven con sesión (sin ella redirigen al login) y su cliente es un singleton global (`myOwn`, `my`). La aplicación se sirve bajo `<base-url>/react/` o, en desarrollo, Vite hace de proxy (ver `mi-frontend`: `VITE_BASE=/ggs2026/react/ VITE_BACKEND_URL=/ggs2026 PROXY_BACKEND=http://localhost:3044`).
+- `cargarClienteBP` lee la página `<base-url>/menu`, saca de ahí los `<script>` y `<link>` (los arma el servidor con `clientIncludes`, en orden) y los carga. Es un atajo: lo sano sería que el servidor exponga esa lista, y eso es cambiar `backend-plus` (consultar antes).
+- Tres cosas que el cliente de `backend-plus` necesita y que el puente hace: un `<base href>` en la base-url (arma sus direcciones relativas a la página), el global `my` igual a `myOwn`, y llamar a `myOwn.autoSetup()` a mano (él lo hace al evento `load`, que ya pasó).
+- Las wScreens de `backend-plus` dibujan en `#main_layout`: `PantallaBP` le da ese contenedor y le pasa lo que declara su ítem de menú más la query string. Mientras está montada no puede haber otro elemento con ese id.
+- `rutaBase` (`src/rutaBase.ts`) toma el `base` del bundler: es el `basename` del router y el prefijo de las pestañas nuevas (Ctrl+click en un detalle `wScreen`).
+- **No hay un entorno de prueba automático para esto**: jsdom no carga los scripts de `backend-plus`. Los tests cubren la extracción de recursos y la elección de pantalla; el resto se prueba en el navegador contra un backend real (headless: Chrome con `--screenshot` y un proxy chico que inyecte la cookie de sesión).
+- Probado contra ggs: grilla `usuarios` y la wScreen `ayuda` dentro de `mi-frontend`. Sin probar: edición, detalles anidados, exportar, `abrir_encuesta` y la convivencia del CSS global de `backend-plus` con MUI.
+
+---
+
 ## Compilación y fuentes en F12
 
 - `npm run build` (tsup, config en `tsup.config.ts`) genera `dist/` en ESM y CJS con `.d.ts`. **Sin `--splitting`**: con una sola entrada el `.map` de CJS sale roto. Los `.map` llevan el código fuente adentro (`sourcesContent`): en F12 se ven los `.ts`/`.tsx` originales.

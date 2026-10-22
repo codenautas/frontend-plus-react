@@ -27,6 +27,10 @@ export { cambiarGuionesBajosPorEspacios } from './utils/functions';
 export { wScreens, extendWScreens } from './pages/WScreens';
 export { resultsOk as resultComponents, extendResultsOk } from './pages/procedure-results/resultsOk';
 
+// Puente con el cliente de backend-plus (grilla y wScreens que todavía no están en React)
+export { GrillaBP } from './puente/GrillaBP';
+export { habilitarPuenteBP } from './puente/habilitacion';
+
 export type { WScreenProps } from './types/index';
 export type { ResultOkProps } from './types/index';
 export type { ClientSideProps } from './types/index';

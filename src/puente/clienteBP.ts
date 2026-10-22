@@ -1,0 +1,109 @@
+// Puente con el cliente de backend-plus: carga sus scripts en la página (los mismos que arma el servidor con
+// `clientIncludes`) para poder usar su grilla y sus wScreens donde esta librería todavía no tiene una versión propia.
+// Solo funciona en el mismo origen que el backend (comparte la sesión), por ejemplo bajo `<base-url>/react/`.
+import { FixedField } from '../types';
+
+export interface OpcionesGrillaBP {
+    fixedFields?: FixedField[];
+    tableDef?: Record<string, unknown>;
+}
+
+/** Una wScreen de backend-plus: dibuja en `#main_layout` a partir de los parámetros de la dirección */
+export type PantallaBP = (parametros: Record<string, unknown>) => void;
+
+export interface MyOwnBP {
+    autoSetup(): Promise<unknown>;
+    wScreens: Record<string, PantallaBP | undefined>;
+    tableGrid(nombreTabla: string, elemento: HTMLElement, opciones: OpcionesGrillaBP): unknown;
+}
+
+declare global {
+    interface Window {
+        myOwn?: MyOwnBP;
+        my?: MyOwnBP;
+    }
+}
+
+export interface RecursosBP {
+    hojasDeEstilo: string[];
+    scripts: string[];
+}
+
+/** Las hojas de estilo y los scripts de la página que sirve backend-plus, en el orden en que los carga */
+export function extraerRecursos(html: string): RecursosBP {
+    const documento = new DOMParser().parseFromString(html, 'text/html');
+    const referencias = (selector: string, atributo: string): string[] =>
+        Array.from(documento.querySelectorAll(selector))
+            .map(elemento => elemento.getAttribute(atributo))
+            .filter((ruta): ruta is string => !!ruta);
+    return {
+        hojasDeEstilo: referencias('link[rel=stylesheet]', 'href'),
+        scripts: referencias('script[src]', 'src'),
+    };
+}
+
+/**
+ * El cliente de backend-plus arma sus direcciones (`lib/...`, `img/...`, los procedimientos) relativas a la página:
+ * con un `<base>` apuntando a la base-url se comporta como si estuviera en su propia página.
+ */
+function fijarBase(urlBackend: string): void {
+    const href = new URL(urlBackend.replace(/\/*$/, '/'), window.location.href).href;
+    let base = document.querySelector('base');
+    if (!base) {
+        base = document.createElement('base');
+        document.head.prepend(base);
+    }
+    base.href = href;
+}
+
+function cargarScript(ruta: string): Promise<void> {
+    return new Promise((resolver, rechazar) => {
+        const script = document.createElement('script');
+        script.async = false;
+        script.src = ruta;
+        script.onload = () => resolver();
+        script.onerror = () => rechazar(new Error(`No se pudo cargar ${ruta}`));
+        document.head.appendChild(script);
+    });
+}
+
+let carga: Promise<MyOwnBP> | null = null;
+
+/** Carga (una sola vez) el cliente de backend-plus y lo deja listo para usar */
+export function cargarClienteBP(urlBackend: string): Promise<MyOwnBP> {
+    if (!carga) {
+        carga = cargarSinMemoria(urlBackend).catch((error: unknown) => {
+            carga = null;
+            throw error;
+        });
+    }
+    return carga;
+}
+
+async function cargarSinMemoria(urlBackend: string): Promise<MyOwnBP> {
+    const destino = new URL(urlBackend, window.location.href);
+    if (destino.origin !== window.location.origin) {
+        throw new Error(`El cliente de backend-plus solo se puede usar desde el mismo origen que el backend (${destino.origin} no es ${window.location.origin}).`);
+    }
+    fijarBase(urlBackend);
+    const respuesta = await fetch(`${destino.pathname.replace(/\/*$/, '')}/menu`, { credentials: 'include' });
+    if (!respuesta.ok || /\/login\/?$/.test(new URL(respuesta.url).pathname)) {
+        throw new Error('No hay una sesión iniciada en el backend.');
+    }
+    const recursos = extraerRecursos(await respuesta.text());
+    recursos.hojasDeEstilo.forEach(ruta => {
+        const enlace = document.createElement('link');
+        enlace.rel = 'stylesheet';
+        enlace.href = ruta;
+        document.head.appendChild(enlace);
+    });
+    for (const ruta of recursos.scripts) {
+        await cargarScript(ruta);
+    }
+    const myOwn = window.myOwn;
+    if (!myOwn) throw new Error('El backend no definió myOwn.');
+    // backend-plus lo hace al cargar la ventana, y esta ya está cargada; parte de su código usa el global `my`
+    window.my = myOwn;
+    await myOwn.autoSetup();
+    return myOwn;
+}
