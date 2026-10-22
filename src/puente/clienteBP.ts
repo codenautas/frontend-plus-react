@@ -11,9 +11,25 @@ export interface OpcionesGrillaBP {
 /** Una wScreen de backend-plus: dibuja en `#main_layout` a partir de los parámetros de la dirección */
 export type PantallaBP = (parametros: Record<string, unknown>) => void;
 
+/**
+ * Las formas de wScreen que entiende `showPage` de backend-plus: una función, o un objeto con `mainFunction`, o un
+ * objeto con `parameters` y `mainAction` (muestra el formulario de parámetros y después ejecuta `mainAction`).
+ * `procAux` también vive en `wScreens`: es un objeto con `showParams`.
+ */
+export interface DefinicionPantallaBP {
+    mainFunction?: PantallaBP;
+    parameters?: unknown[];
+    mainAction?: unknown;
+    resultClass?: string;
+    proceedLabel?: string;
+    pageTitle?: string;
+    showParams?: (definicion: Record<string, unknown>, contenedor: HTMLElement, parametros: Record<string, unknown>, accion: unknown) => void;
+}
+
 export interface MyOwnBP {
     autoSetup(): Promise<unknown>;
-    wScreens: Record<string, PantallaBP | undefined>;
+    wScreens: Record<string, PantallaBP | DefinicionPantallaBP | undefined>;
+    preDisplayPage?(parametros: Record<string, unknown>, pantalla: DefinicionPantallaBP, nombre: string): void;
     tableGrid(nombreTabla: string, elemento: HTMLElement, opciones: OpcionesGrillaBP): unknown;
 }
 

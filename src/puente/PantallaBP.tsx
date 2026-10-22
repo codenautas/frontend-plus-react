@@ -7,6 +7,7 @@ import { useApp } from '../contexts/AppContext';
 import { FallbackWScreen } from '../pages/WScreens';
 import { mensajeDeError } from '../utils/errores';
 import { cargarClienteBP } from './clienteBP';
+import { resolverPantallaBP } from './pantallaDeBP';
 import { puenteBPHabilitado } from './habilitacion';
 
 function buscarItemDeMenu(items: MenuInfoBase[], tipo: string): MenuInfoBase | undefined {
@@ -50,13 +51,15 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre }) => {
             .then(myOwn => {
                 if (!vigente) return;
                 setCargando(false);
-                const pantalla = myOwn.wScreens[nombre];
+                const pantalla = resolverPantallaBP(myOwn, nombre, elemento);
                 if (!pantalla) {
                     setNoExiste(true);
                     return;
                 }
                 elemento.replaceChildren();
-                pantalla(parametros);
+                // como showPage de backend-plus: título y atributo de la página, y la pantalla se ejecuta con myOwn como `this`
+                myOwn.preDisplayPage?.(parametros, pantalla.definicion, nombre);
+                pantalla.ejecutar.call(myOwn, parametros);
             })
             .catch((err: unknown) => {
                 if (!vigente) return;
