@@ -175,7 +175,7 @@ const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como 
                     // Asegúrate de que el paddingTop sea suficiente para la AppBar
                     paddingTop: `${appBarOffset.minHeight}px`,
                     height: '100%',
-                    boxSizing: 'border-box',
+                    boxSizing: 'border-box', overflowY: 'auto',
                     display: 'flex',
                     flexDirection: 'column',
                     width: isDrawerOpen ? `calc(100% - ${drawerWidth}px)` : '100%',

@@ -56,6 +56,9 @@ Son las de `dmencu` (que aplican a todo proyecto compartido de esta carpeta), es
 - `useGridDataView` deja en su lugar la fila editada cuando cambian pocas filas (no reordena ni vuelve a filtrar en medio de una edición) y recalcula todo cuando cambia mucho (refrescar, importar).
 - Las grillas se cargan con una sola petición por tabla y filtros aunque React monte los efectos dos veces (`cargasEnCurso`).
 
+### Scroll de la página
+- `html`, `body` y `#root` tienen `overflow: hidden` a propósito (las grillas toman el alto que queda de la ventana). Por eso el que scrollea es el `<main>` de `MainLayout` (`overflowY: 'auto'`): una pantalla más alta que la ventana (una wScreen, un formulario de procedimiento, las pantallas de `backend-plus`) queda recortada si ese contenedor no scrollea. Las grillas no deben generar una barra de más ahí: si `main.scrollHeight` supera a `clientHeight` en una página de grilla, es un error de su cálculo de alto. Esto no se puede probar en jsdom: se mide en el navegador.
+
 ### Edición y teclado
 - Al editar con un filtro activo, react-data-grid entrega solo las filas visibles: `handleRowsChange` reemplaza las filas editadas dentro de `tableData`, nunca lo pisa con lo recibido.
 - **No esperar la respuesta del servidor para mover el foco** (Enter, Tab, flechas, F4): con la tecla apretada llegan más pulsaciones que respuestas. El cambio de la fila se aplica en el acto y el guardado sigue en segundo plano.
