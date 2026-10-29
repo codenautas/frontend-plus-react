@@ -59,8 +59,6 @@ const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como 
         );
     }
 
-    const appBarOffset = theme.mixins.toolbar;
-
     return (
         <Box sx={{ display: 'flex', height: '100vh' }}>
             <CssBaseline />
@@ -172,10 +170,8 @@ const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como 
                     }),
                     minWidth: 0,
                     flexShrink: 0,
-                    // Asegúrate de que el paddingTop sea suficiente para la AppBar
-                    paddingTop: `${appBarOffset.minHeight}px`,
                     height: '100%',
-                    boxSizing: 'border-box', overflowY: 'auto',
+                    boxSizing: 'border-box',
                     display: 'flex',
                     flexDirection: 'column',
                     width: isDrawerOpen ? `calc(100% - ${drawerWidth}px)` : '100%',
@@ -183,7 +179,12 @@ const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como 
             >
                 {/* ¡AQUÍ ES DONDE DEBE IR EL CONTENIDO DE LA RUTA ANIDADA! */}
                 {/* Elimina {children} y reemplázalo por <Outlet /> */}
-                <Outlet />
+                {/* El lugar de la AppBar (mide lo mismo que ella en cualquier tamaño de pantalla) queda fuera del scroll:
+                    si el contenido scrolleara desde el borde de la ventana, la barra taparía el extremo de la barra de desplazamiento. */}
+                <Toolbar />
+                <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                    <Outlet />
+                </Box>
             </Box>
         </Box>
     );

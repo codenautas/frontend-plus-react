@@ -22,7 +22,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
         // 2. NO estamos en el proceso de carga de autenticación (ya sabemos que no está autenticado).
         // 3. NO estamos ya en la página de login (para evitar guardar /login).
         if (!isAuthenticated && !isLoadingAuth && location.pathname !== '/login') {
-            const path = location.pathname + location.search;
+            const path = location.pathname + location.search + location.hash;
             console.log(`[PrivateRoute] ACTION: Dispatching setRedirectPath(${path})`);
             dispatch(setRedirectPath(path));
         } else if (isAuthenticated) {
