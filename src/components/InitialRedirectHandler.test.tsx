@@ -34,7 +34,7 @@ function renderizar(rutaInicial: string, estado: ClientContextState['status'], r
 }
 
 describe('InitialRedirectHandler', () => {
-    it('con la sesión cargada vuelve a la ruta que se pidió y NO se desvía a /home', async () => {
+    it('con la sesión cargada vuelve a la ruta que se pidió y NO se desvía a la pantalla de inicio', async () => {
         // arranque en frío: PrivateRoute mandó a /login guardando la ruta pedida; después la sesión resultó válida
         const { getByTestId, store } = renderizar('/login', 'succeeded', '/table/casilleros');
         await waitFor(() => expect(getByTestId('ruta').textContent).toBe('/table/casilleros'));
@@ -44,9 +44,15 @@ describe('InitialRedirectHandler', () => {
         expect(store.getState().router.redirectPath).toBeNull();
     });
 
-    it('sin ruta guardada, una sesión válida en /login va a /home', async () => {
+    it('sin ruta guardada, una sesión válida en /login va a la raíz (la pantalla de inicio la resuelve PantallaInicial)', async () => {
         const { getByTestId } = renderizar('/login', 'succeeded', null);
-        await waitFor(() => expect(getByTestId('ruta').textContent).toBe('/home'));
+        await waitFor(() => expect(getByTestId('ruta').textContent).toBe('/'));
+    });
+
+    it('con la sesión cargada la raíz se queda en la raíz: ahí PantallaInicial lleva al ítem por defecto del backend', async () => {
+        const { getByTestId } = renderizar('/', 'succeeded', null);
+        await new Promise(resolver => setTimeout(resolver, 50));
+        expect(getByTestId('ruta').textContent).toBe('/');
     });
 
     it('sin sesión no mueve a nadie de /login', async () => {

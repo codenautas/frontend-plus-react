@@ -5,7 +5,6 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import FolderIcon from '@mui/icons-material/Folder';
 import DnsIcon from '@mui/icons-material/Dns';
-import HomeIcon from '@mui/icons-material/Home';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import DesktopWindowsIcon from '@mui/icons-material/DesktopWindows';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
@@ -21,6 +20,7 @@ import { toggleSubMenu, setAllSubMenusOpen, setSubMenuOpen } from '../store/menu
 import { MenuListItemProps, SideMenuProps } from '../types';
 
 import { wScreens } from '../pages/WScreens';
+import { rutaDeItemDeMenu } from '../utils/menuInicial';
 
 const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClick }) => {
     const navigate = useNavigate();
@@ -33,39 +33,7 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
         if (item.menuType === "menu") {
             dispatch(toggleSubMenu(item.name));
         } else {
-            let path = '';
-            const queryParams = new URLSearchParams();
-
-            if (item.menuType === "table") {
-                // Todas las tablas del menú navegan a esta ruta uniforme
-                path = `/menu/${item.name}`;
-
-                // Los parámetros td y fc siguen siendo query params
-                if (item.td) queryParams.append('td', JSON.stringify((item.td)));
-                if (item.fc) queryParams.append('fc', JSON.stringify((item.fc)));
-
-                // NOTA: Los `fixedFields` (item.ff) NO se pasan en los queryParams aquí.
-                // Se espera que GenericDataGridPage los obtenga directamente desde clientContext.menu
-                // usando el `item.name` que está en la URL (`:menuName`).
-
-                if (queryParams.toString()) {
-                    path = `${path}?${queryParams.toString()}`;
-                }
-            } else if (item.menuType === "proc") {
-                path = `/procedures/${item.name}`;
-            } else {
-                const WScreenComponent = wScreens[item.menuType];
-                if (WScreenComponent !== undefined) {
-                    path = `/wScreens/${item.menuType}`;
-                } else {
-                    path = `/wScreens-fallback/${item.menuType}`;
-                    console.warn(`Menu type '${item.menuType}' no reconocido o WScreen no mapeada.`);
-                }
-            }
-
-            if (path) {
-                navigate(path);
-            }
+            navigate(rutaDeItemDeMenu(item));
             if (onMenuItemClick) {
                 onMenuItemClick();
             }
@@ -158,13 +126,6 @@ const SideMenu: React.FC<SideMenuProps> = ({ onMenuItemClick }) => {
     const openSubMenusCount = allSubMenusKeys.filter(key => subMenuOpenStates[key]).length;
     const isMostlyOpen = allSubMenusKeys.length > 0 && openSubMenusCount / allSubMenusKeys.length > 0.5;
 
-    const handleHomeClick = () => {
-        navigate('/home');
-        if (onMenuItemClick) {
-            onMenuItemClick();
-        }
-    };
-
     const handleToggleAllSubMenus = () => {
         dispatch(setAllSubMenusOpen(!isMostlyOpen));
     };
@@ -176,8 +137,6 @@ const SideMenu: React.FC<SideMenuProps> = ({ onMenuItemClick }) => {
             </Box>
         );
     }
-
-    const isHomeSelected = location.pathname === '/home';
 
     // AUTO-EXPANSIÓN: Expandir padres según la ruta actual
     useEffect(() => {
@@ -230,15 +189,6 @@ const SideMenu: React.FC<SideMenuProps> = ({ onMenuItemClick }) => {
             )}
             <Divider />
             <List>
-                <ListItem disablePadding>
-                    <ListItemButton onClick={handleHomeClick} selected={isHomeSelected}>
-                        <ListItemIcon sx={{ minWidth: '38px' }}>
-                            <HomeIcon />
-                        </ListItemIcon>
-                        <ListItemText primary="Inicio" />
-                    </ListItemButton>
-                </ListItem>
-                <Divider />
                 {clientContext.menu.map((menuItem: MenuInfoBase) => (
                     <MenuListItem
                         key={menuItem.name}

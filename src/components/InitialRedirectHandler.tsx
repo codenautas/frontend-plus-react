@@ -17,7 +17,7 @@ const InitialRedirectHandler: React.FC = () => {
     }, [location, dispatch]);
 
     // Después de navegar a la ruta guardada, el efecto de abajo se vuelve a ejecutar (redirectPath pasó a null) mientras
-    // la ruta todavía figura como /login: sin esta marca caería en "ir a /home por defecto" y se perdería el destino.
+    // la ruta todavía figura como /login: sin esta marca caería en "ir a la pantalla de inicio por defecto" y se perdería el destino.
     const navegandoRef = useRef(false);
     useEffect(() => {
         navegandoRef.current = false;
@@ -32,11 +32,11 @@ const InitialRedirectHandler: React.FC = () => {
                 navegandoRef.current = true;
                 navigate(redirectPath);
                 dispatch(setRedirectPath(null)); // Limpia la ruta guardada después de usarla
-            } else if (!navegandoRef.current && (location.pathname === '/login' || location.pathname === '/')) {
-                // Si el usuario está en /login o / y ya está autenticado y no hay ruta de redirección
-                // lo mandamos a /home por defecto.
-                console.log('Usuario autenticado, redirigiendo a /home por defecto.');
-                navigate('/home');
+            } else if (!navegandoRef.current && location.pathname === '/login') {
+                // Si el usuario está en /login y ya está autenticado y no hay ruta de redirección
+                // lo mandamos a / (PantallaInicial lo lleva a la pantalla de inicio que declara el backend).
+                console.log('Usuario autenticado, redirigiendo a la pantalla de inicio.');
+                navigate('/');
             }
         }
     }, [clientContextStatus, redirectPath, location.pathname, navigate, dispatch]);

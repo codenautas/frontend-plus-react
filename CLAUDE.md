@@ -79,7 +79,8 @@ Son las de `dmencu` (que aplican a todo proyecto compartido de esta carpeta), es
 - El `ff` de un ítem de menú puede ser un arreglo `[{fieldName, value}]` (lo que documenta backend-plus) o un objeto `{campo: valor}` (lo que usa dmencu); `fixedFieldsDeMenu` entiende los dos.
 
 ### Sesión y arranque
-- Con el estado todavía sin cargar (`idle`), `PrivateRoute` manda a `/login` guardando la ruta pedida; `InitialRedirectHandler` (montado fuera de las rutas privadas) vuelve a esa ruta cuando la sesión resulta válida. Tiene una guarda para no caer en `/home` mientras la ruta guardada se limpia.
+- Con el estado todavía sin cargar (`idle`), `PrivateRoute` manda a `/login` guardando la ruta pedida; `InitialRedirectHandler` (montado fuera de las rutas privadas) vuelve a esa ruta cuando la sesión resulta válida. Tiene una guarda para no caer en la pantalla de inicio mientras la ruta guardada se limpia.
+- **No hay `HomePage` ni ruta `/home`: la pantalla de inicio la define el backend, como en `backend-plus`.** `/` (`PantallaInicial`) redirige al ítem de menú con `selectedByDefault` (y, si es un grupo, al que lo declare adentro; `itemInicial`, `rutaDeItemDeMenu` en `utils/menuInicial.ts`, que también arma las rutas del menú lateral). Si el backend no declara ninguno, `/` queda vacía, igual que en `backend-plus`. El login y `InitialRedirectHandler` mandan a `/`. Una aplicación que quiera otra pantalla de inicio la declara en su menú.
 - El cartel «¡Sesión expirada!» solo corresponde si hubo una sesión (guardada de la visita anterior o activa en esta carga). En la primera visita sin sesión, ir al login no lleva cartel.
 
 ---
