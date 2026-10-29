@@ -1,5 +1,26 @@
-import { describe, expect, it } from 'vitest';
-import { extraerRecursos } from './clienteBP';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { esperarCargaDeVentana, extraerRecursos } from './clienteBP';
+
+describe('esperarCargaDeVentana', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('con la ventana ya cargada no espera', async () => {
+        await expect(esperarCargaDeVentana()).resolves.toBeUndefined();
+    });
+
+    it('con la ventana cargándose espera al evento load (si no, el load de backend-plus ejecuta showPage y deja un cartel de error que corre la página)', async () => {
+        vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading');
+        let terminada = false;
+        const espera = esperarCargaDeVentana().then(() => { terminada = true; });
+        await Promise.resolve();
+        expect(terminada).toBe(false);
+        window.dispatchEvent(new Event('load'));
+        await espera;
+        expect(terminada).toBe(true);
+    });
+});
 
 describe('extraerRecursos', () => {
     it('devuelve los scripts y las hojas de estilo de la página de backend-plus en el orden en que están', () => {

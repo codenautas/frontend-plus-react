@@ -81,7 +81,7 @@ const LoginPage = () => {
             await dispatch(fetchClientContext()).unwrap();
 
             console.log("Login exitoso y clientContext cargado.");
-            navigate('/home'); // Redirige al home o dashboard
+            navigate('/'); // la pantalla de inicio la resuelve PantallaInicial
             reset(); // Limpia el formulario
         } catch (error) {
             console.error("Error al iniciar sesión:", error);

@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route, useLocation, Navigate, Outlet } from 'rea
 import MainLayout from './components/MainLayout';
 import SessionExpiredMessage from './components/SessionExpiredMessage';
 import { AppProvider } from './contexts/AppContext';
-import HomePage from './pages/HomePage';
+import PantallaInicial from './pages/PantallaInicial';
 import LogoutPage from './pages/LogoutPage';
 import LoginPage from './pages/LoginPage';
 import ProcedureForm from './components/ProcedureForm';
@@ -68,7 +68,7 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
     return (
         <>
         {/* Fuera de las rutas privadas: con la sesión válida pero el estado todavía sin cargar, PrivateRoute manda
-            a /login; desde acá se vuelve a la ruta guardada (o a /home) apenas el estado termina de cargarse. */}
+            a /login; desde acá se vuelve a la ruta guardada (o a la pantalla de inicio) apenas el estado termina de cargarse. */}
         <InitialRedirectHandler />
         <Routes>
             <Route element={UnloggedLayout ? <UnloggedLayout /> : <Outlet />}>
@@ -82,8 +82,8 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
                     <Layout />
                 </PrivateRoute>
             }>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/home" element={<HomePage />} />
+                {/* la pantalla de inicio la define el backend (selectedByDefault), como en backend-plus */}
+                <Route path="/" element={<PantallaInicial />} />
                 <Route path="/table/:tableName" element={<GenericDataGridPage />} />
                 <Route path="/menu/:menuName" element={<MenuTablePage />} />
                 <Route path="/procedures/:procedureName" element={<ProcedureForm />} />

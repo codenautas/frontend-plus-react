@@ -7,6 +7,7 @@ import { useApp } from '../contexts/AppContext';
 import { FallbackWScreen } from '../pages/WScreens';
 import { mensajeDeError } from '../utils/errores';
 import { cargarClienteBP } from './clienteBP';
+import { ConsolaBP } from './ConsolaBP';
 import { capturarNavegacionBP } from './capturaDeNavegacion';
 import { resolverPantallaBP, rutaDePantallaBP } from './pantallaDeBP';
 import { puenteBPHabilitado } from './habilitacion';
@@ -79,11 +80,13 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre, direccion }) => 
 
     if (noExiste) return <FallbackWScreen screenName={nombre} />;
     return (
-        <Box>
-            {cargando && <CircularProgress size={24} sx={{ m: 2 }} />}
+        // el indicador de carga flota: si ocupara lugar, el contenido de backend-plus empezaría más abajo mientras carga y subiría al terminar
+        <Box sx={{ position: 'relative' }}>
+            {cargando && <CircularProgress size={24} sx={{ position: 'absolute', top: 16, left: 16 }} />}
             {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
             {/* backend-plus dibuja sus pantallas en el elemento con este id */}
             <div id="main_layout" ref={contenedor} />
+            <ConsolaBP />
         </Box>
     );
 };

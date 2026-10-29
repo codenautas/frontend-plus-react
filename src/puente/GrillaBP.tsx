@@ -5,6 +5,7 @@ import { envConfig } from '../env';
 import { FixedField } from '../types';
 import { mensajeDeError } from '../utils/errores';
 import { cargarClienteBP } from './clienteBP';
+import { ConsolaBP } from './ConsolaBP';
 
 interface GrillaBPProps {
     tabla: string;
@@ -44,10 +45,12 @@ export const GrillaBP: React.FC<GrillaBPProps> = ({ tabla, fixedFields }) => {
     }, [tabla, clave]);
 
     return (
-        <Box>
-            {cargando && <CircularProgress size={24} sx={{ m: 2 }} />}
+        // el indicador de carga flota: si ocupara lugar, el contenido de backend-plus empezaría más abajo mientras carga y subiría al terminar
+        <Box sx={{ position: 'relative' }}>
+            {cargando && <CircularProgress size={24} sx={{ position: 'absolute', top: 16, left: 16 }} />}
             {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
             <div ref={contenedor} />
+            <ConsolaBP />
         </Box>
     );
 };
