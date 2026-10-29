@@ -1,5 +1,7 @@
 // Mientras hay una pantalla de backend-plus en la página, lo que ella (o el código de la aplicación sobre backend-plus)
-// manda a las páginas del backend se resuelve dentro de la aplicación: clics en enlaces, y asignaciones a `location`.
+// manda a las páginas del backend se resuelve dentro de la aplicación: clics en enlaces, asignaciones a `location` y
+// `history.replaceState`.
+import { rutaBase } from '../rutaBase';
 import { rutaDeEnlaceBP } from './pantallaDeBP';
 
 interface EventoNavegacion extends Event {
@@ -51,7 +53,17 @@ export function capturarNavegacionBP(urlBackend: string, navegar: (ruta: string)
     };
     navegacion?.addEventListener('navigate', alNavegar);
 
+    // al editar un parámetro, backend-plus reescribe la dirección (`myOwn.replaceAddrParams`: `history.replaceState(null, null, 'menu#...')`)
+    // y, con el `<base>` en la base-url del backend, eso deja la aplicación; `replaceState` no pasa por la Navigation API
+    const reemplazarOriginal = history.replaceState;
+    const reemplazar: History['replaceState'] = (estado, titulo, url) => {
+        const ruta = url === undefined || url === null ? null : rutaDeEnlaceBP(String(url), document.baseURI, urlBackend);
+        reemplazarOriginal.call(history, estado, titulo, ruta === null ? url : rutaBase + ruta);
+    };
+    history.replaceState = reemplazar;
+
     return () => {
+        if (history.replaceState === reemplazar) history.replaceState = reemplazarOriginal;
         document.removeEventListener('click', alHacerClick, true);
         navegacion?.removeEventListener('navigate', alNavegar);
     };

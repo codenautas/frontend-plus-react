@@ -85,6 +85,16 @@ function cargarScript(ruta: string): Promise<void> {
     });
 }
 
+/**
+ * El cliente de backend-plus se engancha al evento `load` de la ventana para mostrar su página (`showPage`), que acá
+ * no tiene dónde dibujar (`#total-layout`) y falla; su manejador de errores deja un cartel como primer hijo del `body`
+ * que corre toda la aplicación hacia abajo. Por eso se lo carga recién cuando la ventana terminó de cargar.
+ */
+export function esperarCargaDeVentana(): Promise<void> {
+    if (document.readyState === 'complete') return Promise.resolve();
+    return new Promise(resolver => window.addEventListener('load', () => resolver(), { once: true }));
+}
+
 let carga: Promise<MyOwnBP> | null = null;
 
 /** Carga (una sola vez) el cliente de backend-plus y lo deja listo para usar */
@@ -115,6 +125,7 @@ async function cargarSinMemoria(urlBackend: string): Promise<MyOwnBP> {
         enlace.href = ruta;
         document.head.appendChild(enlace);
     });
+    await esperarCargaDeVentana();
     for (const ruta of recursos.scripts) {
         await cargarScript(ruta);
     }

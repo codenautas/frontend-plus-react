@@ -7,6 +7,7 @@ import { useApp } from '../contexts/AppContext';
 import { FallbackWScreen } from '../pages/WScreens';
 import { mensajeDeError } from '../utils/errores';
 import { cargarClienteBP } from './clienteBP';
+import { ConsolaBP } from './ConsolaBP';
 import { capturarNavegacionBP } from './capturaDeNavegacion';
 import { resolverPantallaBP, rutaDePantallaBP } from './pantallaDeBP';
 import { puenteBPHabilitado } from './habilitacion';
@@ -85,6 +86,7 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre, direccion }) => 
             {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
             {/* backend-plus dibuja sus pantallas en el elemento con este id */}
             <div id="main_layout" ref={contenedor} />
+            <ConsolaBP />
         </Box>
     );
 };

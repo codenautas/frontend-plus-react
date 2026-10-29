@@ -5,6 +5,7 @@ import { envConfig } from '../env';
 import { FixedField } from '../types';
 import { mensajeDeError } from '../utils/errores';
 import { cargarClienteBP } from './clienteBP';
+import { ConsolaBP } from './ConsolaBP';
 
 interface GrillaBPProps {
     tabla: string;
@@ -49,6 +50,7 @@ export const GrillaBP: React.FC<GrillaBPProps> = ({ tabla, fixedFields }) => {
             {cargando && <CircularProgress size={24} sx={{ position: 'absolute', top: 16, left: 16 }} />}
             {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
             <div ref={contenedor} />
+            <ConsolaBP />
         </Box>
     );
 };
