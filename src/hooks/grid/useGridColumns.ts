@@ -22,6 +22,11 @@ export const calcularAnchosDeColumnas = (tableDefinition: TableDefinition, filas
     const anchos = new Map<string, number>();
     const muestra = filas.slice(0, 50);
     tableDefinition.fields.forEach((fieldDef: FieldDefinition) => {
+        // como backend-plus (my-tables.js): un ancho que declara el backend para el campo (`width`, en píxeles) manda sobre el calculado
+        if (typeof fieldDef.width === 'number' && fieldDef.width > 0) {
+            anchos.set(fieldDef.name, fieldDef.width);
+            return;
+        }
         const headerLabel = fieldDef.label || fieldDef.name;
         const type = fieldDef.typeName?.toLowerCase() || '';
         let typeMinWidth = 60;
