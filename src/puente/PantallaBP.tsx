@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useParams } from 'react-router-dom';
 import { Alert, Box, CircularProgress } from '@mui/material';
 import { MenuInfoBase, MenuInfoMenu } from 'backend-plus';
 import { envConfig } from '../env';
@@ -8,7 +8,6 @@ import { FallbackWScreen } from '../pages/WScreens';
 import { mensajeDeError } from '../utils/errores';
 import { cargarClienteBP } from './clienteBP';
 import { ConsolaBP } from './ConsolaBP';
-import { capturarNavegacionBP } from './capturaDeNavegacion';
 import { resolverPantallaBP, rutaDePantallaBP } from './pantallaDeBP';
 import { puenteBPHabilitado } from './habilitacion';
 
@@ -31,7 +30,6 @@ interface PantallaBPProps {
 
 /** Una wScreen de backend-plus (la de la propia aplicación o una de las del framework) dibujada en su `#main_layout` */
 export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre, direccion }) => {
-    const navigate = useNavigate();
     const { clientContext } = useApp();
     const [cargando, setCargando] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -46,8 +44,6 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre, direccion }) => 
         setError(null);
         setNoExiste(false);
         setCargando(true);
-        // «proceder», los vínculos y `location.href = ...` de backend-plus apuntan a páginas del backend: se resuelven acá adentro
-        const dejarDeCapturar = capturarNavegacionBP(envConfig.backendUrl, navigate);
         cargarClienteBP(envConfig.backendUrl)
             .then(myOwn => {
                 if (!vigente) return;
@@ -73,10 +69,9 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre, direccion }) => 
             });
         return () => {
             vigente = false;
-            dejarDeCapturar();
             elemento.replaceChildren();
         };
-    }, [nombre, direccion, menu, navigate]);
+    }, [nombre, direccion, menu]);
 
     if (noExiste) return <FallbackWScreen screenName={nombre} />;
     return (

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { esperarCargaDeVentana, extraerRecursos } from './clienteBP';
+import { esperarCargaDeVentana, extraerRecursos, sinEscuchasDeVentana } from './clienteBP';
 
 describe('esperarCargaDeVentana', () => {
     afterEach(() => {
@@ -42,5 +42,30 @@ describe('extraerRecursos', () => {
 
     it('una página sin recursos (por ejemplo la del login) da listas vacías', () => {
         expect(extraerRecursos('<html><body>hola</body></html>')).toEqual({ hojasDeEstilo: [], scripts: [] });
+    });
+});
+
+describe('sinEscuchasDeVentana', () => {
+    it('lo que se carga adentro no puede escuchar esos eventos de la ventana (backend-plus escucha popstate y ata la aplicación a /react), pero sí los demás', async () => {
+        const popstate = vi.fn();
+        const resize = vi.fn();
+        await sinEscuchasDeVentana(['popstate'], async () => {
+            window.addEventListener('popstate', popstate);
+            window.addEventListener('resize', resize);
+        });
+        window.dispatchEvent(new PopStateEvent('popstate'));
+        window.dispatchEvent(new Event('resize'));
+        expect(popstate).not.toHaveBeenCalled();
+        expect(resize).toHaveBeenCalledTimes(1);
+        window.removeEventListener('resize', resize);
+    });
+
+    it('al terminar (también si falla) la ventana vuelve a aceptar esas escuchas', async () => {
+        await expect(sinEscuchasDeVentana(['popstate'], async () => { throw new Error('falló la carga'); })).rejects.toThrow('falló la carga');
+        const popstate = vi.fn();
+        window.addEventListener('popstate', popstate);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+        expect(popstate).toHaveBeenCalledTimes(1);
+        window.removeEventListener('popstate', popstate);
     });
 });

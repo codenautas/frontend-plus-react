@@ -95,6 +95,31 @@ export function esperarCargaDeVentana(): Promise<void> {
     return new Promise(resolver => window.addEventListener('load', () => resolver(), { once: true }));
 }
 
+/**
+ * Mientras corre `inyectar`, ignora que lo que se está cargando registre escuchas de esos eventos de la ventana.
+ * backend-plus (my-menu.js) escucha `popstate` para mostrar su página, salvo que la dirección termine en `/react`: sin esto
+ * la aplicación quedaría atada a ese nombre. Con la navegación en manos del router de la aplicación, esa escucha sobra.
+ */
+export async function sinEscuchasDeVentana<R>(tipos: string[], inyectar: () => Promise<R>): Promise<R> {
+    const original = window.addEventListener;
+    const filtrada = function (this: Window, tipo: string, escucha: EventListenerOrEventListenerObject, opciones?: boolean | AddEventListenerOptions): void {
+        if (tipos.includes(tipo)) return;
+        original.call(this, tipo, escucha, opciones);
+    };
+    window.addEventListener = filtrada;
+    try {
+        return await inyectar();
+    } finally {
+        if (window.addEventListener === filtrada) window.addEventListener = original;
+    }
+}
+
+async function cargarScripts(rutas: string[]): Promise<void> {
+    for (const ruta of rutas) {
+        await cargarScript(ruta);
+    }
+}
+
 let carga: Promise<MyOwnBP> | null = null;
 
 /** Carga (una sola vez) el cliente de backend-plus y lo deja listo para usar */
@@ -126,9 +151,7 @@ async function cargarSinMemoria(urlBackend: string): Promise<MyOwnBP> {
         document.head.appendChild(enlace);
     });
     await esperarCargaDeVentana();
-    for (const ruta of recursos.scripts) {
-        await cargarScript(ruta);
-    }
+    await sinEscuchasDeVentana(['popstate'], () => cargarScripts(recursos.scripts));
     const myOwn = window.myOwn;
     if (!myOwn) throw new Error('El backend no definió myOwn.');
     // backend-plus lo hace al cargar la ventana, y esta ya está cargada; parte de su código usa el global `my`
