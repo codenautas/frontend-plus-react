@@ -4,6 +4,7 @@ import { TableDefinition, FieldDefinition, FilaDeDatos, FiltrosDeGrilla, Entrada
 import typeStore from 'type-store';
 import { compararValores, sameValue } from '../../components/grid/utils/helpers';
 import { getBestTypedValue } from '../../components/grid/utils/typedControls';
+import { FiltroInicial } from '../../utils/parametrosDeTabla';
 
 export type SortColumn = { columnKey: string; direction: 'ASC' | 'DESC' };
 
@@ -63,6 +64,25 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
             if (prev) setFilters({});
             return !prev;
         });
+    }, []);
+
+    /**
+     * Los filtros con los que se abre la grilla (`fc` de la dirección o del menú, `filterColumns` de la definición): se
+     * muestra la fila de filtros ya completa, como `createRowFilter` de backend-plus. El valor se escribe como lo escribiría
+     * el usuario en el filtro de esa columna (un booleano `true` es «sí», por ejemplo).
+     */
+    const aplicarFiltrosIniciales = useCallback((condiciones: FiltroInicial[], definicion: TableDefinition) => {
+        const iniciales: FiltrosDeGrilla = {};
+        condiciones.forEach(({ column, operator, value }) => {
+            const fieldDef = definicion.fields.find(f => f.name === column);
+            let texto = value === null || value === undefined ? '' : String(value);
+            if (fieldDef && value !== null && value !== undefined) {
+                try { texto = typeStore.typerFrom(fieldDef).toLocalString(value); } catch (e) { /* queda como texto */ }
+            }
+            iniciales[column] = { operator, value: texto };
+        });
+        setFilters(iniciales);
+        setIsFilterRowVisible(true);
     }, []);
 
     // ── filteredRows ──────────────────────────────────────────────────────────
@@ -259,6 +279,7 @@ export const useGridDataView = ({ tableData, tableDefinition }: UseGridDataViewP
         setFilters,
         isFilterRowVisible,
         toggleFilterVisibility,
+        aplicarFiltrosIniciales,
         // Data
         filteredRows,
         summaryData,

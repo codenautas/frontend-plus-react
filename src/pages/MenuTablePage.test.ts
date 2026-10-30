@@ -9,8 +9,8 @@ describe('fixedFieldsDeMenu', () => {
         ]);
     });
 
-    it('acepta la forma de arreglo [{fieldName, value}] (la que documenta backend-plus)', () => {
-        expect(fixedFieldsDeMenu([{ fieldName: 'estado', value: null, show: true }])).toEqual([{ fieldName: 'estado', value: null }]);
+    it('acepta la forma de arreglo [{fieldName, value}] (la que documenta backend-plus) y conserva show, que la grilla usa para no ocultar la columna', () => {
+        expect(fixedFieldsDeMenu([{ fieldName: 'estado', value: null, show: true }])).toEqual([{ fieldName: 'estado', value: null, show: true }]);
     });
 
     it('sin ff no hay filtros', () => {

@@ -1,29 +1,27 @@
 // src/pages/MenuTablePage.tsx
 
 import React, { useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { Box, Alert, Typography } from '@mui/material';
 import GenericDataGridPage from './GenericDataGridPage'; // Importamos el contenedor de tabs
 import { useApp } from '../contexts/AppContext'; // Necesitamos el contexto para acceder al menú
 import { MenuInfoBase, MenuInfoMenu, MenuInfoTable } from 'backend-plus'; // Asegúrate de importar tus tipos de menú
 import { FixedField } from '../types';
+import { aFixedFields, ParametrosDeTabla, parametrosDeTabla } from '../utils/parametrosDeTabla';
 
 /**
  * Los fixedFields que declara un ítem de menú (`ff`). backend-plus admite dos formas, igual que su cliente (my-menu.js):
  * un arreglo [{fieldName, value}] o un objeto {campo: valor}.
  */
 export function fixedFieldsDeMenu(ff: MenuInfoTable['ff'] | Record<string, unknown> | undefined): FixedField[] {
-    if (!ff) return [];
-    if (Array.isArray(ff)) {
-        return ff.map(({ fieldName, value }) => ({ fieldName, value }));
-    }
-    return Object.entries(ff).map(([fieldName, value]) => ({ fieldName, value }));
+    return aFixedFields(ff);
 }
 
 const MenuTablePage: React.FC = () => {
     // Obtiene el `menuName` de la URL para buscar en clientContext.menu
     const { menuName } = useParams<{ menuName?: string }>();
     const { clientContext } = useApp();
+    const { search } = useLocation();
 
     // Función auxiliar para encontrar un ítem de menú recursivamente
     const findMenuItem = (items: MenuInfoBase[], nameToFind: string): MenuInfoTable | undefined => {
@@ -40,15 +38,19 @@ const MenuTablePage: React.FC = () => {
     };
 
     // Usa useMemo para determinar el tableName y los fixedFields desde el menú
-    const { currentTableName, currentFixedFields } = useMemo(() => {
+    const { currentTableName, currentFixedFields, parametros } = useMemo(() => {
         let tableName: string | undefined = undefined;
         let fixedFields: FixedField[] = [];
+        let parametros: ParametrosDeTabla = {};
     
         if (menuName && clientContext && clientContext.menu) {
             const menuItem = findMenuItem(clientContext.menu, menuName);
             if (menuItem) {
                 tableName = menuItem.table || menuItem.name;
-                fixedFields = fixedFieldsDeMenu(menuItem.ff);
+                // como backend-plus (wScreens.table de my-menu.js): lo que declara el ítem (ff, fc, td, pf, label...) y, encima,
+                // lo de la dirección
+                parametros = parametrosDeTabla(menuItem, search);
+                fixedFields = parametros.fixedFields ?? [];
             } else {
                 console.warn(`[${menuName}] Ítem de menú '${menuName}' no encontrado o no es de tipo 'table' en clientContext.menu.`);
                 // Opcional: podrías redirigir o mostrar un error más amigable
@@ -58,8 +60,9 @@ const MenuTablePage: React.FC = () => {
         return {
             currentTableName: tableName,
             currentFixedFields: fixedFields,
+            parametros,
         };
-    }, [menuName, clientContext]);
+    }, [menuName, clientContext, search]);
 
     if (!currentTableName) {
         // Muestra un mensaje de error si el nombre de la tabla no se pudo determinar
@@ -78,6 +81,7 @@ const MenuTablePage: React.FC = () => {
         <GenericDataGridPage 
             initialTableName={currentTableName} 
             initialFixedFields={currentFixedFields} 
+            parametros={parametros}
         />
     );
 };

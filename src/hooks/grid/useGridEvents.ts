@@ -6,6 +6,7 @@ import { DOM_TEMP_ID, FilaDeDatos, FilaDeResumen, FixedField, TeclaDeEditor } fr
 import { esFilaDetalle } from '../../components/grid/detalles';
 import { SortColumn } from './useGridDataView';
 import { direccionDeSalida, posicionDelCursor } from './teclasDeCelda';
+import { valorFijoDe } from '../../utils/fixedFields';
 
 interface UseGridEventsProps {
     dataGridRef: React.RefObject<DataGridHandle>
@@ -209,7 +210,7 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         // la fila de detalle contiene otra grilla: los clicks son de esa grilla
         if (esFilaDetalle(args.row)) return;
         const fieldDefinition = tableDefinition?.fields.find(f => f.name === args.column.key);
-        const isFixedField = fixedFields?.some(f => f.fieldName === args.column.key);
+        const isFixedField = valorFijoDe(fixedFields, args.column.key) !== undefined;
         const isEditable = fieldDefinition?.editable !== false && !isFixedField;
         if(isEditable){
             // antes se limpiaba el orden al clickear; ya no hace falta porque al editar

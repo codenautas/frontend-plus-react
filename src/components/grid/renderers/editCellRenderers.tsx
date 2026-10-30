@@ -2,6 +2,7 @@ import { RenderEditCellProps } from "react-data-grid";
 import InputRenderer from "../InputRenderer";
 import { ColumnaDeGrilla, esColumnaPropia } from "../GenericDataGrid";
 import { FilaDeDatos, FilaDeResumen } from "../../../types";
+import { valorFijoDe } from "../../../utils/fixedFields";
 
 export const allColumnsEditCellRenderer = (
     props: RenderEditCellProps<FilaDeDatos, FilaDeResumen>, 
@@ -25,7 +26,7 @@ export const allColumnsEditCellRenderer = (
                 const fieldDefinition = tableDefinition.fields.find(f => f.name === column.key);
                 
                 // Busca si el campo es fijo en el array fixedFields
-                const isFixedField = fixedFields?.some(f => f.fieldName === column.key);
+                const isFixedField = valorFijoDe(fixedFields, column.key) !== undefined;
                 const isFieldEditableByUI = fieldDefinition?.editable !== false && !isFixedField; // No editable si es fijo
                 
                 if (!isFieldEditableByUI) {

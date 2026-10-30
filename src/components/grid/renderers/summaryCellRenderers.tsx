@@ -3,6 +3,7 @@ import { FilaDeDatos, FilaDeResumen, FixedField } from "../../../types";
 import FilterInputRenderer from "../FilterInputRender";
 import { esColumnaPropia } from "../GenericDataGrid";
 import { Box } from "@mui/material";
+import { valorFijoDe } from "../../../utils/fixedFields";
 
 // La fila de filtros solo existe en topSummaryRows cuando está visible, por eso no hace falta recibir isFilterRowVisible
 export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<FilaDeResumen, FilaDeDatos>, fixedFields: FixedField[] | undefined) => {
@@ -12,9 +13,8 @@ export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<F
     if (row.id === 'filterRow') {
         const { filters, setFilters } = row; // Extraemos del row para estabilidad de columnas
         // Si el campo es fijo, no debe aparecer en los filtros
-        const fixedFieldEntry = fixedFields?.find(f => f.fieldName === column.key);
-        // El filtro solo se muestra si NO es un campo fijo O si es un campo fijo que sí tiene 'until' o bien si el filtro está deshabilitado
-        if (fixedFieldEntry && fixedFieldEntry.until === undefined) return null;
+        // El filtro solo se muestra si el campo no tiene un valor fijo (los fixedFields de rango, con 'until' o 'range', sí se filtran)
+        if (valorFijoDe(fixedFields, column.key)) return null;
 
         const fieldDef = esColumnaPropia(column) && column.customType === 'default' ? column.fieldDef : undefined;
         return (

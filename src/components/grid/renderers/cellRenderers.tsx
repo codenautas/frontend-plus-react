@@ -13,6 +13,7 @@ import { SvgIconTypeMap } from '@mui/material/SvgIcon';
 import { getPrimaryKeyValues } from '../utils/helpers';
 import { useCeldaPendiente, useFeedbackCelda } from '../estadoGrilla';
 import { BotonDetalle, CeldaDetalle, esFilaDetalle } from '../detalles';
+import { valorFijoDe } from '../../../utils/fixedFields';
 
 
 type ActionButtonDefinition = {
@@ -48,7 +49,7 @@ const CeldaDato = React.memo(function CeldaDato({ row, columnKey, defaultColumn 
     let cellBackgroundColor = 'transparent';
     if (currentCellFeedback) {
         cellBackgroundColor = currentCellFeedback.type === 'error' ? theme.palette.error.light : theme.palette.success.light;
-    } else if (fixedFields?.some(f => f.fieldName === columnKey)) {
+    } else if (valorFijoDe(fixedFields, columnKey)) {
         cellBackgroundColor = theme.palette.action.selected;
     } else if ((isMandatory && !hasValue) || pendiente) {
         cellBackgroundColor = '#e3f2fd'; // Celeste premium suave

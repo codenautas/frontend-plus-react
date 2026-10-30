@@ -1,28 +1,34 @@
 // src/pages/GenericDataGridPage.tsx
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Box, Alert, Typography, Tabs, Tab, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import GenericDataGrid from '../components/grid/GenericDataGrid';
 import { FixedField, Ancestor } from '../types';
 import { cambiarGuionesBajosPorEspacios } from '../utils/functions';
+import { ParametrosDeTabla, parametrosDeTabla } from '../utils/parametrosDeTabla';
 
 interface TabItem {
     id: string;
     label: string;
     tableName: string;
     fixedFields: FixedField[];
+    /** Lo que declara la dirección o el ítem de menú de la tabla principal (filtros iniciales, `td`, `pf`, `pick`) */
+    parametros?: ParametrosDeTabla;
     ancestors?: Ancestor[];
 }
 
 interface GenericDataGridPageProps {
     initialTableName?: string;
     initialFixedFields?: FixedField[];
+    /** Los parámetros de la tabla que ya resolvió quien la llama (el menú); sin ellos se leen de la dirección */
+    parametros?: ParametrosDeTabla;
 }
 
 const GenericDataGridPage: React.FC<GenericDataGridPageProps> = ({ 
     initialTableName, 
-    initialFixedFields = [] 
+    initialFixedFields = [],
+    parametros: parametrosRecibidos
 }) => {
     const { tableName: urlTableName } = useParams<{ tableName?: string }>();
     const effectiveTableName = initialTableName || urlTableName;
@@ -35,19 +41,24 @@ const GenericDataGridPage: React.FC<GenericDataGridPageProps> = ({
     const ffKey = JSON.stringify(initialFixedFields);
 
     const location = useLocation();
+    // como backend-plus: lo de la dirección (`ff`, `fc`, `td`, `pf`, `pick`, `label`) pisa a lo del menú
+    const parametros = useMemo(() => parametrosRecibidos ?? parametrosDeTabla(undefined, location.search), [parametrosRecibidos, location.search]);
+    const fixedFieldsIniciales = initialFixedFields.length > 0 ? initialFixedFields : (parametros.fixedFields ?? []);
+    const parametrosKey = JSON.stringify(parametros);
     React.useEffect(() => {
         if (effectiveTableName) {
             // Cada vez que cambia la tabla base (por menú o URL), reseteamos las pestañas
             setTabs([{
-                id: `main-${effectiveTableName}-${ffKey}`, // ID único que incluye filtros
-                label: effectiveTableName.replace(/_/g, ' ').toUpperCase(),
+                id: `main-${effectiveTableName}-${ffKey}-${parametrosKey}`, // ID único que incluye filtros
+                label: parametros.label ?? effectiveTableName.replace(/_/g, ' ').toUpperCase(),
                 tableName: effectiveTableName,
-                fixedFields: initialFixedFields,
+                fixedFields: fixedFieldsIniciales,
+                parametros,
                 ancestors: []
             }]);
             setActiveTabIdx(0);
         }
-    }, [effectiveTableName, ffKey, location.key]);
+    }, [effectiveTableName, ffKey, parametrosKey, location.key]);
 
     const handleOpenDetail = useCallback((tableName: string, fixedFields: FixedField[], label: string, ancestors: Ancestor[]) => {
         const tabId = `${tableName}-${JSON.stringify(fixedFields)}`;
@@ -112,6 +123,10 @@ const GenericDataGridPage: React.FC<GenericDataGridPageProps> = ({
                     <GenericDataGrid 
                         tableName={tab.tableName} 
                         fixedFields={tab.fixedFields} 
+                        filterColumns={tab.parametros?.filterColumns}
+                        tableDef={tab.parametros?.tableDef}
+                        parameterFunctions={tab.parametros?.parameterFunctions}
+                        pick={tab.parametros?.pick}
                         onOpenDetail={handleOpenDetail} 
                         ancestors={tab.ancestors}
                     />

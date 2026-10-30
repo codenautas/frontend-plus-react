@@ -55,6 +55,21 @@ describe('useGridDataView', () => {
         expect(nombres(result.current.filteredRows)).toEqual(['Ana', 'Anabel']);
     });
 
+    it('los filtros iniciales (fc de la dirección o del menú) muestran la fila de filtros ya aplicada', () => {
+        const { result } = vista(datos);
+        act(() => result.current.aplicarFiltrosIniciales([{ column: 'nombre', operator: '~', value: 'ana' }, { column: 'edad', operator: '>=', value: 20 }], definicion));
+        expect(result.current.isFilterRowVisible).toBe(true);
+        expect(result.current.filters).toEqual({ nombre: { operator: '~', value: 'ana' }, edad: { operator: '>=', value: '20' } });
+        expect(nombres(result.current.filteredRows)).toEqual(['Ana']);
+    });
+
+    it('un filtro inicial con el valor nulo queda vacío (no dice "null")', () => {
+        const { result } = vista(datos);
+        act(() => result.current.aplicarFiltrosIniciales([{ column: 'edad', operator: '∅', value: null }], definicion));
+        expect(result.current.filters).toEqual({ edad: { operator: '∅', value: '' } });
+        expect(nombres(result.current.filteredRows)).toEqual(['Anabel']);
+    });
+
     it('al ocultar la fila de filtros se vuelven a ver todas las filas', () => {
         const { result } = vista(datos);
         act(() => result.current.toggleFilterVisibility());

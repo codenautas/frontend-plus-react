@@ -109,6 +109,10 @@ export interface FixedField {
     fieldName: string;
     value: unknown;
     until?: unknown;
+    /** Como en backend-plus (my-tables.js): un fixedField con `range` o `until` no fija el valor de la columna (la deja visible y editable) */
+    range?: boolean;
+    /** Como en backend-plus: el campo fijo no oculta su columna */
+    show?: boolean;
 }
 
 export interface ConfirmDialogProps {

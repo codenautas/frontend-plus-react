@@ -10,6 +10,7 @@ import { allColumnsCellRenderer } from '../../components/grid/renderers/cellRend
 import { allColumnsEditCellRenderer } from '../../components/grid/renderers/editCellRenderers';
 import { isNumericType, typerFrom } from '../../components/grid/utils/helpers';
 import { esFilaDetalle } from '../../components/grid/detalles';
+import { columnaOcultaPorFixedField, valorFijoDe } from '../../utils/fixedFields';
 
 const estimateTextWidth = (text: string): number => text.length * 8 + 16;
 
@@ -82,12 +83,12 @@ export const useGridColumns = ({
     const columns: CustomColumn[] = useMemo(() => {
         if (!tableDefinition) return [];
         const fieldsToShow = tableDefinition.fields.filter((field: FieldDefinition) => {
-            const isFixedField = fixedFields?.some(f => f.fieldName === field.name);
-            return !isFixedField && field.visible !== false;
+            // como backend-plus: el campo fijo oculta su columna salvo que declare `show`; los de rango (range, until) no la ocultan
+            return !columnaOcultaPorFixedField(fixedFields, field.name) && field.visible !== false;
         });
 
         const defaultColumns: CustomColumn[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
-            const isFixedField = fixedFields?.some(f => f.fieldName === fieldDef.name);
+            const isFixedField = valorFijoDe(fixedFields, fieldDef.name) !== undefined;
             const isFieldEditable = fieldDef.editable !== false && !isFixedField;
             const colWidth = anchosCalculados.get(fieldDef.name) ?? estimateTextWidth(fieldDef.label || fieldDef.name) + 20;
             const column: DefaultColumn = {

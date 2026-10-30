@@ -28,6 +28,7 @@ import { ImportDialog } from './ImportDialog';
 import { ExportDialog } from './ExportDialog';
 import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
+import { aFiltrosIniciales, FiltroInicial, fusionar } from '../../utils/parametrosDeTabla';
 import { rutaBase } from '../../rutaBase';
 import { crearEstadoGrilla, EstadoGrillaContext, MapaFeedback, VistaGrillaContext } from './estadoGrilla';
 import {
@@ -64,6 +65,13 @@ const LIMITE_PRIMERAS_FILAS_ANIDADA = 30;
 interface GenericDataGridProps {
     tableName: string;
     fixedFields?: FixedField[];
+    /** Como en backend-plus (`fc` de la dirección o del menú): la fila de filtros con la que se abre la grilla */
+    filterColumns?: FiltroInicial[][];
+    /** `td`: lo que se le cambia a la definición de la tabla que manda el servidor */
+    tableDef?: Record<string, unknown>;
+    /** `pf` y `pick` de backend-plus: viajan con el pedido de datos */
+    parameterFunctions?: Record<string, unknown>;
+    pick?: string;
     /** Abre un detalle en otra pestaña (Ctrl+click o botón del medio en el botón del detalle) */
     onOpenDetail?: (tableName: string, fixedFields: FixedField[], label: string, ancestors: Ancestor[]) => void;
     gridStyles?: React.CSSProperties;
@@ -233,6 +241,10 @@ const StaticAncestorGrid: React.FC<{
 const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     tableName,
     fixedFields: fixedFieldsRecibidos,
+    filterColumns: filterColumnsRecibidos,
+    tableDef: tableDefRecibido,
+    parameterFunctions: parameterFunctionsRecibido,
+    pick: pickRecibido,
     gridStyles,
     onOpenDetail,
     ancestors = SIN_ANCESTROS,
@@ -248,6 +260,12 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     // se estabiliza por contenido para no volver a pedir los datos ni recrear las columnas
     const claveFixedFields = JSON.stringify(fixedFieldsRecibidos ?? null);
     const fixedFields = useMemo(() => fixedFieldsRecibidos, [claveFixedFields]); // eslint-disable-line react-hooks/exhaustive-deps
+    // lo mismo con el resto de lo que llega de la dirección o del menú
+    const claveParametros = JSON.stringify([filterColumnsRecibidos ?? null, tableDefRecibido ?? null, parameterFunctionsRecibido ?? null, pickRecibido ?? null]);
+    const parametros = useMemo(
+        () => ({ filterColumns: filterColumnsRecibidos, tableDef: tableDefRecibido, parameterFunctions: parameterFunctionsRecibido, pick: pickRecibido }),
+        [claveParametros] // eslint-disable-line react-hooks/exhaustive-deps
+    );
 
     // Cache compartido por toda la jerarquía de grillas (la grilla de más arriba lo crea)
     const cacheHeredado = useContext(CacheGrillasContext);
@@ -256,7 +274,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     // Lo guardado de esta grilla (si ya se mostró antes y salió de la pantalla por la virtualización)
     const [guardada] = useState(() => claveCache ? cache.get(claveCache) : undefined);
     // Qué tabla+fixedFields están cargados; si viene del cache ya están y no se vuelve a pedir
-    const claveCargadaRef = useRef<string | null>(guardada ? `${tableName}|${claveFixedFields}` : null);
+    const claveCargadaRef = useRef<string | null>(guardada ? `${tableName}|${claveFixedFields}|${claveParametros}` : null);
 
     const [tableDefinition, setTableDefinition] = useState<TableDefinition | null>(guardada?.tableDefinition ?? null);
     const [tableData, setTableData] = useState<FilaDeDatos[]>(guardada?.tableData ?? []);
@@ -298,7 +316,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
 
     const {
         sortColumns, setSortColumns, getInitialSortColumns, handleSortColumnsChange, resetSorting,
-        filters, setFilters, isFilterRowVisible, toggleFilterVisibility,
+        filters, setFilters, isFilterRowVisible, toggleFilterVisibility, aplicarFiltrosIniciales,
         filteredRows, summaryData, resetView
     } = useGridDataView({ tableData, tableDefinition });
 
@@ -395,7 +413,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     }, [tableName, estadoGrilla, resetView]);
 
     useEffect(() => {
-        const claveCarga = `${tableName}|${claveFixedFields}`;
+        const claveCarga = `${tableName}|${claveFixedFields}|${claveParametros}`;
         if (claveCargadaRef.current === claveCarga) {
             // Restaurada del cache: no se vuelve a pedir (como backend-plus al volver a desplegar un detalle)
             if (guardada) setSortColumns(guardada.sortColumns);
@@ -407,7 +425,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             setErrorDeCarga(null);
             try {
                 // Si ya hay una carga igual en curso (el modo desarrollo de React monta los efectos dos veces) se espera esa
-                const clavePedido = `${tableName}|${claveFixedFields}`;
+                const clavePedido = `${tableName}|${claveFixedFields}|${JSON.stringify([parametros.parameterFunctions ?? null, parametros.pick ?? null])}`;
                 let pedido = cargasEnCurso.get(clavePedido);
                 if (!pedido) {
                     const nuevo = (async () => {
@@ -421,7 +439,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         const data = requerido(
                             await callApi<FilaDeDatos[]>('table_data', {
                                 table: tableName,
-                                fixedFields: validFixedFields ?? []
+                                fixedFields: validFixedFields ?? [],
+                                // como backend-plus (TableConnector.getData); solo si vienen, para no cambiarle el pedido a quien no los usa
+                                ...(parametros.parameterFunctions ? { paramfun: parametros.parameterFunctions } : {}),
+                                ...(parametros.pick !== undefined ? { pick: parametros.pick } : {})
                             }, { isCritical: true }),
                             `los datos de '${tableName}'`
                         );
@@ -433,13 +454,19 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     nuevo.then(sacar, sacar);
                     pedido = nuevo;
                 }
-                const { definition, data } = await pedido;
+                const { definition: definicionDelServidor, data } = await pedido;
                 if (!vigente) return;
                 claveCargadaRef.current = claveCarga;
+                // como backend-plus (TableConnector.getStructure): lo de `td` se mezcla sobre la definición del servidor
+                const definition = parametros.tableDef ? fusionar(definicionDelServidor, parametros.tableDef) : definicionDelServidor;
                 setTableDefinition(definition);
                 setSortColumns(getInitialSortColumns(definition));
                 setAnchosCalculados(calcularAnchosDeColumnas(definition, data));
                 setTableData(data);
+                // la fila de filtros con la que se abre: la de la dirección o del menú (`fc`) o, si no, la de la definición
+                const filasDeFiltros = parametros.filterColumns ?? aFiltrosIniciales(definition.filterColumns);
+                if (filasDeFiltros.length > 1) console.warn(`'${tableName}': varias filas de filtros (alternativas) todavía no están soportadas; se aplica la primera`);
+                if (filasDeFiltros.length > 0) aplicarFiltrosIniciales(filasDeFiltros[0], definition);
             } catch (err) {
                 if (!vigente) return;
                 setTableDefinition(null);
@@ -454,7 +481,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         fetchDataAndDefinition();
         // si cambia la tabla antes de que llegue la respuesta, se descarta la respuesta vieja
         return () => { vigente = false; };
-    }, [tableName, claveFixedFields, fixedFields, showError, callApi, getInitialSortColumns, setSortColumns, guardada]);
+    }, [tableName, claveFixedFields, fixedFields, claveParametros, parametros, showError, callApi, getInitialSortColumns, setSortColumns, aplicarFiltrosIniciales, guardada]);
 
     // Se guarda el estado para poder volver a mostrar la grilla tal cual si se desmonta
     useEffect(() => {
