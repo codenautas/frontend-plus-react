@@ -28,6 +28,7 @@ import MenuTablePage from './pages/MenuTablePage';
 import { wScreens, extendWScreens } from './pages/WScreens';
 import { PantallaDeRespaldo, PaginaBP } from './puente/PantallaBP';
 import { PaginaGrillaBP } from './puente/GrillaBP';
+import { CapturaBP } from './puente/CapturaBP';
 import { habilitarPuenteBP, puenteBPHabilitado } from './puente/habilitacion';
 import { extendClientSides } from './components/grid/clientSides';
 import { extendConditions } from './components/grid/condiciones';
@@ -70,6 +71,7 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
         {/* Fuera de las rutas privadas: con la sesión válida pero el estado todavía sin cargar, PrivateRoute manda
             a /login; desde acá se vuelve a la ruta guardada (o a la pantalla de inicio) apenas el estado termina de cargarse. */}
         <InitialRedirectHandler />
+        {puenteBPHabilitado() && <CapturaBP />}
         <Routes>
             <Route element={UnloggedLayout ? <UnloggedLayout /> : <Outlet />}>
                 <Route path="/login" element={<LoginPage />} />
