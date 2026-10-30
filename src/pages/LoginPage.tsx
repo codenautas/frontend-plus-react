@@ -3,7 +3,6 @@ import { Button, TextField, Typography, Alert, AlertTitle, Box, CircularProgress
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useNavigate } from 'react-router-dom';
 
 // --- ¡NUEVAS IMPORTACIONES DE REDUX! ---
 import { useDispatch } from 'react-redux';
@@ -25,7 +24,6 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 const LoginPage = () => {
-    const navigate = useNavigate();
     const [loginError, setLoginError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -81,7 +79,8 @@ const LoginPage = () => {
             await dispatch(fetchClientContext()).unwrap();
 
             console.log("Login exitoso y clientContext cargado.");
-            navigate('/'); // la pantalla de inicio la resuelve PantallaInicial
+            // el destino lo decide InitialRedirectHandler (la ruta que se pidió antes del login o, si no hubo, el inicio): navegar acá
+            // también pisaría esa ruta con la pantalla de inicio
             reset(); // Limpia el formulario
         } catch (error) {
             console.error("Error al iniciar sesión:", error);
