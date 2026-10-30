@@ -111,7 +111,7 @@ export interface DefaultColumn extends BaseCustomColumn {
     primaryKey: string[],
     fixedFields: FixedField[] | undefined,
     registrarEditor: (procesar: (key: string) => void) => () => void,
-    handleKeyPressInEditor: (rowIndex: number, columnKey: string, event: TeclaDeEditor, currentColumns: ColumnaDeGrilla[], handleCommit: (currentValue: unknown, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void
+    handleKeyPressInEditor: (rowIndex: number, columnKey: string, event: TeclaDeEditor, currentColumns: ColumnaDeGrilla[], handleCommit: (currentValue: unknown, closeEditor: boolean, focusNextCell: boolean) => Promise<void>, valorActual: unknown) => boolean
 }
 
 export interface DetailColumn extends BaseCustomColumn {

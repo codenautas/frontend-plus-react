@@ -5,6 +5,7 @@ import { ColumnaDeGrilla, esColumnaPropia } from '../../components/grid/GenericD
 import { DOM_TEMP_ID, FilaDeDatos, FilaDeResumen, FixedField, TeclaDeEditor } from '../../types';
 import { esFilaDetalle } from '../../components/grid/detalles';
 import { SortColumn } from './useGridDataView';
+import { direccionDeSalida, posicionDelCursor } from './teclasDeCelda';
 
 interface UseGridEventsProps {
     dataGridRef: React.RefObject<DataGridHandle>
@@ -40,6 +41,8 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
     // la tecla se le pasa directo; si no hay (todavía no se montó), se guarda y la toma el próximo que se registre.
     const teclasPendientes = useRef<{ key: string, cuando: number }[]>([]);
     const editorActivo = useRef<((key: string) => void) | null>(null);
+    // la última tecla que se apretó en un editor: → solo deja la celda si la anterior también fue → (como backend-plus)
+    const teclaAnteriorRef = useRef<string | null>(null);
     const registrarEditor = useCallback((procesar: (key: string) => void): (() => void) => {
         editorActivo.current = procesar;
         const cola = teclasPendientes.current;
@@ -49,7 +52,9 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         return () => { if (editorActivo.current === procesar) editorActivo.current = null; };
     }, []);
 
-    const handleKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, event: TeclaDeEditor, currentColumns: ColumnaDeGrilla[], handleCommit:(currentValue: unknown, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => {
+    const handleKeyPressInEditor = useCallback((rowIndex: number, columnKey: string, event: TeclaDeEditor, currentColumns: ColumnaDeGrilla[], handleCommit:(currentValue: unknown, closeEditor: boolean, focusNextCell: boolean) => Promise<void>, valorActual: unknown): boolean => {
+        // true si la tecla la resolvió la grilla (dejó la celda o no había adónde ir): el editor cancela su efecto nativo (el Tab, por ejemplo)
+        let resuelta = false;
         const tableDefinition = tableDefinitionRef.current;
         const filteredRows = filteredRowsRef.current;
         if (dataGridRef.current && tableDefinition) {
@@ -59,7 +64,10 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
                 return col.key !== 'actionsColumn' && !(esColumnaPropia(col) && col.customType === 'detail') && (fieldDefinition?.editable !== false && !fieldDefinition?.clientSide);
             });
             const {key, target} = event;
-            const input = target as HTMLInputElement;
+            // como backend-plus: lo que hace la flecha → depende de la tecla anterior (ver direccionDeSalida)
+            const teclaAnterior = teclaAnteriorRef.current;
+            teclaAnteriorRef.current = key;
+            const direccion = direccionDeSalida(event, posicionDelCursor(target), teclaAnterior);
 
             if (currentColumnIndex !== -1 && editableColumns.length > 0) {
                 const editableColumnKeys = editableColumns.map(col => col.key);
@@ -93,15 +101,22 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
                     return {rowIdx: nextRowIndex, idx:nextColumnIndex}
                 }
                 
-                const calcularColumnaAnterior = ()=>{
-                    let nextEditableColumnIndex = currentEditableColumnIndex - 1;
-                    let nextRowIndex = rowIndex;
-                    if (nextEditableColumnIndex <= 0) {
-                        nextEditableColumnIndex = 0;
-                    }
-                    const nextColumnKey = editableColumnKeys[nextEditableColumnIndex];
-                    const nextColumnIndex = currentColumns.findIndex(col => col.key === nextColumnKey);
-                    return {rowIdx: nextRowIndex, idx:nextColumnIndex}
+                const indiceDeColumna = (indiceEditable: number) => currentColumns.findIndex(col => col.key === editableColumnKeys[indiceEditable]);
+                // Shift+Tab: la celda editable anterior; al pasar la primera, la última de la fila de arriba (null si no hay)
+                const calcularColumnaAnteriorConSalto = () => {
+                    if (currentEditableColumnIndex > 0) return {rowIdx: rowIndex, idx: indiceDeColumna(currentEditableColumnIndex - 1)};
+                    const filaAnterior = filaDeDatos(rowIndex, -1);
+                    return filaAnterior === -1 ? null : {rowIdx: filaAnterior, idx: indiceDeColumna(editableColumnKeys.length - 1)};
+                }
+                // ← y →: la celda editable de al lado en la misma fila (null en los extremos: no saltan de fila)
+                const calcularColumnaVecina = (paso: 1 | -1) => {
+                    const vecina = currentEditableColumnIndex + paso;
+                    return vecina < 0 || vecina >= editableColumnKeys.length ? null : {rowIdx: rowIndex, idx: indiceDeColumna(vecina)};
+                }
+                // ↑ y ↓: la misma columna en la fila de datos de arriba o de abajo (null si no hay)
+                const calcularFilaVecina = (paso: 1 | -1) => {
+                    const vecina = filaDeDatos(rowIndex, paso);
+                    return vecina === -1 ? null : {rowIdx: vecina, idx: currentColumnIndex};
                 }
                 
                 const calcularFilaSiguiente = ()=>{
@@ -109,42 +124,26 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
                     return {rowIdx: nextRowIndex === -1 ? rowIndex : nextRowIndex, idx:currentColumnIndex}
                 }
 
-                const calcularFilaAnterior = ()=>{
-                    const nextRowIndex = filaDeDatos(rowIndex, -1);
-                    return {rowIdx: nextRowIndex === -1 ? rowIndex : nextRowIndex, idx:currentColumnIndex}
-                }
                 
                 if (currentEditableColumnIndex !== -1) {
                     switch(true){
-                        case ['Enter','Tab'].includes(key): {
-                            hacerFoco(calcularColumnaSiguiente());
-                            break;
-                        }
-                        case (key === 'ArrowRight'): {
-                            if (input && typeof input.selectionStart === 'number') {
-                                const cursorPosition = input.selectionStart;
-                                const inputValueLength = input.value?.length || 0;
-                                if(cursorPosition === inputValueLength){
-                                    hacerFoco(calcularColumnaSiguiente());
-                                }
+                        case (direccion !== null): {
+                            // la tecla es de la grilla aunque no haya adónde ir (en el borde): no se deja que haga lo suyo
+                            resuelta = true;
+                            const destino = {
+                                siguiente: calcularColumnaSiguiente,
+                                anterior: calcularColumnaAnteriorConSalto,
+                                izquierda: () => calcularColumnaVecina(-1),
+                                derecha: () => calcularColumnaVecina(1),
+                                arriba: () => calcularFilaVecina(-1),
+                                abajo: () => calcularFilaVecina(1),
+                            }[direccion]();
+                            if (destino) {
+                                // como dejar la celda de cualquier otra forma: se guarda (el cambio de la fila se aplica en el acto
+                                // y el guardado sigue en segundo plano) y el foco pasa a la celda de destino
+                                void handleCommit(valorActual, true, true);
+                                hacerFoco(destino);
                             }
-                            break;
-                        }
-                        case (key === 'ArrowLeft'): {
-                            if (input && typeof input.selectionStart === 'number') {
-                                const cursorPosition = input.selectionStart;
-                                if(cursorPosition === 0){
-                                    hacerFoco(calcularColumnaAnterior());
-                                }
-                            }
-                            break;
-                        }
-                        case (key === 'ArrowUp'): {
-                            hacerFoco(calcularFilaAnterior());
-                            break;
-                        }
-                        case (key === 'ArrowDown'): {
-                            hacerFoco(calcularFilaSiguiente());
                             break;
                         }
                         case (key === 'F4'): {
@@ -176,6 +175,7 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
                 }    
             }        
         }
+        return resuelta;
     }, [dataGridRef]);
 
     const handleCellKeyDown = useCallback((args: CellKeyDownArgs<FilaDeDatos, FilaDeResumen>, event: CellKeyboardEvent) => {

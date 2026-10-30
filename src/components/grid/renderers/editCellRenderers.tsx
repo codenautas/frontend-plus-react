@@ -38,7 +38,7 @@ export const allColumnsEditCellRenderer = (
                     <InputRenderer
                         {...props}
                         tableDefinition={tableDefinition}
-                        onKeyPress={(rowIndex, columnKey, event, handleCommit) => handleKeyPressInEditor(rowIndex, columnKey, event, allColumns, handleCommit)}
+                        onKeyPress={(rowIndex, columnKey, event, handleCommit, valorActual) => handleKeyPressInEditor(rowIndex, columnKey, event, allColumns, handleCommit, valorActual)}
                         registrarEditor={registrarEditor}
                         setTableData={setTableData}
                         primaryKey={primaryKey}

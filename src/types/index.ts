@@ -70,7 +70,7 @@ export type CellFeedbackMap = Map<string, CellFeedback>;
 // Nota: También podrías usar Record<string, CellFeedback> si prefieres objetos.
 
 /** Lo que el manejo de teclas del editor necesita saber de la tecla (sirve para un evento real o uno encolado) */
-export type TeclaDeEditor = Pick<React.KeyboardEvent, 'key' | 'target'>;
+export type TeclaDeEditor = Pick<React.KeyboardEvent, 'key' | 'target'> & Partial<Pick<React.KeyboardEvent, 'shiftKey' | 'ctrlKey' | 'altKey' | 'metaKey'>>;
 
 export interface InputRendererProps<R extends FilaDeDatos, S> {
     column: Column<R, S>,
@@ -80,7 +80,8 @@ export interface InputRendererProps<R extends FilaDeDatos, S> {
     onClose: (commitChanges?: boolean, shouldFocusCell?: boolean) => void;
     tableDefinition: TableDefinition,
     // el feedback y los cambios locales se leen y escriben en el EstadoGrilla (ver estadoGrilla.ts)
-    onKeyPress?: (rowIndex: number, columnKey: string, event: TeclaDeEditor, handleCommit:(currentValue: unknown, closeEditor: boolean, focusNextCell: boolean) => Promise<void>) => void;
+    /** Con cada tecla del editor. `valorActual` es el texto que tiene el editor; devuelve true si la tecla la resolvió la grilla (dejó la celda) y hay que cancelar su efecto nativo */
+    onKeyPress?: (rowIndex: number, columnKey: string, event: TeclaDeEditor, handleCommit:(currentValue: unknown, closeEditor: boolean, focusNextCell: boolean) => Promise<void>, valorActual: unknown) => boolean;
     /** El editor se registra para recibir las teclas (F4) que caen en la celda antes de que él tenga el foco; devuelve la baja */
     registrarEditor?: (procesar: (key: string) => void) => () => void;
     setTableData: React.Dispatch<React.SetStateAction<FilaDeDatos[]>>;

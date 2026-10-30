@@ -249,18 +249,16 @@ function InputRenderer<R extends FilaDeDatos, S>({
         if (event.key === 'F4') {
             event.preventDefault();
             if (onKeyPress) {
-                onKeyPress(rowIdx, column.key, event, handleCommit);
+                onKeyPress(rowIdx, column.key, event, handleCommit, editingValue);
             }
             return;
         }
 
-        if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft'].includes(event.key)) {
-            // El cambio de la fila se aplica en el acto (dentro de handleCommit, antes de su primer await);
-            // lo que sigue es el guardado en el servidor, que no tiene por qué demorar el paso a la celda siguiente.
-            void handleCommit(editingValue, true, true);
-            if (onKeyPress) {
-                onKeyPress(rowIdx, column.key, event, handleCommit);
-            }
+        // Con cada tecla (la grilla lleva la cuenta de la anterior): ella decide si deja la celda (Enter, Tab, flechas; ver
+        // direccionDeSalida) y, si la deja, guarda y pasa el foco. Una flecha que solo mueve el cursor dentro del texto no guarda.
+        // Lo que resuelve la grilla no puede hacer además lo suyo: el Tab nativo mandaría el foco a otro lado.
+        if (onKeyPress?.(rowIdx, column.key, event, handleCommit, editingValue)) {
+            event.preventDefault();
         }
     }, [handleCommit, editingValue, column.key, rowIdx, onKeyPress]);
 
@@ -269,7 +267,7 @@ function InputRenderer<R extends FilaDeDatos, S>({
     const procesarTecla = React.useRef<(key: string) => void>(() => {});
     procesarTecla.current = (key: string) => {
         if (key === 'F4' && onKeyPress) {
-            onKeyPress(rowIdx, column.key, { key, target: document.activeElement ?? document.body }, handleCommit);
+            onKeyPress(rowIdx, column.key, { key, target: document.activeElement ?? document.body }, handleCommit, editingValue);
         }
     };
     useEffect(() => registrarEditor?.((key) => procesarTecla.current(key)), []); // eslint-disable-line react-hooks/exhaustive-deps
