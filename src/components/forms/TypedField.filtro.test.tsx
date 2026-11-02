@@ -42,6 +42,22 @@ describe('los expanders en la fila de filtros', () => {
         expect(valido).toBe(true);
     });
 
+    it('el booleano en el filtro es un texto como los demás: se escribe, o F9 ofrece Sí y No (sin vacío) y lo elegido se escribe en el filtro', () => {
+        const { onChange, entrada } = filtro({ name: 'activo', typeName: 'boolean' });
+        fireEvent.change(entrada, { target: { value: 's' } });
+        expect(onChange).toHaveBeenLastCalledWith('activo', 's', true);
+        fireEvent.keyDown(entrada, { key: 'F9' });
+        expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual(['Sí', 'No']);
+        fireEvent.click(screen.getByRole('option', { name: 'No' }));
+        expect(onChange).toHaveBeenLastCalledWith('activo', 'no', true);
+    });
+
+    it('fuera de la fila de filtros el booleano sigue siendo una lista desplegable', () => {
+        render(<TypedField fieldDef={{ name: 'activo', typeName: 'boolean' }} value={null} onChange={vi.fn()} />);
+        expect(screen.queryByRole('textbox')).toBeNull();
+        expect(screen.getByRole('combobox')).toBeTruthy();
+    });
+
     it('un campo común no tiene expander en el filtro: F9 no abre nada, ni ventana de texto', () => {
         const { entrada } = filtro(comun);
         fireEvent.keyDown(entrada, { key: 'F9' });

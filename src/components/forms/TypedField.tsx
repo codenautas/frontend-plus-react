@@ -33,7 +33,8 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
     const theme = useTheme();
 
     const typer = useMemo(() => typeStore.typerFrom(fieldDef), [fieldDef]);
-    const isBoolean = fieldDef.typeName === 'boolean';
+    // en la fila de filtros el booleano es un texto con sus expanders, como los demás campos (se escribe s / n, o se elige con F9 o la lupa)
+    const isBoolean = fieldDef.typeName === 'boolean' && !isFilterMode;
 
     // Para campos de texto/números/fechas mantenemos un valor en string (local config)
     const [localString, setLocalString] = useState<string>(() => {
@@ -69,8 +70,8 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
         }
     }, [value, typer, isBoolean, isFilterMode]);
 
-    // Los expanders de backend-plus (F9 o Alt+↓ y la lupa) en la fila de filtros: las filas de la tabla referenciada, las `options` y un calendario.
-    // Lo que se elige se escribe como texto del filtro. El booleano ya es una lista y la ventana de texto no sirve para filtrar.
+    // Los expanders de backend-plus (F9 o Alt+↓ y la lupa) en la fila de filtros: las filas de la tabla referenciada, Sí / No, las `options` y un
+    // calendario. Lo que se elige se escribe como texto del filtro. La ventana de texto no sirve para filtrar.
     const entradaRef = useRef<HTMLInputElement | null>(null);
     const [enfocado, setEnfocado] = useState(false);
     const escribirEnFiltro = useCallback((texto: string) => {
@@ -83,11 +84,11 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
         editable: true,
         fila: null,
         admiteNulo: false,
-        tipos: isFilterMode ? ['referencia', 'opciones', 'fecha'] : [],
+        tipos: isFilterMode ? ['referencia', 'booleano', 'opciones', 'fecha'] : [],
         anclaje: entradaRef,
         textoActual: localString,
         valorActual: localString,
-        alElegirValor: (valor: unknown) => escribirEnFiltro(valor === null || valor === undefined ? '' : String(valor)),
+        alElegirValor: (valor: unknown) => escribirEnFiltro(valor === null || valor === undefined ? '' : typeof valor === 'boolean' ? typer.toLocalString(valor) : String(valor)),
         alConfirmarTexto: (texto: string | null) => escribirEnFiltro(texto ?? ''),
         alFallar: (mensaje: string) => setErrorMsg(mensaje),
     });
