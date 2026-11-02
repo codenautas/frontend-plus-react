@@ -18,12 +18,17 @@ import { getPrimaryKeyValues, sameValue } from '../components/grid/utils/helpers
 
 import typeStore from 'type-store';
 import { mensajeDeError } from '../utils/errores';
+import { campoDibujable } from '../utils/columnasOcultas';
+
+const SIN_OCULTAS: ReadonlySet<string> = new Set();
 
 export interface VerticalEditorPageProps {
     tableName: string;
     tableDefinition: TableDefinition;
     initialData: FilaDeDatos; // Puede tener nulos
     fixedFields?: FixedField[];
+    /** Las columnas que la grilla tiene ocultas: tampoco se ven en la ficha (como en backend-plus, que las oculta en el modo vertical) */
+    columnasOcultas?: ReadonlySet<string>;
     isNewRow?: boolean;
     onSaveSuccess: (savedRow: FilaDeDatos, isNewRow: boolean) => void;
     onClose: () => void;
@@ -34,6 +39,7 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
     tableDefinition,
     initialData,
     fixedFields,
+    columnasOcultas = SIN_OCULTAS,
     isNewRow = false,
     onSaveSuccess,
     onClose: onClose
@@ -203,7 +209,7 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
                 )}
 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    {tableDefinition.fields.map(field => {
+                    {tableDefinition.fields.filter(field => campoDibujable(field) && !columnasOcultas.has(field.name)).map(field => {
                         const isFixed = fixedFields?.some(ff => ff.fieldName === field.name);
                         const isMandatory = field.nullable === false || tableDefinition.primaryKey.includes(field.name);
                         return (

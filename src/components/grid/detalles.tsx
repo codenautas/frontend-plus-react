@@ -70,6 +70,7 @@ export interface GrillaGuardada {
     tableDefinition: TableDefinition;
     tableData: FilaDeDatos[];
     anchosCalculados: Map<string, number>;
+    columnasOcultas: string[];
     sortColumns: readonly SortColumn[];
     detallesAbiertos: string[];
     altosDetalle: Map<string, number>;
@@ -109,9 +110,8 @@ export function BotonDetalle({ row, rowId, detailTable, deshabilitado }: BotonDe
     // la `condition` del detalle (función de la aplicación) puede ocultar el botón para algunas filas
     if (!cumpleCondicion(detailTable.condition, row)) return <div className="fpr-boton-detalle" />;
     const abierto = abiertos.has(claveDetalle(rowId, detailTable));
-    const titulo = deshabilitado
-        ? 'Grabá la fila para ver sus detalles'
-        : `${detailTable.label || detailTable.abr}${abierto ? ' (replegar)' : ''} — Ctrl+click: en otra pestaña`;
+    // el nombre del detalle se ve en el encabezado de la columna; acá solo se avisa por qué el botón no anda
+    const titulo = deshabilitado ? 'Grabá la fila para ver sus detalles' : '';
     return (
         <Tooltip title={titulo}>
             <span className="fpr-boton-detalle">

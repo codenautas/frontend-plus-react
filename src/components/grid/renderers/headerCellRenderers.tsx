@@ -8,7 +8,7 @@ import { DetailTable } from "backend-plus";
 import { FieldDefinition, FilaDeDatos, FilaDeResumen } from "../../../types";
 import { useVistaGrilla } from "../estadoGrilla";
 
-export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<FilaDeDatos, FilaDeResumen>, fieldDef: FieldDefinition) => {
+export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<FilaDeDatos, FilaDeResumen>, fieldDef: FieldDefinition, ocultarColumna?: (columna: string) => void) => {
     // react-data-grid ya informa el orden de la columna: no hace falta pasar sortColumns
     // (y así las columnas no se recrean cada vez que cambia el orden)
     const { column, sortDirection, priority } = props;
@@ -30,6 +30,12 @@ export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<Fil
 
     return (
         <Box
+            // como backend-plus: Alt+clic en el encabezado oculta la columna (en la captura, para que react-data-grid no la ordene)
+            onClickCapture={e => {
+                if (!e.altKey || !ocultarColumna) return;
+                e.stopPropagation();
+                ocultarColumna(fieldDef.name);
+            }}
             sx={{
                 display: 'flex',
                 alignItems: 'center',

@@ -20,11 +20,14 @@ import * as XLSX from 'xlsx';
 import typeAr from 'like-ar';
 import typeStore from 'type-store';
 import { FieldDefinition, FilaDeDatos, TableDefinition } from '../../types';
+import { campoDibujable } from '../../utils/columnasOcultas';
 
 interface ExportDialogProps {
     open: boolean;
     onClose: () => void;
     tableDefinition: TableDefinition;
+    /** Las columnas que la grilla tiene ocultas: no se exportan salvo que se pida (`hiddens`), como en backend-plus */
+    columnasOcultas: ReadonlySet<string>;
     tableData: FilaDeDatos[];
     filteredRows: FilaDeDatos[];
     username?: string;
@@ -36,6 +39,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
     open,
     onClose,
     tableDefinition,
+    columnasOcultas,
     tableData,
     filteredRows,
     username = 'anonymous'
@@ -70,14 +74,12 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
     const executeExport = async () => {
         const fieldsDef2Export = tableDefinition.fields.filter((fieldDef: FieldDefinition) => {
-            const isVisible = fieldDef.visible !== false;
             // Simplificación de la lógica legada adaptada a FieldDefinition
             return (fieldDef.inTable !== false || options.fromOtherTables)
-                && isVisible
+                && campoDibujable(fieldDef)
                 && (fieldDef.editable !== false || options.readOnly || (tableDefinition.primaryKey?.includes(fieldDef.name)))
-                // Nota: La lógica de 'hiddens' en la grilla original dependía de 'grid.view.hiddenColumns'.
-                // Aquí, si hiddens es false, solo exportamos los visibles.
-                && (isVisible || options.hiddens);
+                // como backend-plus (grid.view.hiddenColumns): las ocultas solo se exportan si se pide
+                && (!columnasOcultas.has(fieldDef.name) || options.hiddens);
         });
 
         if (format === 'xlsx') {

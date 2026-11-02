@@ -11,6 +11,7 @@ import { allColumnsEditCellRenderer } from '../../components/grid/renderers/edit
 import { isNumericType, typerFrom } from '../../components/grid/utils/helpers';
 import { esFilaDetalle } from '../../components/grid/detalles';
 import { columnaOcultaPorFixedField, valorFijoDe } from '../../utils/fixedFields';
+import { campoDibujable } from '../../utils/columnasOcultas';
 
 const estimateTextWidth = (text: string): number => text.length * 8 + 16;
 
@@ -53,6 +54,9 @@ interface UseGridColumnsProps {
     tableDefinition: TableDefinition | null;
     anchosCalculados: Map<string, number>;
     fixedFields?: FixedField[];
+    /** Las columnas que el usuario tiene ocultas (`hiddenColumns` de la definición y lo que ocultó él); un cambio acá sí rearma las columnas */
+    columnasOcultas: ReadonlySet<string>;
+    ocultarColumna: (columna: string) => void;
     primaryKey: string[];
     setTableData: React.Dispatch<React.SetStateAction<FilaDeDatos[]>>;
     handleKeyPressInEditor: DefaultColumn['handleKeyPressInEditor'];
@@ -74,6 +78,8 @@ export const useGridColumns = ({
     tableDefinition,
     anchosCalculados,
     fixedFields,
+    columnasOcultas,
+    ocultarColumna,
     primaryKey,
     setTableData,
     handleKeyPressInEditor,
@@ -89,7 +95,8 @@ export const useGridColumns = ({
         if (!tableDefinition) return [];
         const fieldsToShow = tableDefinition.fields.filter((field: FieldDefinition) => {
             // como backend-plus: el campo fijo oculta su columna salvo que declare `show`; los de rango (range, until) no la ocultan
-            return !columnaOcultaPorFixedField(fixedFields, field.name) && field.visible !== false;
+            // los `visible: false` no se dibujan nunca; las ocultas son las `hiddenColumns` de la definición y lo que oculte el usuario
+            return campoDibujable(field) && !columnaOcultaPorFixedField(fixedFields, field.name) && !columnasOcultas.has(field.name);
         });
 
         const defaultColumns: CustomColumn[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
@@ -115,7 +122,7 @@ export const useGridColumns = ({
                 registrarEditor,
                 width: colWidth,
                 minWidth: 40,
-                renderHeaderCell: (props: RenderHeaderCellProps<FilaDeDatos, FilaDeResumen>) => defaultColumnHeaderCellRenderer(props, fieldDef),
+                renderHeaderCell: (props: RenderHeaderCellProps<FilaDeDatos, FilaDeResumen>) => defaultColumnHeaderCellRenderer(props, fieldDef, ocultarColumna),
                 renderSummaryCell: (props: RenderSummaryCellProps<FilaDeResumen, FilaDeDatos>) => defaultColumnSummaryCellRenderer(props, fixedFields),
             };
             return column;
@@ -184,7 +191,7 @@ export const useGridColumns = ({
             renderCell: (props: RenderCellProps<FilaDeDatos, FilaDeResumen>) => allColumnsCellRenderer(props),
         }));
 
-    }, [tableDefinition, anchosCalculados, fixedFields, primaryKey, setTableData, handleKeyPressInEditor, registrarEditor, handleDeleteRow, handleAddRow, handleVerticalEditRow, toggleFilterVisibility, abrirOpcionesDeGrilla]);
+    }, [tableDefinition, anchosCalculados, fixedFields, columnasOcultas, ocultarColumna, primaryKey, setTableData, handleKeyPressInEditor, registrarEditor, handleDeleteRow, handleAddRow, handleVerticalEditRow, toggleFilterVisibility, abrirOpcionesDeGrilla]);
 
     return { columns };
 };

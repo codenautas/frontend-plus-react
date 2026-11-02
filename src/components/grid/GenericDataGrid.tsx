@@ -26,10 +26,13 @@ import { useGridMenu } from '../../hooks/grid/useGridMenu';
 import { calcularAnchosDeColumnas, useGridColumns } from '../../hooks/grid/useGridColumns';
 import { ImportDialog } from './ImportDialog';
 import { ExportDialog } from './ExportDialog';
+import { DialogoDeColumnas } from './DialogoDeColumnas';
 import { VentanaDeTexto } from './VentanaDeTexto';
 import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 import { aFiltrosIniciales, FiltroInicial, fusionar } from '../../utils/parametrosDeTabla';
+import { campoDibujable, columnasOcultasIniciales } from '../../utils/columnasOcultas';
+import { columnaOcultaPorFixedField } from '../../utils/fixedFields';
 import { rutaBase } from '../../rutaBase';
 import { crearEstadoGrilla, EstadoGrillaContext, MapaFeedback, VistaGrillaContext } from './estadoGrilla';
 import {
@@ -282,6 +285,13 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const [cargandoInicial, setCargandoInicial] = useState(!guardada);
     const [errorDeCarga, setErrorDeCarga] = useState<string | null>(null);
     const [anchosCalculados, setAnchosCalculados] = useState<Map<string, number>>(() => guardada?.anchosCalculados ?? new Map());
+    // Columnas ocultas: arrancan con las de la definición (columnasOcultasIniciales) y el usuario las muestra u oculta
+    const [columnasOcultas, setColumnasOcultas] = useState<string[]>(() => guardada?.columnasOcultas ?? []);
+    const [openDialogoDeColumnas, setOpenDialogoDeColumnas] = useState(false);
+    const conjuntoDeOcultas = useMemo(() => new Set(columnasOcultas), [columnasOcultas]);
+    const ocultarColumna = useCallback((columna: string) => setColumnasOcultas(anteriores => anteriores.includes(columna) ? anteriores : [...anteriores, columna]), []);
+    const alternarColumna = useCallback((columna: string) => setColumnasOcultas(anteriores => anteriores.includes(columna) ? anteriores.filter(oculta => oculta !== columna) : [...anteriores, columna]), []);
+    const abrirDialogoDeColumnas = useCallback(() => setOpenDialogoDeColumnas(true), []);
     // Detalles desplegados (claves `${rowId}|${abr}`) y el alto que pidió cada grilla anidada
     const [detallesAbiertos, setDetallesAbiertos] = useState<string[]>(guardada?.detallesAbiertos ?? []);
     const [altosDetalle, setAltosDetalle] = useState<Map<string, number>>(() => guardada?.altosDetalle ?? new Map());
@@ -472,6 +482,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 setTableDefinition(definition);
                 setSortColumns(getInitialSortColumns(definition));
                 setAnchosCalculados(calcularAnchosDeColumnas(definition, data));
+                setColumnasOcultas(columnasOcultasIniciales(definition));
                 setTableData(data);
                 // la fila de filtros con la que se abre: la de la dirección o del menú (`fc`) o, si no, la de la definición
                 const filasDeFiltros = parametros.filterColumns ?? aFiltrosIniciales(definition.filterColumns);
@@ -496,8 +507,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     // Se guarda el estado para poder volver a mostrar la grilla tal cual si se desmonta
     useEffect(() => {
         if (!claveCache || !tableDefinition || cargandoInicial) return;
-        cache.set(claveCache, { tableDefinition, tableData, anchosCalculados, sortColumns, detallesAbiertos, altosDetalle });
-    }, [cache, claveCache, tableDefinition, tableData, anchosCalculados, sortColumns, detallesAbiertos, altosDetalle, cargandoInicial]);
+        cache.set(claveCache, { tableDefinition, tableData, anchosCalculados, columnasOcultas, sortColumns, detallesAbiertos, altosDetalle });
+    }, [cache, claveCache, tableDefinition, tableData, anchosCalculados, columnasOcultas, sortColumns, detallesAbiertos, altosDetalle, cargandoInicial]);
 
     // El feedback de éxito se borra solo al rato; el de error queda hasta la próxima edición
     useEffect(() => {
@@ -541,6 +552,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         resetSorting: tableDefinition ? resetSortingDeLaTabla : undefined,
         triggerImport: abrirImportacion,
         triggerExport: abrirExportacion,
+        abrirColumnas: abrirDialogoDeColumnas,
     });
 
     const abrirOpcionesDeGrilla = useCallback((anchorEl: HTMLElement) => {
@@ -557,6 +569,8 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         tableDefinition,
         anchosCalculados,
         fixedFields,
+        columnasOcultas: conjuntoDeOcultas,
+        ocultarColumna,
         primaryKey,
         setTableData,
         handleKeyPressInEditor,
@@ -884,9 +898,17 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 open={openExportDialog}
                 onClose={() => setOpenExportDialog(false)}
                 tableDefinition={tableDefinition}
+                columnasOcultas={conjuntoDeOcultas}
                 tableData={tableData}
                 filteredRows={filteredRows}
                 username={usuario || 'anonymous'}
+            />
+            <DialogoDeColumnas
+                open={openDialogoDeColumnas}
+                onClose={() => setOpenDialogoDeColumnas(false)}
+                columnas={(tableDefinition?.fields ?? []).filter(campoDibujable).map(field => field.name).filter(nombre => !columnaOcultaPorFixedField(fixedFields, nombre))}
+                ocultas={conjuntoDeOcultas}
+                alternarColumna={alternarColumna}
             />
             <ConfirmDialog
                 open={openConfirmDialog}
@@ -926,6 +948,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         tableDefinition={tableDefinition}
                         initialData={rowToEditVertical}
                         fixedFields={fixedFields}
+                        columnasOcultas={conjuntoDeOcultas}
                         isNewRow={!!rowToEditVertical[NEW_ROW_INDICATOR]}
                         onSaveSuccess={(savedRow, isNewItem) => {
                             setRowToEditVertical(savedRow);

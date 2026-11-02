@@ -20,6 +20,7 @@ interface UseGridMenuProps {
     resetSorting?: () => void;
     triggerImport?: () => void;
     triggerExport?: () => void;
+    abrirColumnas?: () => void;
 }
 
 export const useGridMenu = ({
@@ -31,6 +32,7 @@ export const useGridMenu = ({
     resetSorting,
     triggerImport,
     triggerExport,
+    abrirColumnas,
 }: UseGridMenuProps) => {
 
     const { showSuccess, showError, showWarning } = useSnackbar();
@@ -72,7 +74,7 @@ export const useGridMenu = ({
             id: 'hideColumns',
             label: 'ocultar o mostrar columnas',
             icon: React.createElement(VisibilityOffIcon),
-            handler: async () => { console.log('Ocultar/mostrar columnas'); },
+            handler: async () => { abrirColumnas?.(); },
             visible: true
         });
 
@@ -123,7 +125,7 @@ export const useGridMenu = ({
         });
 
         return options;
-    }, [tableDefinition, tableName, fixedFields, setTableData, callApi, resetSorting, triggerImport, triggerExport, showSuccess, showError, showWarning]);
+    }, [tableDefinition, tableName, fixedFields, setTableData, callApi, resetSorting, triggerImport, triggerExport, abrirColumnas, showSuccess, showError, showWarning]);
 
     return { menuOptions };
 };
