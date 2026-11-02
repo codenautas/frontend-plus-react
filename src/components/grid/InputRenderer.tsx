@@ -13,8 +13,11 @@ import { Tooltip, useTheme } from "@mui/material";
 import { useEstadoGrilla, useFeedbackCelda } from "./estadoGrilla";
 import { getPrimaryKeyValues, getCellKey, isNumericType, sameValue } from "./utils/helpers";
 import { getBestTypedValue } from "./utils/typedControls";
-import { MenuDeReferencia } from "./MenuDeReferencia";
+import { MenuDeOpciones } from "./MenuDeOpciones";
+import { SelectorDeFecha } from "./SelectorDeFecha";
+import { VentanaDeTexto } from "./VentanaDeTexto";
 import { cargarReferencia, esCampoConReferencia, opcionesDeReferencia, OpcionDeReferencia } from "../../utils/referencias";
+import { fechaDeValor, opcionesDeBooleano, opcionesDeEnumerado, tipoDeExpander } from "../../utils/expanders";
 import typeStore from 'type-store';
 
 
@@ -49,8 +52,8 @@ function InputRenderer<R extends FilaDeDatos, S>({
     const typer = useMemo(() => typeStore.typerFrom(fieldDefinition), [fieldDefinition]);
     const [editingValue, setEditingValue] = useState<unknown>(() => row[column.key] !== null ? isNumericType(fieldDefinition?.typeName) ? row[column.key] : typer.toLocalString(row[column.key]) : null);
     const isCommitInProgress = React.useRef(false);
-    // el expander de referencias (F9): mientras el menú está abierto el editor pierde el foco y no por eso se guarda
-    const [menuDeReferencia, setMenuDeReferencia] = useState<{ opciones: OpcionDeReferencia[], busqueda: string } | null>(null);
+    // el expander del tipo (F9): mientras está abierto el editor pierde el foco y no por eso se guarda
+    const [expansion, setExpansion] = useState<{ tipo: 'opciones', opciones: OpcionDeReferencia[], busqueda: string } | { tipo: 'fecha' } | { tipo: 'texto' } | null>(null);
     const menuAbierto = React.useRef(false);
     const entradaRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -249,44 +252,57 @@ function InputRenderer<R extends FilaDeDatos, S>({
     ]);
 
 
-    // como el expander de referencias de backend-plus: en un campo origen de una FK o softFK, F9 o Alt+↓ abren un menú con las filas de la
-    // tabla referenciada (su clave y sus campos isName); escribir un carácter que el tipo rechaza (una letra en un entero) lo abre ya filtrado
-    const referencia = esCampoConReferencia(fieldDefinition) && fieldDefinition.editable !== false ? fieldDefinition : null;
-    const abrirReferencia = useCallback(async (busqueda: string) => {
-        if (!referencia || menuAbierto.current) return;
+    // los expanders de backend-plus (F9 o Alt+↓): según el tipo del campo, un menú (referencias, booleano, options), un calendario (fecha) o
+    // una ventana de texto; escribir en una referencia un carácter que el tipo rechaza (una letra en un entero) abre el menú ya filtrado
+    const tipoExpander = tipoDeExpander(fieldDefinition, fieldDefinition.editable !== false);
+    const abrirExpander = useCallback(async (busqueda: string) => {
+        if (tipoExpander === null || tipoExpander === 'json' || menuAbierto.current) return;
         menuAbierto.current = true;
+        const admiteNulo = fieldDefinition.nullable !== false;
         try {
-            const { definicion, filas } = await cargarReferencia(referencia.references);
-            setMenuDeReferencia({ opciones: opcionesDeReferencia(referencia, definicion, filas, row, referencia.nullable !== false), busqueda });
+            if (tipoExpander === 'referencia' && esCampoConReferencia(fieldDefinition)) {
+                const { definicion, filas } = await cargarReferencia(fieldDefinition.references);
+                setExpansion({ tipo: 'opciones', opciones: opcionesDeReferencia(fieldDefinition, definicion, filas, row, admiteNulo), busqueda });
+            } else if (tipoExpander === 'booleano') {
+                setExpansion({ tipo: 'opciones', opciones: opcionesDeBooleano(admiteNulo), busqueda });
+            } else if (tipoExpander === 'opciones') {
+                setExpansion({ tipo: 'opciones', opciones: opcionesDeEnumerado(fieldDefinition.options ?? [], admiteNulo), busqueda });
+            } else {
+                setExpansion({ tipo: tipoExpander === 'fecha' ? 'fecha' : 'texto' });
+            }
         } catch (err) {
             menuAbierto.current = false;
             showError(mensajeDeError(err));
         }
-    }, [referencia, row, showError]);
+    }, [tipoExpander, fieldDefinition, row, showError]);
 
-    const cerrarMenuDeReferencia = useCallback(() => {
+    const cerrarExpansion = useCallback(() => {
         menuAbierto.current = false;
-        setMenuDeReferencia(null);
+        setExpansion(null);
         // el menú es un modal que retiene el foco hasta que se desmonta
         setTimeout(() => entradaRef.current?.focus(), 0);
     }, []);
 
-    const elegirReferencia = useCallback((valor: unknown) => {
-        const nuevo = valor === null || valor === undefined ? null : isNumericType(fieldDefinition.typeName) ? valor : typer.toLocalString(valor);
+    // lo que se elige se escribe en la celda y se guarda
+    const confirmarEnExpansion = useCallback((nuevo: unknown) => {
         setEditingValue(nuevo);
-        cerrarMenuDeReferencia();
+        cerrarExpansion();
         void handleCommit(nuevo, true, false);
-    }, [fieldDefinition.typeName, typer, cerrarMenuDeReferencia, handleCommit]);
+    }, [cerrarExpansion, handleCommit]);
+    // una opción (de un menú) es un valor tipado: un número o un lógico tal cual, lo demás como el texto que se escribiría
+    const elegirOpcion = useCallback((valor: unknown) => {
+        confirmarEnExpansion(valor === null || valor === undefined ? null : typeof valor === 'boolean' || isNumericType(fieldDefinition.typeName) ? valor : typer.toLocalString(valor));
+    }, [fieldDefinition.typeName, typer, confirmarEnExpansion]);
 
     const handleKeyDown = useCallback(async (event: React.KeyboardEvent) => {
-        if (referencia && (event.key === 'F9' && !event.shiftKey && !event.ctrlKey && !event.altKey || event.key === 'ArrowDown' && event.altKey && !event.shiftKey && !event.ctrlKey)) {
+        if (tipoExpander !== null && (event.key === 'F9' && !event.shiftKey && !event.ctrlKey && !event.altKey || event.key === 'ArrowDown' && event.altKey && !event.shiftKey && !event.ctrlKey)) {
             event.preventDefault();
-            void abrirReferencia('');
+            void abrirExpander('');
             return;
         }
-        if (referencia && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey && typer.rejectedChar(event.key)) {
+        if (tipoExpander === 'referencia' && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey && typer.rejectedChar(event.key)) {
             event.preventDefault();
-            void abrirReferencia(event.key);
+            void abrirExpander(event.key);
             return;
         }
         if (event.key === 'F4') {
@@ -303,14 +319,14 @@ function InputRenderer<R extends FilaDeDatos, S>({
         if (onKeyPress?.(rowIdx, column.key, event, handleCommit, editingValue)) {
             event.preventDefault();
         }
-    }, [handleCommit, editingValue, column.key, rowIdx, onKeyPress, referencia, abrirReferencia, typer]);
+    }, [handleCommit, editingValue, column.key, rowIdx, onKeyPress, tipoExpander, abrirExpander, typer]);
 
     // Teclas (F4) que caen en la celda antes de que este editor tenga el foco (o antes de que exista):
     // el grid se las pasa a través de registrarEditor; siempre se usa la versión más reciente del manejador
     const procesarTecla = React.useRef<(key: string) => void>(() => {});
     procesarTecla.current = (key: string) => {
         if (key === 'F9') {
-            void abrirReferencia('');
+            void abrirExpander('');
         } else if (key === 'F4' && onKeyPress) {
             onKeyPress(rowIdx, column.key, { key, target: document.activeElement ?? document.body }, handleCommit, editingValue);
         }
@@ -357,15 +373,31 @@ function InputRenderer<R extends FilaDeDatos, S>({
     const conMenu = (
         <>
             {editor}
-            {menuDeReferencia && entradaRef.current && (
-                <MenuDeReferencia
+            {expansion && entradaRef.current && (expansion.tipo === 'opciones' ? (
+                <MenuDeOpciones
                     anclaje={entradaRef.current}
-                    opciones={menuDeReferencia.opciones}
-                    busquedaInicial={menuDeReferencia.busqueda}
-                    onElegir={elegirReferencia}
-                    onCerrar={cerrarMenuDeReferencia}
+                    opciones={expansion.opciones}
+                    busquedaInicial={expansion.busqueda}
+                    onElegir={elegirOpcion}
+                    onCerrar={cerrarExpansion}
                 />
-            )}
+            ) : expansion.tipo === 'fecha' ? (
+                <SelectorDeFecha
+                    anclaje={entradaRef.current}
+                    fechaActual={fechaDeValor(row[column.key])}
+                    admiteNulo={fieldDefinition.nullable !== false}
+                    onElegir={confirmarEnExpansion}
+                    onCerrar={cerrarExpansion}
+                />
+            ) : (
+                <VentanaDeTexto
+                    anclaje={entradaRef.current}
+                    texto={editingValue === null || editingValue === undefined ? '' : String(editingValue)}
+                    editable
+                    onAceptar={confirmarEnExpansion}
+                    onCerrar={cerrarExpansion}
+                />
+            ))}
         </>
     );
     return currentCellFeedback?.message

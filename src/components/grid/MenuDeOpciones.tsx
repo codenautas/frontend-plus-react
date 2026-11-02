@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { InputBase, List, ListItemButton, Popover, Typography } from '@mui/material';
 import { filtrarOpciones, OpcionDeReferencia } from '../../utils/referencias';
 
-interface MenuDeReferenciaProps {
+interface MenuDeOpcionesProps {
     /** El elemento bajo el que se abre (el editor de la celda) */
     anclaje: HTMLElement;
     opciones: OpcionDeReferencia[];
@@ -13,10 +13,10 @@ interface MenuDeReferenciaProps {
 }
 
 /**
- * Menú para elegir una fila de la tabla referenciada, como el `miniMenuPromise` del expander de referencias de backend-plus:
- * se filtra escribiendo, ↑ y ↓ recorren, Enter elige y Escape cierra.
+ * Menú para elegir una opción (una fila de la tabla referenciada, Sí/No, un valor de `options`), como el `miniMenuPromise` de los
+ * expanders de backend-plus: se filtra escribiendo, ↑ y ↓ recorren, Enter elige y Escape cierra.
  */
-export function MenuDeReferencia({ anclaje, opciones, busquedaInicial, onElegir, onCerrar }: MenuDeReferenciaProps) {
+export function MenuDeOpciones({ anclaje, opciones, busquedaInicial, onElegir, onCerrar }: MenuDeOpcionesProps) {
     const [busqueda, setBusqueda] = useState(busquedaInicial);
     const [indice, setIndice] = useState(0);
     const visibles = useMemo(() => filtrarOpciones(opciones, busqueda), [opciones, busqueda]);

@@ -26,6 +26,7 @@ import { useGridMenu } from '../../hooks/grid/useGridMenu';
 import { calcularAnchosDeColumnas, useGridColumns } from '../../hooks/grid/useGridColumns';
 import { ImportDialog } from './ImportDialog';
 import { ExportDialog } from './ExportDialog';
+import { VentanaDeTexto } from './VentanaDeTexto';
 import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 import { aFiltrosIniciales, FiltroInicial, fusionar } from '../../utils/parametrosDeTabla';
@@ -391,8 +392,17 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         conPie,
     });
 
+    // F9 en una celda que no se edita: el contenido completo (JSON o texto largo) bajo la celda
+    const [contenidoDeCelda, setContenidoDeCelda] = useState<{ anclaje: HTMLElement, texto: string } | null>(null);
+    const verContenido = useCallback((anclaje: HTMLElement, texto: string) => setContenidoDeCelda({ anclaje, texto }), []);
+    const cerrarContenidoDeCelda = useCallback(() => {
+        const anclaje = contenidoDeCelda?.anclaje;
+        setContenidoDeCelda(null);
+        setTimeout(() => anclaje?.focus(), 0);
+    }, [contenidoDeCelda]);
+
     const { handleCellDoubleClick, handleCellClick, handleCellKeyDown, handleCellMouseDown, handleKeyPressInEditor, registrarEditor, handleSelectedCellChange, handleRowsChange } = useGridEvents({
-        dataGridRef, filteredRows: filasMostradas, fixedFields, tableData, tableDefinition, setSelectedCell, setTableData, setSortColumns
+        dataGridRef, filteredRows: filasMostradas, fixedFields, tableData, tableDefinition, setSelectedCell, setTableData, setSortColumns, verContenido
     });
 
     // Al cambiar de tabla se limpia todo (no al montar: puede venir restaurada del cache)
@@ -957,6 +967,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                     />
                 )}
             </Dialog>
+            {contenidoDeCelda && (
+                <VentanaDeTexto anclaje={contenidoDeCelda.anclaje} texto={contenidoDeCelda.texto} editable={false} onAceptar={cerrarContenidoDeCelda} onCerrar={cerrarContenidoDeCelda} />
+            )}
         </Box>
         </CacheGrillasContext.Provider>
     );

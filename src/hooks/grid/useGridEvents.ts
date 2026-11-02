@@ -7,7 +7,7 @@ import { esFilaDetalle } from '../../components/grid/detalles';
 import { SortColumn } from './useGridDataView';
 import { direccionDeSalida, posicionDelCursor } from './teclasDeCelda';
 import { valorFijoDe } from '../../utils/fixedFields';
-import { esCampoConReferencia } from '../../utils/referencias';
+import { textoParaVer, tipoDeExpander } from '../../utils/expanders';
 
 interface UseGridEventsProps {
     dataGridRef: React.RefObject<DataGridHandle>
@@ -18,7 +18,9 @@ interface UseGridEventsProps {
     tableData: FilaDeDatos[],
     setSelectedCell: React.Dispatch<React.SetStateAction<CellSelectArgs<FilaDeDatos, FilaDeResumen> | undefined>>,
     setTableData: React.Dispatch<React.SetStateAction<FilaDeDatos[]>>,
-    setSortColumns: React.Dispatch<React.SetStateAction<readonly SortColumn[]>>
+    setSortColumns: React.Dispatch<React.SetStateAction<readonly SortColumn[]>>,
+    /** F9 en una celda que no se edita (JSON o texto largo): la grilla muestra el contenido completo bajo la celda */
+    verContenido?: (anclaje: HTMLElement, texto: string) => void
 }
 
 /** Cuánto tiempo (ms) espera una tecla encolada a que se monte el editor (si no, se descarta) */
@@ -27,7 +29,7 @@ const VIGENCIA_TECLA_PENDIENTE = 400;
 /** Cuánto tiempo (ms) vale el valor que F4 acaba de copiar para la pulsación siguiente */
 const VIGENCIA_VALOR_PENDIENTE_F4 = 1000;
 
-export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, tableData, fixedFields, setSelectedCell, setTableData, setSortColumns}: UseGridEventsProps) => {
+export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, tableData, fixedFields, setSelectedCell, setTableData, setSortColumns, verContenido}: UseGridEventsProps) => {
 
     // handleKeyPressInEditor viaja dentro de las columnas: tiene que ser estable para no recrearlas
     // en cada cambio de datos, así que lee las filas visibles y la definición a través de refs.
@@ -181,13 +183,21 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
     }, [dataGridRef]);
 
     const handleCellKeyDown = useCallback((args: CellKeyDownArgs<FilaDeDatos, FilaDeResumen>, event: CellKeyboardEvent) => {
-        // F9 o Alt+↓ (el expander de referencias de backend-plus) en una celda seleccionada: se abre el editor y este abre el menú
+        // F9 o Alt+↓ (los expanders de backend-plus) en una celda seleccionada: si se edita, se abre el editor y este abre el menú, el calendario
+        // o la ventana de texto; si no se edita, se muestra el contenido completo (JSON o texto largo)
         const esExpander = event.key === 'F9' && !event.shiftKey && !event.ctrlKey && !event.altKey || event.key === 'ArrowDown' && event.altKey && !event.shiftKey && !event.ctrlKey;
         if (esExpander && !(event.target instanceof HTMLInputElement) && !esFilaDetalle(args.row)) {
             const campo = tableDefinitionRef.current?.fields.find(f => f.name === args.column.key);
-            if (campo && campo.editable !== false && esCampoConReferencia(campo)) {
+            const editable = typeof args.column.editable === 'function' ? args.column.editable(args.row) : args.column.editable === true;
+            const tipo = campo ? tipoDeExpander(campo, editable) : null;
+            if (campo && editable && tipo !== null) {
                 teclasPendientes.current.push({ key: 'F9', cuando: Date.now() });
                 dataGridRef.current?.selectCell({ rowIdx: args.rowIdx, idx: args.column.idx }, { enableEditor: true, shouldFocusCell: true });
+                event.preventGridDefault();
+                return;
+            }
+            if (campo && !editable && (tipo === 'json' || tipo === 'texto') && verContenido && event.target instanceof HTMLElement) {
+                verContenido(event.target, textoParaVer(args.row[campo.name]));
                 event.preventGridDefault();
                 return;
             }
@@ -204,7 +214,7 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         if (['Enter', 'Tab', 'ArrowDown', 'ArrowUp','ArrowRight', 'ArrowLeft'].includes(event.key)) {
             event.preventGridDefault();
         }
-    }, []);
+    }, [dataGridRef, verContenido]);
 
     const handleCellMouseDown = useCallback((_args: CellMouseArgs<FilaDeDatos, FilaDeResumen>, event: CellMouseEvent) => {
         event.preventGridDefault();  
@@ -228,6 +238,9 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
             // antes se limpiaba el orden al clickear; ya no hace falta porque al editar
             // las filas no se reordenan hasta que el usuario cambie el orden o los filtros
             args.selectCell(true);
+        } else if (fieldDefinition && tipoDeExpander(fieldDefinition, false) !== null) {
+            // una celda que no se edita también se selecciona (sin editor): F9 muestra su contenido completo, como en backend-plus
+            args.selectCell(false);
         }
     }, [tableDefinition, fixedFields]);
 

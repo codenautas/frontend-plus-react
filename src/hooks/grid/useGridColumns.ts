@@ -177,7 +177,9 @@ export const useGridColumns = ({
         return allColumns.map(col => ({
             ...col,
             colSpan: col.customType === 'action' ? colSpanDetalle : col.colSpan,
-            editorOptions: { closeOnExternalRowChange: false },
+            // el editor guarda por su cuenta (Enter, Tab, flechas y, al perder el foco, el clic afuera): con commitOnOutsideClick react-data-grid
+            // lo cierra sin guardar y los menús (F9), que son un modal, cuentan como «afuera»
+            editorOptions: { closeOnExternalRowChange: false, commitOnOutsideClick: false },
             renderEditCell: (props: RenderEditCellProps<FilaDeDatos, FilaDeResumen>) => allColumnsEditCellRenderer(props, allColumns as ColumnaDeGrilla[]),
             renderCell: (props: RenderCellProps<FilaDeDatos, FilaDeResumen>) => allColumnsCellRenderer(props),
         }));
