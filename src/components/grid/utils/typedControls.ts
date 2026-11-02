@@ -104,3 +104,24 @@ export const getBestTypedValue = (valor: unknown, typer: Typer): unknown => {
 
     return BestControls.text.getTypedValue(value, typer);
 };
+
+/**
+ * Lo que se escribió en la celda como valor del tipo del campo. Lo escrito que no es un valor del tipo (letras en un entero, una fecha que
+ * no existe) lanza un Error: `getBestTypedValue` lo convierte en null, y eso borraba el valor de la celda, o «no cambiaba» y no se guardaba
+ * ni se avisaba. Con la celda vacía el valor es null, como siempre.
+ */
+export const tiparEntrada = (valor: unknown, typer: Typer): unknown => {
+    // solo espacios en un número o una fecha es vacío (Number('   ') da 0)
+    const entrada = typeof valor === 'string' && valor.trim() === '' && typer.typeName !== 'text' ? '' : valor;
+    const tipado = getBestTypedValue(entrada, typer);
+    if (tipado === null && typeof entrada === 'string' && entrada !== '') {
+        throw new Error(`«${valor}» no es un valor válido para este campo (${typer.typeName})`);
+    }
+    return tipado;
+};
+
+/** Si un carácter que se tipea no entra en el tipo del campo (una letra en un entero): backend-plus no lo deja escribir (`rejectedChar`) */
+export const caracterRechazado = (caracter: string, typer: Typer): boolean => caracter.length === 1 && typer.rejectedChar(caracter);
+
+/** Si el texto pegado tiene algún carácter que el tipo del campo rechaza */
+export const textoPegadoRechazado = (texto: string, typer: Typer): boolean => Array.from(texto).some(caracter => typer.rejectedChar(caracter));

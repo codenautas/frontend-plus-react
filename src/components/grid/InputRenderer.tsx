@@ -12,7 +12,7 @@ import { NEW_ROW_INDICATOR } from "./GenericDataGrid";
 import { Tooltip, useTheme } from "@mui/material";
 import { useEstadoGrilla, useFeedbackCelda } from "./estadoGrilla";
 import { getPrimaryKeyValues, getCellKey, isNumericType, sameValue } from "./utils/helpers";
-import { getBestTypedValue } from "./utils/typedControls";
+import { caracterRechazado, textoPegadoRechazado, tiparEntrada } from "./utils/typedControls";
 import { MenuDeOpciones } from "./MenuDeOpciones";
 import { SelectorDeFecha } from "./SelectorDeFecha";
 import { VentanaDeTexto } from "./VentanaDeTexto";
@@ -88,12 +88,15 @@ function InputRenderer<R extends FilaDeDatos, S>({
 
         let processedNewValue: unknown;
         try {
-            // Usamos la lógica de BestControls portada de TypedControls.js a getBestTypedValue
-            processedNewValue = getBestTypedValue(currentValue, typer);
+            // Usamos la lógica de BestControls portada de TypedControls.js (tiparEntrada avisa si lo escrito no es un valor del tipo)
+            processedNewValue = tiparEntrada(currentValue, typer);
             // Validamos contra el esquema del typer
             typer.validateTypedData(processedNewValue);
         } catch (err) {
             showError(mensajeDeError(err));
+            // y la celda queda marcada con el error (antes un valor que no era del tipo no se guardaba y no se veía nada)
+            const claveDeLaCelda = `${getPrimaryKeyValues(row, tableDefinition.primaryKey)}-${column.key}`;
+            setCellFeedbackMap(prev => new Map(prev).set(claveDeLaCelda, { rowId: getPrimaryKeyValues(row, tableDefinition.primaryKey), columnKey: column.key, type: 'error', message: mensajeDeError(err) } satisfies CellFeedback));
             isCommitInProgress.current = false;
             return; // Detenemos el commit ante errores
         }
@@ -300,9 +303,10 @@ function InputRenderer<R extends FilaDeDatos, S>({
             void abrirExpander('');
             return;
         }
-        if (tipoExpander === 'referencia' && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey && typer.rejectedChar(event.key)) {
+        if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey && caracterRechazado(event.key, typer)) {
+            // como backend-plus (rejectedChar): lo que el tipo no admite no se escribe (una letra en un entero); en una referencia abre el menú filtrado
             event.preventDefault();
-            void abrirExpander(event.key);
+            if (tipoExpander === 'referencia') void abrirExpander(event.key);
             return;
         }
         if (event.key === 'F4') {
@@ -348,6 +352,13 @@ function InputRenderer<R extends FilaDeDatos, S>({
             value={editingValue}
             onChange={(e) => setEditingValue(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={(e: React.ClipboardEvent) => {
+                const pegado = e.clipboardData.getData('text');
+                if (textoPegadoRechazado(pegado, typer)) {
+                    e.preventDefault();
+                    showError(`«${pegado}» no es un valor válido para este campo (${typer.typeName})`);
+                }
+            }}
             onBlur={handleBlur}
             inputRef={entradaRef}
             placeholder={isMandatory ? '*' : ''}
