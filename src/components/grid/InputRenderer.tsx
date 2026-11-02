@@ -5,10 +5,6 @@ import { useApiCall } from "../../hooks/useApiCall";
 import { useTableRecordSave } from "../../hooks/useTableRecordSave";
 import { mensajeDeError, requerido } from "../../utils/errores";
 import InputBase from "@mui/material/InputBase";
-import IconButton from "@mui/material/IconButton";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import SearchIcon from "@mui/icons-material/Search";
 // Importamos CellFeedbackMap junto con InputRendererProps
 import { InputRendererProps, CellFeedback, FilaDeDatos } from "../../types";
 // getCellKey deben provenir de tu archivo GenericDataGrid
@@ -17,11 +13,7 @@ import { Tooltip, useTheme } from "@mui/material";
 import { useEstadoGrilla, useFeedbackCelda } from "./estadoGrilla";
 import { getPrimaryKeyValues, getCellKey, isNumericType, sameValue } from "./utils/helpers";
 import { caracterRechazado, textoPegadoRechazado, tiparEntrada } from "./utils/typedControls";
-import { MenuDeOpciones } from "./MenuDeOpciones";
-import { SelectorDeFecha } from "./SelectorDeFecha";
-import { VentanaDeTexto } from "./VentanaDeTexto";
-import { cargarReferencia, esCampoConReferencia, opcionesDeReferencia, OpcionDeReferencia } from "../../utils/referencias";
-import { fechaDeValor, opcionesDeBooleano, opcionesDeEnumerado, tipoDeExpander } from "../../utils/expanders";
+import { useExpander } from "../../hooks/grid/useExpander";
 import typeStore from 'type-store';
 
 
@@ -56,9 +48,6 @@ function InputRenderer<R extends FilaDeDatos, S>({
     const typer = useMemo(() => typeStore.typerFrom(fieldDefinition), [fieldDefinition]);
     const [editingValue, setEditingValue] = useState<unknown>(() => row[column.key] !== null ? isNumericType(fieldDefinition?.typeName) ? row[column.key] : typer.toLocalString(row[column.key]) : null);
     const isCommitInProgress = React.useRef(false);
-    // el expander del tipo (F9): mientras está abierto el editor pierde el foco y no por eso se guarda
-    const [expansion, setExpansion] = useState<{ tipo: 'opciones', opciones: OpcionDeReferencia[], busqueda: string } | { tipo: 'fecha' } | { tipo: 'texto' } | null>(null);
-    const menuAbierto = React.useRef(false);
     const entradaRef = React.useRef<HTMLInputElement | null>(null);
 
     const theme = useTheme();
@@ -259,58 +248,37 @@ function InputRenderer<R extends FilaDeDatos, S>({
     ]);
 
 
-    // los expanders de backend-plus (F9 o Alt+↓): según el tipo del campo, un menú (referencias, booleano, options), un calendario (fecha) o
-    // una ventana de texto; escribir en una referencia un carácter que el tipo rechaza (una letra en un entero) abre el menú ya filtrado
-    const tipoExpander = tipoDeExpander(fieldDefinition, fieldDefinition.editable !== false);
-    const abrirExpander = useCallback(async (busqueda: string) => {
-        if (tipoExpander === null || tipoExpander === 'json' || menuAbierto.current) return;
-        menuAbierto.current = true;
-        const admiteNulo = fieldDefinition.nullable !== false;
-        try {
-            if (tipoExpander === 'referencia' && esCampoConReferencia(fieldDefinition)) {
-                const { definicion, filas } = await cargarReferencia(fieldDefinition.references);
-                setExpansion({ tipo: 'opciones', opciones: opcionesDeReferencia(fieldDefinition, definicion, filas, row, admiteNulo), busqueda });
-            } else if (tipoExpander === 'booleano') {
-                setExpansion({ tipo: 'opciones', opciones: opcionesDeBooleano(admiteNulo), busqueda });
-            } else if (tipoExpander === 'opciones') {
-                setExpansion({ tipo: 'opciones', opciones: opcionesDeEnumerado(fieldDefinition.options ?? [], admiteNulo), busqueda });
-            } else {
-                setExpansion({ tipo: tipoExpander === 'fecha' ? 'fecha' : 'texto' });
-            }
-        } catch (err) {
-            menuAbierto.current = false;
-            showError(mensajeDeError(err));
-        }
-    }, [tipoExpander, fieldDefinition, row, showError]);
-
-    const cerrarExpansion = useCallback(() => {
-        menuAbierto.current = false;
-        setExpansion(null);
-        // el menú es un modal que retiene el foco hasta que se desmonta
-        setTimeout(() => entradaRef.current?.focus(), 0);
-    }, []);
-
-    // lo que se elige se escribe en la celda y se guarda
+    // lo que se elige en un expander se escribe en la celda y se guarda
     const confirmarEnExpansion = useCallback((nuevo: unknown) => {
         setEditingValue(nuevo);
-        cerrarExpansion();
         void handleCommit(nuevo, true, false);
-    }, [cerrarExpansion, handleCommit]);
+    }, [handleCommit]);
     // una opción (de un menú) es un valor tipado: un número o un lógico tal cual, lo demás como el texto que se escribiría
     const elegirOpcion = useCallback((valor: unknown) => {
         confirmarEnExpansion(valor === null || valor === undefined ? null : typeof valor === 'boolean' || isNumericType(fieldDefinition.typeName) ? valor : typer.toLocalString(valor));
     }, [fieldDefinition.typeName, typer, confirmarEnExpansion]);
 
+    // los expanders de backend-plus (F9 o Alt+↓ y la lupa): según el tipo del campo, un menú (referencias, booleano, options), un calendario
+    // (fecha) o una ventana de texto; escribir en una referencia un carácter que el tipo rechaza (una letra en un entero) abre el menú ya filtrado
+    const expander = useExpander({
+        campo: fieldDefinition,
+        editable: fieldDefinition.editable !== false,
+        fila: row,
+        admiteNulo: fieldDefinition.nullable !== false,
+        anclaje: entradaRef,
+        textoActual: editingValue === null || editingValue === undefined ? '' : String(editingValue),
+        valorActual: row[column.key],
+        alElegirValor: elegirOpcion,
+        alConfirmarTexto: confirmarEnExpansion,
+        alFallar: showError,
+    });
+
     const handleKeyDown = useCallback(async (event: React.KeyboardEvent) => {
-        if (tipoExpander !== null && (event.key === 'F9' && !event.shiftKey && !event.ctrlKey && !event.altKey || event.key === 'ArrowDown' && event.altKey && !event.shiftKey && !event.ctrlKey)) {
-            event.preventDefault();
-            void abrirExpander('');
-            return;
-        }
+        if (expander.manejarTecla(event)) return;
         if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey && caracterRechazado(event.key, typer)) {
             // como backend-plus (rejectedChar): lo que el tipo no admite no se escribe (una letra en un entero); en una referencia abre el menú filtrado
             event.preventDefault();
-            if (tipoExpander === 'referencia') void abrirExpander(event.key);
+            if (expander.tipo === 'referencia') void expander.abrir(event.key);
             return;
         }
         if (event.key === 'F4') {
@@ -327,14 +295,14 @@ function InputRenderer<R extends FilaDeDatos, S>({
         if (onKeyPress?.(rowIdx, column.key, event, handleCommit, editingValue)) {
             event.preventDefault();
         }
-    }, [handleCommit, editingValue, column.key, rowIdx, onKeyPress, tipoExpander, abrirExpander, typer]);
+    }, [handleCommit, editingValue, column.key, rowIdx, onKeyPress, expander, typer]);
 
     // Teclas (F4) que caen en la celda antes de que este editor tenga el foco (o antes de que exista):
     // el grid se las pasa a través de registrarEditor; siempre se usa la versión más reciente del manejador
     const procesarTecla = React.useRef<(key: string) => void>(() => {});
     procesarTecla.current = (key: string) => {
         if (key === 'F9') {
-            void abrirExpander('');
+            void expander.abrir('');
         } else if (key === 'F4' && onKeyPress) {
             onKeyPress(rowIdx, column.key, { key, target: document.activeElement ?? document.body }, handleCommit, editingValue);
         }
@@ -342,7 +310,7 @@ function InputRenderer<R extends FilaDeDatos, S>({
     useEffect(() => registrarEditor?.((key) => procesarTecla.current(key)), []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleBlur = useCallback(() => {
-        if (menuAbierto.current) return;
+        if (expander.abierto.current) return;
         handleCommit(editingValue, true, false);
     }, [handleCommit, editingValue]);
 
@@ -382,52 +350,14 @@ function InputRenderer<R extends FilaDeDatos, S>({
             }}
             onClick={(e) => e.stopPropagation()}
             disabled={!isFieldEditable}
-            // la lupa de backend-plus: junto al editor, un icono según el expander (flecha de menú, calendario o lupa de texto) que lo abre con un clic
-            endAdornment={tipoExpander !== null && tipoExpander !== 'json' && (
-                <IconButton
-                    size="small"
-                    tabIndex={-1}
-                    aria-label={tipoExpander === 'fecha' ? 'elegir fecha' : tipoExpander === 'texto' ? 'ver el contenido completo' : 'elegir un valor'}
-                    title={tipoExpander === 'fecha' ? 'elegir fecha (F9)' : tipoExpander === 'texto' ? 'ver el contenido completo (F9)' : 'elegir un valor (F9)'}
-                    // el editor no pierde el foco (perderlo lo guardaría) y el clic no llega a la celda
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={(e) => { e.stopPropagation(); void abrirExpander(''); }}
-                    sx={{ p: 0, ml: 0.25, color: 'primary.main', '&:hover': { backgroundColor: 'action.hover' } }}
-                >
-                    {tipoExpander === 'fecha' ? <CalendarMonthIcon sx={{ fontSize: 16 }} /> : tipoExpander === 'texto' ? <SearchIcon sx={{ fontSize: 16 }} /> : <ArrowDropDownIcon sx={{ fontSize: 20 }} />}
-                </IconButton>
-            )}
+            endAdornment={expander.lupa}
         />
 
     );
     const conMenu = (
         <>
             {editor}
-            {expansion && entradaRef.current && (expansion.tipo === 'opciones' ? (
-                <MenuDeOpciones
-                    anclaje={entradaRef.current}
-                    opciones={expansion.opciones}
-                    busquedaInicial={expansion.busqueda}
-                    onElegir={elegirOpcion}
-                    onCerrar={cerrarExpansion}
-                />
-            ) : expansion.tipo === 'fecha' ? (
-                <SelectorDeFecha
-                    anclaje={entradaRef.current}
-                    fechaActual={fechaDeValor(row[column.key])}
-                    admiteNulo={fieldDefinition.nullable !== false}
-                    onElegir={confirmarEnExpansion}
-                    onCerrar={cerrarExpansion}
-                />
-            ) : (
-                <VentanaDeTexto
-                    anclaje={entradaRef.current}
-                    texto={editingValue === null || editingValue === undefined ? '' : String(editingValue)}
-                    editable
-                    onAceptar={confirmarEnExpansion}
-                    onCerrar={cerrarExpansion}
-                />
-            ))}
+            {expander.ventana}
         </>
     );
     return currentCellFeedback?.message

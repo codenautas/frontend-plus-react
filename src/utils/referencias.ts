@@ -52,11 +52,11 @@ const comoTexto = (valor: unknown): string => valor === null || valor === undefi
 /**
  * Las opciones del menú de un campo con referencia, como `ExpanderReferences.dialogInput` de backend-plus:
  * - sin las filas inactivas (`activeRecords`);
- * - en una FK compuesta, solo las filas que coinciden con los valores de la fila en las columnas anteriores a la última;
+ * - en una FK compuesta, solo las filas que coinciden con los valores de la fila en las columnas anteriores a la última (en un filtro no hay fila: se ofrecen todas);
  * - con el valor de la última columna de la referencia; la etiqueta lleva la clave y los campos de nombre;
  * - ordenadas por esa etiqueta y, si el campo admite nulo, con la opción vacía al final.
  */
-export const opcionesDeReferencia = (campo: CampoConReferencia, definicionReferenciada: TableDefinition, filasReferenciadas: FilaDeDatos[], filaActual: FilaDeDatos, admiteNulo: boolean): OpcionDeReferencia[] => {
+export const opcionesDeReferencia = (campo: CampoConReferencia, definicionReferenciada: TableDefinition, filasReferenciadas: FilaDeDatos[], filaActual: FilaDeDatos | null, admiteNulo: boolean): OpcionDeReferencia[] => {
     // sin referencesFields (un campo que declara references a mano) el valor es la última columna de la clave, como en backend-plus
     const pares = campo.referencesFields ?? [];
     const columnaDelValor = pares.length > 0 ? pares[pares.length - 1].target : definicionReferenciada.primaryKey[definicionReferenciada.primaryKey.length - 1];
@@ -65,7 +65,7 @@ export const opcionesDeReferencia = (campo: CampoConReferencia, definicionRefere
     const nombres = camposDeNombre(definicionReferenciada);
     const columnasDeEtiqueta = nombres.length > 0 ? [...definicionReferenciada.primaryKey, ...nombres] : definicionReferenciada.primaryKey;
     const opciones: OpcionDeReferencia[] = filasReferenciadas
-        .filter(fila => (activo === null || !!fila[activo]) && anteriores.every(par => comoTexto(fila[par.target]) === comoTexto(filaActual[par.source])))
+        .filter(fila => (activo === null || !!fila[activo]) && (filaActual === null || anteriores.every(par => comoTexto(fila[par.target]) === comoTexto(filaActual[par.source]))))
         .map(fila => {
             const etiquetas = columnasDeEtiqueta.map(columna => comoTexto(fila[columna]));
             return { valor: fila[columnaDelValor], etiquetas, texto: `${etiquetas.join(', ')}; ${definicionReferenciada.primaryKey.join(', ')}` };

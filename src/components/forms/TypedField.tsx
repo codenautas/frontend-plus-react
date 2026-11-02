@@ -16,6 +16,7 @@ import { isNumericType, isDateTimeType } from '../grid/utils/helpers';
 import { useRef } from 'react';
 import { FILTER_ROW_HEIGHT } from '../grid/GenericDataGrid';
 import { mensajeDeError } from '../../utils/errores';
+import { useExpander } from '../../hooks/grid/useExpander';
 
 interface TypedFieldProps {
     fieldDef: FieldDefinition;
@@ -68,6 +69,29 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
         }
     }, [value, typer, isBoolean, isFilterMode]);
 
+    // Los expanders de backend-plus (F9 o Alt+↓ y la lupa) en la fila de filtros: las filas de la tabla referenciada, las `options` y un calendario.
+    // Lo que se elige se escribe como texto del filtro. El booleano ya es una lista y la ventana de texto no sirve para filtrar.
+    const entradaRef = useRef<HTMLInputElement | null>(null);
+    const [enfocado, setEnfocado] = useState(false);
+    const escribirEnFiltro = useCallback((texto: string) => {
+        setLocalString(texto);
+        lastValueRef.current = texto;
+        onChange(fieldDef.name, texto, true);
+    }, [onChange, fieldDef.name]);
+    const expander = useExpander({
+        campo: fieldDef,
+        editable: true,
+        fila: null,
+        admiteNulo: false,
+        tipos: isFilterMode ? ['referencia', 'opciones', 'fecha'] : [],
+        anclaje: entradaRef,
+        textoActual: localString,
+        valorActual: localString,
+        alElegirValor: (valor: unknown) => escribirEnFiltro(valor === null || valor === undefined ? '' : String(valor)),
+        alConfirmarTexto: (texto: string | null) => escribirEnFiltro(texto ?? ''),
+        alFallar: (mensaje: string) => setErrorMsg(mensaje),
+    });
+
     const handleTextChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const newValueString = e.target.value;
         setLocalString(newValueString);
@@ -118,12 +142,13 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
     }, [onCommit, fieldDef.name, localString, isFilterMode, typer]);
 
     const handleTextKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (expander.manejarTecla(e)) return;
         if (e.key === 'Enter') {
             e.preventDefault();
             handleTextCommit();
             // Optionally, we could unfocus the target here: e.currentTarget.blur()
         }
-    }, [handleTextCommit]);
+    }, [handleTextCommit, expander]);
 
     const handleBooleanChange = useCallback((e: SelectChangeEvent<string>) => {
         const val = e.target.value;
@@ -215,8 +240,10 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
     const transitionStyle = 'background-color 0.3s ease-in-out';
 
     return (
+        <>
         <TextField
             fullWidth
+            inputRef={entradaRef}
             type={inputType}
             label={isFilterMode ? undefined : fieldDef.name}
             variant="outlined"
@@ -228,7 +255,10 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
             error={!!errorMsg && !isFilterMode}
             helperText={!isFilterMode ? (errorMsg || (isMandatory ? 'Obligatorio' : '')) : undefined}
             InputLabelProps={!isFilterMode ? { shrink: true } : undefined}
-            InputProps={!isFilterMode && isMandatory && isEmptyText ? {
+            InputProps={isFilterMode ? {
+                // la lupa solo al enfocar el filtro, como en backend-plus
+                endAdornment: enfocado || expander.abierto.current ? expander.lupa : undefined
+            } : isMandatory && isEmptyText ? {
                 startAdornment: (
                     <InputAdornment position="start" sx={{ color: 'text.secondary', mr: 0.5 }}>*</InputAdornment>
                 )
@@ -257,9 +287,12 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
                         padding: '6px 12px'
                     }
                 }}
-            onBlur={handleTextCommit}
+            onFocus={() => setEnfocado(true)}
+            onBlur={() => { setEnfocado(false); handleTextCommit(); }}
             onKeyDown={handleTextKeyDown}
         />
+        {expander.ventana}
+        </>
     );
 
 
