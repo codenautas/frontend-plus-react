@@ -9,8 +9,7 @@ export interface RespuestaDeGuardado {
 }
 
 export interface SaveRecordParams {
-    tableName: string;
-    tableDefinition: TableDefinition;
+    tableDefinition: TableDefinition; // se guarda en la tabla que nombra su definición (`name`), no en la física (`tableName`)
     isNewRow: boolean;
     formData: FilaDeDatos; // The entire row state after changes (or potential updated row)
     initialData: FilaDeDatos; // The row before the change
@@ -21,7 +20,6 @@ export const useTableRecordSave = () => {
     const { callApi, loading, error } = useApiCall();
 
     const saveRecord = useCallback(async ({
-        tableName,
         tableDefinition,
         isNewRow,
         formData,
@@ -54,16 +52,17 @@ export const useTableRecordSave = () => {
                     }
                 });
             }
-            
-            tableDefinition.primaryKey.forEach(pkField => {
-                rowToSend[pkField] = formData[pkField];
-            });
+            // como backend-plus: en un update `newRow` lleva solo lo que cambió; la clave viaja aparte (`primaryKeyValues`).
+            // Si se agregara, un campo con `table` (de otra tabla) dejaría la tabla principal con un update de solo claves
+            // («orden de modificación sin columnas a modificar»).
         }
 
         const primaryKeyValuesForBackend = isNewRow ? [] : tableDefinition.primaryKey.map(key => initialData[key]);
 
         const response = await callApi<RespuestaDeGuardado>('table_record_save', {
-            table: tableName,
+            // como backend-plus (`depot.def.name`): el servidor busca la definición por este nombre. Una definición que guarda en
+            // otra tabla (`tableName`, con campos de `table`) no existe con el nombre de la física: ahí faltarían sus campos
+            table: tableDefinition.name,
             primaryKeyValues: primaryKeyValuesForBackend,
             newRow: rowToSend,
             oldRow: isNewRow ? {} : initialData,

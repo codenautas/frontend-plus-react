@@ -117,7 +117,6 @@ export const VerticalEditorPage: React.FC<VerticalEditorPageProps> = ({
 
         try {
             const response = await saveRecord({
-                tableName,
                 tableDefinition,
                 isNewRow: internalIsNewRow,
                 formData: potentialUpdatedRow,

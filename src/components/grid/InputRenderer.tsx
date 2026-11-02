@@ -51,7 +51,6 @@ function InputRenderer<R extends FilaDeDatos, S>({
     const theme = useTheme();
     const { showSuccess, showError } = useSnackbar();
     const { saveRecord } = useTableRecordSave();
-    const tableName = tableDefinition.tableName!;
 
 
     // Generamos la clave única para la celda manualmente usando el formato esperado
@@ -154,7 +153,6 @@ function InputRenderer<R extends FilaDeDatos, S>({
 
         try {
             const response = await saveRecord({
-                tableName,
                 tableDefinition,
                 isNewRow,
                 formData: potentialUpdatedRow,
@@ -239,7 +237,7 @@ function InputRenderer<R extends FilaDeDatos, S>({
             }
         }
     }, [
-        column, row, onRowChange, tableName, tableDefinition.primaryKey,
+        column, row, onRowChange, tableDefinition.primaryKey,
         tableDefinition.fields, showSuccess, showError, setCellFeedbackMap, onClose,
         setTableData, setLocalCellChanges, initialRowId, typer
     ]);
