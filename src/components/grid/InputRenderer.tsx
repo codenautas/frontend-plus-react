@@ -5,6 +5,10 @@ import { useApiCall } from "../../hooks/useApiCall";
 import { useTableRecordSave } from "../../hooks/useTableRecordSave";
 import { mensajeDeError, requerido } from "../../utils/errores";
 import InputBase from "@mui/material/InputBase";
+import IconButton from "@mui/material/IconButton";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import SearchIcon from "@mui/icons-material/Search";
 // Importamos CellFeedbackMap junto con InputRendererProps
 import { InputRendererProps, CellFeedback, FilaDeDatos } from "../../types";
 // getCellKey deben provenir de tu archivo GenericDataGrid
@@ -378,6 +382,21 @@ function InputRenderer<R extends FilaDeDatos, S>({
             }}
             onClick={(e) => e.stopPropagation()}
             disabled={!isFieldEditable}
+            // la lupa de backend-plus: junto al editor, un icono según el expander (flecha de menú, calendario o lupa de texto) que lo abre con un clic
+            endAdornment={tipoExpander !== null && tipoExpander !== 'json' && (
+                <IconButton
+                    size="small"
+                    tabIndex={-1}
+                    aria-label={tipoExpander === 'fecha' ? 'elegir fecha' : tipoExpander === 'texto' ? 'ver el contenido completo' : 'elegir un valor'}
+                    title={tipoExpander === 'fecha' ? 'elegir fecha (F9)' : tipoExpander === 'texto' ? 'ver el contenido completo (F9)' : 'elegir un valor (F9)'}
+                    // el editor no pierde el foco (perderlo lo guardaría) y el clic no llega a la celda
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => { e.stopPropagation(); void abrirExpander(''); }}
+                    sx={{ p: 0, ml: 0.25, color: 'primary.main', '&:hover': { backgroundColor: 'action.hover' } }}
+                >
+                    {tipoExpander === 'fecha' ? <CalendarMonthIcon sx={{ fontSize: 16 }} /> : tipoExpander === 'texto' ? <SearchIcon sx={{ fontSize: 16 }} /> : <ArrowDropDownIcon sx={{ fontSize: 20 }} />}
+                </IconButton>
+            )}
         />
 
     );
