@@ -164,6 +164,8 @@ export interface SideMenuProps {
 export interface MenuListItemProps {
     item: MenuInfoBase;
     level: number;
+    /** Los grupos de menú que contienen al ítem (para distinguir ítems de igual nombre en grupos distintos). */
+    grupos?: string[];
     onMenuItemClick?: () => void;
 }
 

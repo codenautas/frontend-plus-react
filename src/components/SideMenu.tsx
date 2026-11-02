@@ -20,9 +20,9 @@ import { toggleSubMenu, setAllSubMenusOpen, setSubMenuOpen } from '../store/menu
 import { MenuListItemProps, SideMenuProps } from '../types';
 
 import { wScreens } from '../pages/WScreens';
-import { rutaDeItemDeMenu } from '../utils/menuInicial';
+import { rutaDeItemDeMenu, rutaDeTablaDeMenu } from '../utils/menuInicial';
 
-const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClick }) => {
+const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, grupos = [], onMenuItemClick }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -33,7 +33,7 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
         if (item.menuType === "menu") {
             dispatch(toggleSubMenu(item.name));
         } else {
-            navigate(rutaDeItemDeMenu(item));
+            navigate(rutaDeItemDeMenu(item, grupos));
             if (onMenuItemClick) {
                 onMenuItemClick();
             }
@@ -66,7 +66,7 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
 
     if (item.menuType === "table") {
         // Seleccionado si coincide la ruta de menú o la ruta directa de tabla
-        isSelected = currentPath === `/menu/${item.name}` || (urlTableName === (item.table || item.name));
+        isSelected = currentPath === rutaDeTablaDeMenu([...grupos, item.name]) || (urlTableName === (item.table || item.name));
     } else if (item.menuType === "proc") {
         isSelected = currentPath === `/procedures/${item.name}`;
     } else if (item.menuType !== "menu") {
@@ -102,6 +102,7 @@ const MenuListItem: React.FC<MenuListItemProps> = ({ item, level, onMenuItemClic
                                 key={subItem.name}
                                 item={subItem}
                                 level={level + 1}
+                                grupos={[...grupos, item.name]}
                                 onMenuItemClick={onMenuItemClick}
                             />
                         ))}
@@ -149,7 +150,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ onMenuItemClick }) => {
             for (const item of items) {
                 let matches = false;
                 if (item.menuType === "table") {
-                    matches = targetPath === `/menu/${item.name}` || (urlTableName === (item.table || item.name));
+                    matches = targetPath === rutaDeTablaDeMenu([...parentNames, item.name]) || (urlTableName === (item.table || item.name));
                 } else if (item.menuType === "proc") {
                     matches = targetPath === `/procedures/${item.name}`;
                 } else if (item.menuType !== "menu") {

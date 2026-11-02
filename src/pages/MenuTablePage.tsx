@@ -5,9 +5,10 @@ import { useLocation, useParams } from 'react-router-dom';
 import { Box, Alert, Typography } from '@mui/material';
 import GenericDataGridPage from './GenericDataGridPage'; // Importamos el contenedor de tabs
 import { useApp } from '../contexts/AppContext'; // Necesitamos el contexto para acceder al menú
-import { MenuInfoBase, MenuInfoMenu, MenuInfoTable } from 'backend-plus'; // Asegúrate de importar tus tipos de menú
+import { MenuInfoTable } from 'backend-plus'; // Asegúrate de importar tus tipos de menú
 import { FixedField } from '../types';
 import { aFixedFields, ParametrosDeTabla, parametrosDeTabla } from '../utils/parametrosDeTabla';
+import { itemDeRuta } from '../utils/menuInicial';
 
 /**
  * Los fixedFields que declara un ítem de menú (`ff`). backend-plus admite dos formas, igual que su cliente (my-menu.js):
@@ -18,24 +19,10 @@ export function fixedFieldsDeMenu(ff: MenuInfoTable['ff'] | Record<string, unkno
 }
 
 const MenuTablePage: React.FC = () => {
-    // Obtiene el `menuName` de la URL para buscar en clientContext.menu
-    const { menuName } = useParams<{ menuName?: string }>();
+    // Obtiene el camino de la URL (`<grupo>/.../<nombre>`: los nombres se repiten entre grupos) para buscar en clientContext.menu
+    const { '*': menuName } = useParams<{ '*'?: string }>();
     const { clientContext } = useApp();
     const { search } = useLocation();
-
-    // Función auxiliar para encontrar un ítem de menú recursivamente
-    const findMenuItem = (items: MenuInfoBase[], nameToFind: string): MenuInfoTable | undefined => {
-        for (const item of items) {
-            if (item.name === nameToFind && item.menuType === "table") {
-                return item as MenuInfoTable;
-            }
-            if (item.menuType === "menu" && (item as MenuInfoMenu).menuContent) {
-                const found = findMenuItem((item as MenuInfoMenu).menuContent, nameToFind);
-                if (found) return found;
-            }
-        }
-        return undefined;
-    };
 
     // Usa useMemo para determinar el tableName y los fixedFields desde el menú
     const { currentTableName, currentFixedFields, parametros } = useMemo(() => {
@@ -44,7 +31,7 @@ const MenuTablePage: React.FC = () => {
         let parametros: ParametrosDeTabla = {};
     
         if (menuName && clientContext && clientContext.menu) {
-            const menuItem = findMenuItem(clientContext.menu, menuName);
+            const menuItem: MenuInfoTable | undefined = itemDeRuta(clientContext.menu, menuName.split('/').filter(tramo => tramo !== ''));
             if (menuItem) {
                 tableName = menuItem.table || menuItem.name;
                 // como backend-plus (wScreens.table de my-menu.js): lo que declara el ítem (ff, fc, td, pf, label...) y, encima,

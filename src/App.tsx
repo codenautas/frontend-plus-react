@@ -87,7 +87,7 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
                 {/* la pantalla de inicio la define el backend (selectedByDefault), como en backend-plus */}
                 <Route path="/" element={<PantallaInicial />} />
                 <Route path="/table/:tableName" element={<GenericDataGridPage />} />
-                <Route path="/menu/:menuName" element={<MenuTablePage />} />
+                <Route path="/menu/*" element={<MenuTablePage />} />
                 <Route path="/procedures/:procedureName" element={<ProcedureForm />} />
                 {Object.keys(wScreens).map((screenName) => (
                     <Route
