@@ -19,6 +19,8 @@ declare module 'type-store' {
         fromUserInput(texto: string): unknown;
         /** Lanza un Error si el valor no sirve para ese tipo */
         validateTypedData(valorTipado: unknown): void;
+        /** Si el carácter no se acepta en ese tipo (una letra en un entero, por ejemplo) */
+        rejectedChar(caracter: string, posicion?: number): boolean;
         /** El valor y el tipo de celda de Excel (b: lógico, n: número, s: texto, d: fecha...) */
         toExcelValue(valorTipado: unknown): string | number | boolean | Date;
         toExcelType(valorTipado: unknown): 'b' | 'n' | 'e' | 's' | 'd' | 'z';

@@ -7,6 +7,7 @@ import { esFilaDetalle } from '../../components/grid/detalles';
 import { SortColumn } from './useGridDataView';
 import { direccionDeSalida, posicionDelCursor } from './teclasDeCelda';
 import { valorFijoDe } from '../../utils/fixedFields';
+import { esCampoConReferencia } from '../../utils/referencias';
 
 interface UseGridEventsProps {
     dataGridRef: React.RefObject<DataGridHandle>
@@ -180,6 +181,17 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
     }, [dataGridRef]);
 
     const handleCellKeyDown = useCallback((args: CellKeyDownArgs<FilaDeDatos, FilaDeResumen>, event: CellKeyboardEvent) => {
+        // F9 o Alt+↓ (el expander de referencias de backend-plus) en una celda seleccionada: se abre el editor y este abre el menú
+        const esExpander = event.key === 'F9' && !event.shiftKey && !event.ctrlKey && !event.altKey || event.key === 'ArrowDown' && event.altKey && !event.shiftKey && !event.ctrlKey;
+        if (esExpander && !(event.target instanceof HTMLInputElement) && !esFilaDetalle(args.row)) {
+            const campo = tableDefinitionRef.current?.fields.find(f => f.name === args.column.key);
+            if (campo && campo.editable !== false && esCampoConReferencia(campo)) {
+                teclasPendientes.current.push({ key: 'F9', cuando: Date.now() });
+                dataGridRef.current?.selectCell({ rowIdx: args.rowIdx, idx: args.column.idx }, { enableEditor: true, shouldFocusCell: true });
+                event.preventGridDefault();
+                return;
+            }
+        }
         if (event.key === 'F4' && !(event.target instanceof HTMLInputElement) && !esFilaDetalle(args.row)) {
             const fieldDefinition = tableDefinitionRef.current?.fields.find(f => f.name === args.column.key);
             if (fieldDefinition && fieldDefinition.editable !== false && !fieldDefinition.clientSide) {

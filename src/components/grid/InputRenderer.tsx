@@ -13,6 +13,8 @@ import { Tooltip, useTheme } from "@mui/material";
 import { useEstadoGrilla, useFeedbackCelda } from "./estadoGrilla";
 import { getPrimaryKeyValues, getCellKey, isNumericType, sameValue } from "./utils/helpers";
 import { getBestTypedValue } from "./utils/typedControls";
+import { MenuDeReferencia } from "./MenuDeReferencia";
+import { cargarReferencia, esCampoConReferencia, opcionesDeReferencia, OpcionDeReferencia } from "../../utils/referencias";
 import typeStore from 'type-store';
 
 
@@ -47,6 +49,10 @@ function InputRenderer<R extends FilaDeDatos, S>({
     const typer = useMemo(() => typeStore.typerFrom(fieldDefinition), [fieldDefinition]);
     const [editingValue, setEditingValue] = useState<unknown>(() => row[column.key] !== null ? isNumericType(fieldDefinition?.typeName) ? row[column.key] : typer.toLocalString(row[column.key]) : null);
     const isCommitInProgress = React.useRef(false);
+    // el expander de referencias (F9): mientras el menú está abierto el editor pierde el foco y no por eso se guarda
+    const [menuDeReferencia, setMenuDeReferencia] = useState<{ opciones: OpcionDeReferencia[], busqueda: string } | null>(null);
+    const menuAbierto = React.useRef(false);
+    const entradaRef = React.useRef<HTMLInputElement | null>(null);
 
     const theme = useTheme();
     const { showSuccess, showError } = useSnackbar();
@@ -243,7 +249,46 @@ function InputRenderer<R extends FilaDeDatos, S>({
     ]);
 
 
+    // como el expander de referencias de backend-plus: en un campo origen de una FK o softFK, F9 o Alt+↓ abren un menú con las filas de la
+    // tabla referenciada (su clave y sus campos isName); escribir un carácter que el tipo rechaza (una letra en un entero) lo abre ya filtrado
+    const referencia = esCampoConReferencia(fieldDefinition) && fieldDefinition.editable !== false ? fieldDefinition : null;
+    const abrirReferencia = useCallback(async (busqueda: string) => {
+        if (!referencia || menuAbierto.current) return;
+        menuAbierto.current = true;
+        try {
+            const { definicion, filas } = await cargarReferencia(referencia.references);
+            setMenuDeReferencia({ opciones: opcionesDeReferencia(referencia, definicion, filas, row, referencia.nullable !== false), busqueda });
+        } catch (err) {
+            menuAbierto.current = false;
+            showError(mensajeDeError(err));
+        }
+    }, [referencia, row, showError]);
+
+    const cerrarMenuDeReferencia = useCallback(() => {
+        menuAbierto.current = false;
+        setMenuDeReferencia(null);
+        // el menú es un modal que retiene el foco hasta que se desmonta
+        setTimeout(() => entradaRef.current?.focus(), 0);
+    }, []);
+
+    const elegirReferencia = useCallback((valor: unknown) => {
+        const nuevo = valor === null || valor === undefined ? null : isNumericType(fieldDefinition.typeName) ? valor : typer.toLocalString(valor);
+        setEditingValue(nuevo);
+        cerrarMenuDeReferencia();
+        void handleCommit(nuevo, true, false);
+    }, [fieldDefinition.typeName, typer, cerrarMenuDeReferencia, handleCommit]);
+
     const handleKeyDown = useCallback(async (event: React.KeyboardEvent) => {
+        if (referencia && (event.key === 'F9' && !event.shiftKey && !event.ctrlKey && !event.altKey || event.key === 'ArrowDown' && event.altKey && !event.shiftKey && !event.ctrlKey)) {
+            event.preventDefault();
+            void abrirReferencia('');
+            return;
+        }
+        if (referencia && event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey && typer.rejectedChar(event.key)) {
+            event.preventDefault();
+            void abrirReferencia(event.key);
+            return;
+        }
         if (event.key === 'F4') {
             event.preventDefault();
             if (onKeyPress) {
@@ -258,19 +303,22 @@ function InputRenderer<R extends FilaDeDatos, S>({
         if (onKeyPress?.(rowIdx, column.key, event, handleCommit, editingValue)) {
             event.preventDefault();
         }
-    }, [handleCommit, editingValue, column.key, rowIdx, onKeyPress]);
+    }, [handleCommit, editingValue, column.key, rowIdx, onKeyPress, referencia, abrirReferencia, typer]);
 
     // Teclas (F4) que caen en la celda antes de que este editor tenga el foco (o antes de que exista):
     // el grid se las pasa a través de registrarEditor; siempre se usa la versión más reciente del manejador
     const procesarTecla = React.useRef<(key: string) => void>(() => {});
     procesarTecla.current = (key: string) => {
-        if (key === 'F4' && onKeyPress) {
+        if (key === 'F9') {
+            void abrirReferencia('');
+        } else if (key === 'F4' && onKeyPress) {
             onKeyPress(rowIdx, column.key, { key, target: document.activeElement ?? document.body }, handleCommit, editingValue);
         }
     };
     useEffect(() => registrarEditor?.((key) => procesarTecla.current(key)), []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleBlur = useCallback(() => {
+        if (menuAbierto.current) return;
         handleCommit(editingValue, true, false);
     }, [handleCommit, editingValue]);
 
@@ -285,6 +333,7 @@ function InputRenderer<R extends FilaDeDatos, S>({
             onChange={(e) => setEditingValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
+            inputRef={entradaRef}
             placeholder={isMandatory ? '*' : ''}
             className={editingValue === '--' ? 'typed-controls-signal-no-data' : editingValue === '//' ? 'typed-controls-signal-unknown-data' : ''}
             sx={{
@@ -305,9 +354,23 @@ function InputRenderer<R extends FilaDeDatos, S>({
         />
 
     );
+    const conMenu = (
+        <>
+            {editor}
+            {menuDeReferencia && entradaRef.current && (
+                <MenuDeReferencia
+                    anclaje={entradaRef.current}
+                    opciones={menuDeReferencia.opciones}
+                    busquedaInicial={menuDeReferencia.busqueda}
+                    onElegir={elegirReferencia}
+                    onCerrar={cerrarMenuDeReferencia}
+                />
+            )}
+        </>
+    );
     return currentCellFeedback?.message
-        ? <Tooltip title={currentCellFeedback.message}><div style={{ width: '100%' }}>{editor}</div></Tooltip>
-        : editor;
+        ? <Tooltip title={currentCellFeedback.message}><div style={{ width: '100%' }}>{conMenu}</div></Tooltip>
+        : conMenu;
 }
 
 export default InputRenderer;
