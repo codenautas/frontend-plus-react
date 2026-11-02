@@ -24,3 +24,11 @@ export default () => (
 
 Las variables de entorno `VITE_BACKEND_URL` (o `REACT_APP_BACKEND_URL`) indican dónde está el backend. Ver `CLAUDE.md` para
 las decisiones de diseño y cómo probar con un backend real.
+
+## La grilla, como la de backend-plus
+
+- **Teclado en una celda en edición**: Enter y Tab guardan y pasan a la celda siguiente, Shift+Tab a la anterior, ↑ y ↓ a la de arriba y abajo; ← y → solo salen de la celda al llegar al borde del texto. El clic fuera de la grilla también guarda.
+- **F9 o Alt+↓** (y la lupa junto al editor) abren el selector del tipo de campo: las filas de la tabla referenciada (FK y softFK, con sus campos `isName`), Sí/No, las `options`, un calendario o el contenido completo.
+- **Parámetros de la tabla** en la dirección y en el menú, como en backend-plus: `ff` (fixedFields, también con `show`, `range` y `until`), `fc` (filtros iniciales), `td`, `pf`, `pick` y `label`.
+- Un campo con `table` se guarda en esa tabla, y el `width` del campo manda sobre el ancho calculado.
+- Los detalles completos están en `CLAUDE.md`.
