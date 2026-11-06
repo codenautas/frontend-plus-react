@@ -60,7 +60,9 @@ const DE_DIALOGO = /^(div)?\.dialog-|^\[key-selected\]/;
 
 const acotarSelector = (selector: string): SelectorAcotado => {
     const limpio = selector.trim();
-    const contenedor = `.${CLASE_CONTENEDOR_BP}`;
+    // `:where` no suma especificidad: cada regla pesa lo mismo que en la página de backend-plus (con `.fpr-bp` a secas, `button { }` pasaba
+    // a ganarle a las clases de MUI de lo que corre adentro, como el tablero de dmencu, y le pisaba tamaños, botones y enlaces)
+    const contenedor = `:where(.${CLASE_CONTENEDOR_BP})`;
     if (DE_DIALOGO.test(limpio)) return { selector: limpio, deRaiz: false };
     const atributo = ATRIBUTO_DE_RAIZ.exec(limpio);
     if (atributo) {
