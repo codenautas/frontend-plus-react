@@ -39,19 +39,23 @@ function FilterInputRenderer({
         };
 
         return (
-            <Box sx={{ mt: 0, display: 'flex', alignItems: 'center', gap: 0.5, pr: 1 }}>
+            // como en backend-plus, el operador es un símbolo chico y el campo se queda con el resto del ancho
+            <Box sx={{ mt: 0, display: 'flex', alignItems: 'center', gap: '2px', width: '100%' }}>
                 <select
                     value={operator}
                     onChange={(e) => handleFilterChange(e.target.value, val)}
                     style={{
                         height: FILTER_ROW_HEIGHT - 5,
-                        minWidth: 40,
-                        backgroundColor: 'white',
-                        border: '1px solid #ccc',
+                        width: 22,
+                        flexShrink: 0,
+                        appearance: 'none',
+                        backgroundColor: '#CEF',
+                        border: 'none',
                         borderRadius: '4px',
                         fontSize: '0.8rem',
-                        padding: '0 2px',
+                        padding: 0,
                         textAlign: 'center',
+                        textAlignLast: 'center',
                         cursor: 'pointer'
                     }}
                 >

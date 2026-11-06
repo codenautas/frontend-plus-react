@@ -18,7 +18,7 @@ export const defaultColumnSummaryCellRenderer = (props: RenderSummaryCellProps<F
 
         const fieldDef = esColumnaPropia(column) && column.customType === 'default' ? column.fieldDef : undefined;
         return (
-            <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', px: '2px' }}>
                 <FilterInputRenderer
                     columnKey={column.key}
                     currentFilter={filters[column.key]}

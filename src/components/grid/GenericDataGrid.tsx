@@ -58,6 +58,8 @@ const ALTO_MINIMO_CUERPO_ANIDADA = 120;
 const HOLGURA_ANIDADA = 24;
 /** Ancho mínimo de una grilla anidada: que alcance para el título */
 const ANCHO_MINIMO_ANIDADA = 240;
+// lo que la pantalla le saca a la grilla (menú lateral, márgenes y barra de scroll) al decidir si los títulos entran enteros
+const ANCHO_RESERVADO_PANTALLA = 320;
 /** Lo que el detalle ocupa de más que su grilla: sangría a la izquierda, margen a la derecha y la línea de color */
 const SANGRIA_DETALLE = 28 + 8 + 3;
 /** Espacio que se deja bajo la grilla principal al calcular cuánto alto tiene disponible */
@@ -392,7 +394,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     const filasVisiblesMax = anidada ? (filteredRows.length <= firstDisplayOverLimit ? filteredRows.length : firstDisplayCount) : undefined;
 
     // Una grilla anidada sin campos con totales no necesita pie: era una fila vacía que ocupaba lugar
-    const conPie = !anidada || !!tableDefinition?.fields.some(field => field.aggregate);
+    const conPie = !!tableDefinition?.fields.some(field => field.aggregate);
 
     const { gridHeight, bottomSummaryRow, summaryRows, filterHeight } = useGridLayout({
         filteredRows, isFilterRowVisible, tableData, summaryData, filters, setFilters, altoDetalles,
@@ -481,7 +483,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                 const definition = parametros.tableDef ? fusionar(definicionDelServidor, parametros.tableDef) : definicionDelServidor;
                 setTableDefinition(definition);
                 setSortColumns(getInitialSortColumns(definition));
-                setAnchosCalculados(calcularAnchosDeColumnas(definition, data));
+                setAnchosCalculados(calcularAnchosDeColumnas(definition, data, window.innerWidth - ANCHO_RESERVADO_PANTALLA));
                 setColumnasOcultas(columnasOcultasIniciales(definition));
                 setTableData(data);
                 // la fila de filtros con la que se abre: la de la dirección o del menú (`fc`) o, si no, la de la definición
@@ -720,9 +722,10 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
             : exitingRowIds.has(getPrimaryKeyValues(row, primaryKey)) ? 'fpr-fila-saliendo' : undefined
     , [exitingRowIds, primaryKey]);
     // Una grilla anidada es tan ancha como sus columnas (más la barra de scroll si la tiene), como las tablas de backend-plus;
-    // sin esto el título y el pie quedaban estirados mucho más allá de los datos
+    // sin esto el título y el pie quedaban estirados mucho más allá de los datos. La principal hace lo mismo
+    // (el título no se estira más que el cuerpo cuando tiene pocas columnas) sumando sus márgenes
     const anchoContenido = useMemo(() => {
-        if (!anidada || columns.length === 0) return undefined;
+        if (columns.length === 0) return undefined;
         const sumaColumnas = columns.reduce((total, col) => {
             const medido = columnWidths.get(col.key as string)?.width;
             return total + (typeof medido === 'number' ? medido : typeof col.width === 'number' ? col.width : 100);
@@ -733,8 +736,9 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         return Math.max(ANCHO_MINIMO_ANIDADA, propio, anchoDetalleMax > 0 ? anchoDetalleMax + SANGRIA_DETALLE + (medidas?.barra ?? 0) + 2 : 0);
     }, [anidada, columns, columnWidths, medidas?.barra, detallesAbiertos, anchosDetalle]);
     useEffect(() => {
-        if (anchoContenido !== undefined) onAnchoDeseado?.(anchoContenido);
-    }, [onAnchoDeseado, anchoContenido]);
+        if (anidada && anchoContenido !== undefined) onAnchoDeseado?.(anchoContenido);
+    }, [onAnchoDeseado, anidada, anchoContenido]);
+    const anchoExterior = anchoContenido === undefined ? undefined : anidada ? anchoContenido : anchoContenido - 2 + 32 + ancestors.length * 32;
     const estiloGrilla = useMemo<React.CSSProperties>(() => ({ height: '100%', width: '100%', boxSizing: 'border-box', ...gridStyles }), [gridStyles]);
     const bottomSummaryRows = useMemo(() => conPie ? [bottomSummaryRow] : [], [conPie, bottomSummaryRow]);
     const vistaGrilla = useMemo(() => ({ isFilterRowVisible }), [isFilterRowVisible]);
@@ -778,7 +782,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
     }
     return (
         <CacheGrillasContext.Provider value={cache}>
-        <Box sx={{ pt: anidada ? 0 : 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box', width: anchoContenido ?? undefined, maxWidth: '100%' }}>
+        <Box sx={{ pt: anidada ? 0 : 2, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box', width: anchoExterior, maxWidth: '100%' }}>
             {/* Primero los ancestros jerárquicos (en una grilla anidada el padre está justo arriba) */}
             {!anidada && ancestors.length > 0 && (
                 <Box sx={{ px: 2, pt: 0, pb: 1, display: 'flex', flexDirection: 'column' }}>
@@ -877,7 +881,7 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
                         sx={{
                             position: 'absolute',
                             top: filterHeight + HEADER_ROW_HEIGHT + 1,
-                            bottom: anidada ? (conPie ? SUMMARY_ROW_HEIGHT : 0) + 4 : 102,
+                            bottom: anidada ? (conPie ? SUMMARY_ROW_HEIGHT : 0) + 4 : (conPie ? 102 : 102 - SUMMARY_ROW_HEIGHT),
                             left: 18,
                             right: 0,
                             display: 'flex',

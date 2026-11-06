@@ -274,9 +274,12 @@ export const TypedField: React.FC<TypedFieldProps> = ({ fieldDef, value, onChang
                     '& .MuiOutlinedInput-root': {
                         backgroundColor: 'background.paper',
                         height: FILTER_ROW_HEIGHT - 5,
-                        minWidth: 50,
+                        minWidth: 30,
                         fontSize: '0.8rem',
                         padding: '0px'
+                    },
+                    '& .MuiOutlinedInput-input': {
+                        padding: '0 4px'
                     }
                 }
                 : { 

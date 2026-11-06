@@ -15,25 +15,42 @@ import { campoDibujable } from '../../utils/columnasOcultas';
 
 const estimateTextWidth = (text: string): number => text.length * 8 + 16;
 
+let contextoDeMedida: CanvasRenderingContext2D | null | undefined;
+/** Ancho real del título en negrita (como lo dibuja el encabezado); donde no hay canvas (jsdom) se estima */
+const anchoDeTitulo = (texto: string): number => {
+    if (contextoDeMedida === undefined) {
+        try { contextoDeMedida = document.createElement('canvas').getContext('2d'); }
+        catch { contextoDeMedida = null; }
+    }
+    if (!contextoDeMedida) return texto.length * 9;
+    contextoDeMedida.font = 'bold 14.9px Roboto, Helvetica, Arial, sans-serif';
+    return Math.ceil(contextoDeMedida.measureText(texto).width);
+};
+// padding del encabezado (8) + flecha de orden (~20) + borde de la celda
+const EXTRA_TITULO = 8 + 20 + 4;
+
 /**
  * Calcula el ancho de cada columna a partir del título y de una muestra de filas.
  * Se llama una sola vez por carga de datos (no en cada render).
  */
-export const calcularAnchosDeColumnas = (tableDefinition: TableDefinition, filas: Record<string, unknown>[]): Map<string, number> => {
+export const calcularAnchosDeColumnas = (tableDefinition: TableDefinition, filas: Record<string, unknown>[], anchoDisponible: number = Infinity): Map<string, number> => {
     const anchos = new Map<string, number>();
+    const anchosConTituloCompleto = new Map<string, number>();
     const muestra = filas.slice(0, 50);
     tableDefinition.fields.forEach((fieldDef: FieldDefinition) => {
         // como backend-plus (my-tables.js): un ancho que declara el backend para el campo (`width`, en píxeles) manda sobre el calculado
         if (typeof fieldDef.width === 'number' && fieldDef.width > 0) {
             anchos.set(fieldDef.name, fieldDef.width);
+            anchosConTituloCompleto.set(fieldDef.name, fieldDef.width);
             return;
         }
         const headerLabel = fieldDef.label || fieldDef.name;
         const type = fieldDef.typeName?.toLowerCase() || '';
-        let typeMinWidth = 60;
-        if (type.includes('boolean') || type.includes('checkbox')) typeMinWidth = 60;
-        else if (type.includes('date') || type.includes('timestamp')) typeMinWidth = 110;
-        else if (type.includes('integer') || type.includes('numeric')) typeMinWidth = 80;
+        // el mínimo deja lugar al operador del filtro (22 px) y a algo para escribir
+        let typeMinWidth = 80;
+        if (type.includes('boolean') || type.includes('checkbox')) typeMinWidth = 80;
+        else if (type.includes('date') || type.includes('timestamp')) typeMinWidth = 120;
+        else if (type.includes('integer') || type.includes('numeric')) typeMinWidth = 90;
 
         const headerWidth = estimateTextWidth(headerLabel) + 20;
         const typer = typerFrom(fieldDef);
@@ -45,9 +62,13 @@ export const calcularAnchosDeColumnas = (tableDefinition: TableDefinition, filas
             catch { texto = String(valor); }
             return Math.max(maxW, estimateTextWidth(texto));
         }, 0);
-        anchos.set(fieldDef.name, Math.min(Math.max(headerWidth, maxDataWidth, typeMinWidth), 500));
+        const compacto = Math.min(Math.max(headerWidth, maxDataWidth, typeMinWidth), 500);
+        anchos.set(fieldDef.name, compacto);
+        anchosConTituloCompleto.set(fieldDef.name, Math.max(compacto, Math.min(anchoDeTitulo(cambiarGuionesBajosPorEspacios(headerLabel)) + EXTRA_TITULO, 500)));
     });
-    return anchos;
+    // si hay lugar en la pantalla, las columnas se ensanchan para mostrar el título entero; si no, se quedan compactas
+    const sumaCompleta = [...anchos.keys()].reduce((total, nombre) => total + (anchosConTituloCompleto.get(nombre) ?? 0), 0);
+    return sumaCompleta <= anchoDisponible ? anchosConTituloCompleto : anchos;
 };
 
 interface UseGridColumnsProps {
