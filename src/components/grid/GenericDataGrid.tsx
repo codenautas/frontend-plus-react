@@ -32,6 +32,9 @@ import { VerticalEditorPage } from '../../pages/VerticalEditorPage';
 import { cambiarGuionesBajosPorEspacios } from '../../utils/functions';
 import { aFiltrosIniciales, FiltroInicial, fusionar } from '../../utils/parametrosDeTabla';
 import { campoDibujable, columnasOcultasIniciales } from '../../utils/columnasOcultas';
+import { clientSidesSinImplementar } from './clientSides';
+import { puenteBPHabilitado } from '../../puente/habilitacion';
+import { GrillaBP } from '../../puente/GrillaBP';
 import { columnaOcultaPorFixedField } from '../../utils/fixedFields';
 import { rutaBase } from '../../rutaBase';
 import { crearEstadoGrilla, EstadoGrillaContext, MapaFeedback, VistaGrillaContext } from './estadoGrilla';
@@ -777,6 +780,16 @@ const GenericDataGrid: React.FC<GenericDataGridProps> = ({
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
                 <Alert severity="warning">No se pudo cargar la definición de la tabla.</Alert>
+            </Box>
+        );
+    }
+    // Con el puente encendido, una tabla con clientSides que acá no existen se muestra con la grilla de backend-plus
+    if (puenteBPHabilitado() && clientSidesSinImplementar(tableDefinition).length > 0) {
+        // las grillas de esta librería se miden contra el alto de la ventana y su página recorta lo que sobra (`overflow: hidden`);
+        // la de backend-plus crece con su contenido: necesita su propio scroll (y un margen para no quedar pegada al borde)
+        return (
+            <Box sx={{ height: anidada ? undefined : '100%', minHeight: 0, overflow: anidada ? undefined : 'auto', boxSizing: 'border-box', p: 1 }}>
+                <GrillaBP tabla={tableName} fixedFields={fixedFields} />
             </Box>
         );
     }

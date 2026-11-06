@@ -33,6 +33,18 @@ export function rutaDeEnlaceBP(href: string, baseDelDocumento: string, urlBacken
     return nombre ? rutaDePantallaBP(nombre, texto) : null;
 }
 
+/**
+ * Una dirección de la propia aplicación con `#w=<pantalla>&...` (como arma las de otra pestaña el código de las aplicaciones
+ * sobre backend-plus: `location.origin + location.pathname + '#w=...'`). En backend-plus la ruta de la página siempre es
+ * `<base-url>/menu`; acá puede ser la de una grilla, que ignoraría el `#w=`. Devuelve la ruta de la pantalla, o null si no es de esas.
+ */
+export function rutaDeHashDeBP(href: string, baseDelDocumento: string): string | null {
+    const enlace = new URL(href, baseDelDocumento);
+    if (enlace.origin !== new URL(baseDelDocumento).origin) return null;
+    const nombre = new URLSearchParams(enlace.hash.slice(1)).get('w');
+    return nombre ? rutaDePantallaBP(nombre, enlace.hash) : null;
+}
+
 /** La función que dibuja la pantalla, o null si backend-plus no la tiene (o no tiene cómo dibujarla) */
 export function resolverPantallaBP(myOwn: MyOwnBP, nombre: string, contenedor: HTMLElement): PantallaResuelta | null {
     const registrada = myOwn.wScreens[nombre];

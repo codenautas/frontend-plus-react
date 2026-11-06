@@ -6,7 +6,7 @@ import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { DefaultColumn, esColumnaPropia, NEW_ROW_INDICATOR } from '../GenericDataGrid';
-import { clientSides } from '../clientSides';
+import { clientSides, guardadosPropios } from '../clientSides';
 import FallbackClientSideRenderer from '../FallbackClientSideRenderer';
 import { OverridableComponent } from '@mui/material/OverridableComponent';
 import { SvgIconTypeMap } from '@mui/material/SvgIcon';
@@ -94,7 +94,8 @@ export const allColumnsCellRenderer = (
             const defaultColumn = column;
             const { fieldDef, tableDefinition, primaryKey } = defaultColumn;
 
-            if (fieldDef?.clientSide) {
+            // un clientSide con guardado propio (newPass) se ve y se edita como cualquier celda
+            if (fieldDef?.clientSide && !(fieldDef.clientSide in guardadosPropios)) {
                 const ClientSideComponent = clientSides[fieldDef.clientSide];
                 if (ClientSideComponent) {
                     return <ClientSideComponent {...props} fieldDefinition={fieldDef} tableDefinition={tableDefinition} primaryKey={primaryKey} />;

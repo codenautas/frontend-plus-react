@@ -3,6 +3,7 @@ import { Column } from "react-data-grid";
 import { useSnackbar } from "../../contexts/SnackbarContext";
 import { useApiCall } from "../../hooks/useApiCall";
 import { useTableRecordSave } from "../../hooks/useTableRecordSave";
+import { guardadosPropios } from "./clientSides";
 import { mensajeDeError, requerido } from "../../utils/errores";
 import InputBase from "@mui/material/InputBase";
 // Importamos CellFeedbackMap junto con InputRendererProps
@@ -53,6 +54,7 @@ function InputRenderer<R extends FilaDeDatos, S>({
     const theme = useTheme();
     const { showSuccess, showError } = useSnackbar();
     const { saveRecord } = useTableRecordSave();
+    const { callApi } = useApiCall();
 
 
     // Generamos la clave única para la celda manualmente usando el formato esperado
@@ -115,6 +117,23 @@ function InputRenderer<R extends FilaDeDatos, S>({
         const oldRowData = { ...row };
         const primaryKeyValuesForBackend = tableDefinition.primaryKey.map(key => potentialUpdatedRow[key]);
         const currentRowIdBeforeUpdate = getPrimaryKeyValues(oldRowData, tableDefinition.primaryKey);
+
+        const guardadoPropio = fieldDefinition.clientSide ? guardadosPropios[fieldDefinition.clientSide] : undefined;
+        if (guardadoPropio && !isNewRow) {
+            // clientSide con guardado propio (newPass): se edita como cualquier celda pero no es una columna de la tabla.
+            // La fila no cambia (lo escrito no se muestra) y el editor se cierra en el acto, sin esperar al servidor.
+            onRowChange(row, true);
+            const claveDeLaCelda = `${currentRowIdBeforeUpdate}-${column.key}`;
+            try {
+                await guardadoPropio({ fila: row, primaryKey: tableDefinition.primaryKey, valor: processedNewValue, callApi });
+                setCellFeedbackMap(prev => new Map(prev).set(claveDeLaCelda, { rowId: currentRowIdBeforeUpdate, columnKey: column.key, type: 'success' } satisfies CellFeedback));
+            } catch (err) {
+                setCellFeedbackMap(prev => new Map(prev).set(claveDeLaCelda, { rowId: currentRowIdBeforeUpdate, columnKey: column.key, type: 'error', message: mensajeDeError(err) } satisfies CellFeedback));
+            } finally {
+                if (!closeEditor) isCommitInProgress.current = false;
+            }
+            return;
+        }
 
         onRowChange({ ...row, [column.key]: processedNewValue }, true);
 
@@ -244,7 +263,7 @@ function InputRenderer<R extends FilaDeDatos, S>({
     }, [
         column, row, onRowChange, tableDefinition.primaryKey,
         tableDefinition.fields, showSuccess, showError, setCellFeedbackMap, onClose,
-        setTableData, setLocalCellChanges, initialRowId, typer
+        setTableData, setLocalCellChanges, initialRowId, typer, fieldDefinition, callApi
     ]);
 
 

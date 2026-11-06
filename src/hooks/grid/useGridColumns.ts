@@ -12,6 +12,7 @@ import { isNumericType, typerFrom } from '../../components/grid/utils/helpers';
 import { esFilaDetalle } from '../../components/grid/detalles';
 import { columnaOcultaPorFixedField, valorFijoDe } from '../../utils/fixedFields';
 import { campoDibujable } from '../../utils/columnasOcultas';
+import { campoEditableEnCelda } from '../../components/grid/clientSides';
 
 const estimateTextWidth = (text: string): number => text.length * 8 + 16;
 
@@ -122,7 +123,7 @@ export const useGridColumns = ({
 
         const defaultColumns: CustomColumn[] = fieldsToShow.map((fieldDef: FieldDefinition) => {
             const isFixedField = valorFijoDe(fixedFields, fieldDef.name) !== undefined;
-            const isFieldEditable = fieldDef.editable !== false && !isFixedField;
+            const isFieldEditable = campoEditableEnCelda(fieldDef) && !isFixedField;
             const colWidth = anchosCalculados.get(fieldDef.name) ?? estimateTextWidth(fieldDef.label || fieldDef.name) + 20;
             const column: DefaultColumn = {
                 key: fieldDef.name,

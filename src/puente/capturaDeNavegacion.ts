@@ -2,7 +2,7 @@
 // manda a las páginas del backend se resuelve dentro de la aplicación: clics en enlaces, asignaciones a `location` y
 // `history.replaceState`.
 import { rutaBase } from '../rutaBase';
-import { rutaDeEnlaceBP } from './pantallaDeBP';
+import { rutaDeEnlaceBP, rutaDeHashDeBP } from './pantallaDeBP';
 
 interface EventoNavegacion extends Event {
     canIntercept: boolean;
@@ -62,8 +62,19 @@ export function capturarNavegacionBP(urlBackend: string, navegar: (ruta: string)
     };
     history.replaceState = reemplazar;
 
+    // las pantallas que se abren en otra pestaña (los botones «abrir» de dmencu: `window.open(location.origin + location.pathname + '#w=...')`)
+    // usan la ruta de la página actual: en backend-plus siempre es `<base-url>/menu`, acá puede ser la de una grilla, que ignoraría el `#w=`
+    const abrirOriginal = window.open;
+    const abrir: typeof window.open = (url, destino, caracteristicas) => {
+        const direccion = url === undefined || url === null ? null : String(url);
+        const ruta = direccion === null ? null : rutaDeEnlaceBP(direccion, document.baseURI, urlBackend) ?? rutaDeHashDeBP(direccion, document.baseURI);
+        return abrirOriginal.call(window, ruta === null ? url : window.location.origin + rutaBase + ruta, destino, caracteristicas);
+    };
+    window.open = abrir;
+
     return () => {
         if (history.replaceState === reemplazar) history.replaceState = reemplazarOriginal;
+        if (window.open === abrir) window.open = abrirOriginal;
         document.removeEventListener('click', alHacerClick, true);
         navegacion?.removeEventListener('navigate', alNavegar);
     };

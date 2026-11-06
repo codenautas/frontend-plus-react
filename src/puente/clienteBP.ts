@@ -2,6 +2,7 @@
 // `clientIncludes`) para poder usar su grilla y sus wScreens donde esta librería todavía no tiene una versión propia.
 // Solo funciona en el mismo origen que el backend (comparte la sesión), por ejemplo bajo `<base-url>/react/`.
 import { FixedField } from '../types';
+import { acotarEstilos } from './estilosBP';
 
 export interface OpcionesGrillaBP {
     fixedFields?: FixedField[];
@@ -144,12 +145,19 @@ async function cargarSinMemoria(urlBackend: string): Promise<MyOwnBP> {
         throw new Error('No hay una sesión iniciada en el backend.');
     }
     const recursos = extraerRecursos(await respuesta.text());
-    recursos.hojasDeEstilo.forEach(ruta => {
-        const enlace = document.createElement('link');
-        enlace.rel = 'stylesheet';
-        enlace.href = ruta;
-        document.head.appendChild(enlace);
-    });
+    await Promise.all(recursos.hojasDeEstilo.map(async ruta => {
+        // acotadas al contenedor de backend-plus: sus reglas de `body` y demás son globales y cambiarían el resto de la aplicación
+        const url = new URL(ruta, document.baseURI).href;
+        try {
+            const hoja = await fetch(url, { credentials: 'include' });
+            if (!hoja.ok) throw new Error(`${hoja.status}`);
+            const estilo = document.createElement('style');
+            estilo.textContent = acotarEstilos(await hoja.text(), url);
+            document.head.appendChild(estilo);
+        } catch (err) {
+            console.warn(`No se pudo cargar la hoja de estilo ${url}:`, err);
+        }
+    }));
     await esperarCargaDeVentana();
     await sinEscuchasDeVentana(['popstate'], () => cargarScripts(recursos.scripts));
     const myOwn = window.myOwn;

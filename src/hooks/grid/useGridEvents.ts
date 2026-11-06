@@ -8,6 +8,7 @@ import { SortColumn } from './useGridDataView';
 import { direccionDeSalida, posicionDelCursor } from './teclasDeCelda';
 import { valorFijoDe } from '../../utils/fixedFields';
 import { textoParaVer, tipoDeExpander } from '../../utils/expanders';
+import { campoEditableEnCelda } from '../../components/grid/clientSides';
 
 interface UseGridEventsProps {
     dataGridRef: React.RefObject<DataGridHandle>
@@ -65,7 +66,7 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
             const currentColumnIndex = currentColumns.findIndex(col => col.key === columnKey);
             const editableColumns = currentColumns.filter(col => {
                 const fieldDefinition = tableDefinition.fields.find(f => f.name === col.key);
-                return col.key !== 'actionsColumn' && !(esColumnaPropia(col) && col.customType === 'detail') && (fieldDefinition?.editable !== false && !fieldDefinition?.clientSide);
+                return col.key !== 'actionsColumn' && !(esColumnaPropia(col) && col.customType === 'detail') && campoEditableEnCelda(fieldDefinition);
             });
             const {key, target} = event;
             // como backend-plus: lo que hace la flecha → depende de la tecla anterior (ver direccionDeSalida)
@@ -233,7 +234,7 @@ export const useGridEvents = ({dataGridRef, tableDefinition, filteredRows, table
         if (esFilaDetalle(args.row)) return;
         const fieldDefinition = tableDefinition?.fields.find(f => f.name === args.column.key);
         const isFixedField = valorFijoDe(fixedFields, args.column.key) !== undefined;
-        const isEditable = fieldDefinition?.editable !== false && !isFixedField;
+        const isEditable = campoEditableEnCelda(fieldDefinition) && !isFixedField;
         if(isEditable){
             // antes se limpiaba el orden al clickear; ya no hace falta porque al editar
             // las filas no se reordenan hasta que el usuario cambie el orden o los filtros

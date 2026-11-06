@@ -6,6 +6,7 @@ import { FixedField } from '../types';
 import { mensajeDeError } from '../utils/errores';
 import { cargarClienteBP } from './clienteBP';
 import { ConsolaBP } from './ConsolaBP';
+import { CLASE_CONTENEDOR_BP, copiarSkinAlContenedor } from './estilosBP';
 
 interface GrillaBPProps {
     tabla: string;
@@ -30,6 +31,7 @@ export const GrillaBP: React.FC<GrillaBPProps> = ({ tabla, fixedFields }) => {
             .then(myOwn => {
                 if (!vigente) return;
                 setCargando(false);
+                copiarSkinAlContenedor(elemento);
                 elemento.replaceChildren();
                 myOwn.tableGrid(tabla, elemento, { fixedFields: JSON.parse(clave) as FixedField[] });
             })
@@ -46,7 +48,7 @@ export const GrillaBP: React.FC<GrillaBPProps> = ({ tabla, fixedFields }) => {
 
     return (
         // el indicador de carga flota: si ocupara lugar, el contenido de backend-plus empezaría más abajo mientras carga y subiría al terminar
-        <Box sx={{ position: 'relative' }}>
+        <Box className={CLASE_CONTENEDOR_BP} sx={{ position: 'relative' }}>
             {cargando && <CircularProgress size={24} sx={{ position: 'absolute', top: 16, left: 16 }} />}
             {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
             <div ref={contenedor} />

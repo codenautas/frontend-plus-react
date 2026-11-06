@@ -10,6 +10,7 @@ import { cargarClienteBP } from './clienteBP';
 import { ConsolaBP } from './ConsolaBP';
 import { resolverPantallaBP, rutaDePantallaBP } from './pantallaDeBP';
 import { puenteBPHabilitado } from './habilitacion';
+import { CLASE_CONTENEDOR_BP, copiarSkinAlContenedor } from './estilosBP';
 
 function buscarItemDeMenu(items: MenuInfoBase[], tipo: string): MenuInfoBase | undefined {
     for (const item of items) {
@@ -48,6 +49,7 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre, direccion }) => 
             .then(myOwn => {
                 if (!vigente) return;
                 setCargando(false);
+                copiarSkinAlContenedor(elemento);
                 const pantalla = resolverPantallaBP(myOwn, nombre, elemento);
                 if (!pantalla) {
                     setNoExiste(true);
@@ -76,7 +78,7 @@ export const PantallaBP: React.FC<PantallaBPProps> = ({ nombre, direccion }) => 
     if (noExiste) return <FallbackWScreen screenName={nombre} />;
     return (
         // el indicador de carga flota: si ocupara lugar, el contenido de backend-plus empezaría más abajo mientras carga y subiría al terminar
-        <Box sx={{ position: 'relative' }}>
+        <Box className={CLASE_CONTENEDOR_BP} sx={{ position: 'relative' }}>
             {cargando && <CircularProgress size={24} sx={{ position: 'absolute', top: 16, left: 16 }} />}
             {error && <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>}
             {/* backend-plus dibuja sus pantallas en el elemento con este id */}
