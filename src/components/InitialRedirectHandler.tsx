@@ -1,7 +1,7 @@
 // src/components/InitialRedirectHandler.tsx
 import React, { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAppDispatch, useRedirectPath, useClientContextStatus } from '../store'; // <--- ¡Asegúrate de importar useClientContextStatus de aquí!
+import { useAppDispatch, useAppSelector, useRedirectPath, useClientContextStatus } from '../store'; // <--- ¡Asegúrate de importar useClientContextStatus de aquí!
 import { setCurrentPath, setRedirectPath } from '../store/routerSlice';
 
 const InitialRedirectHandler: React.FC = () => {
@@ -10,6 +10,8 @@ const InitialRedirectHandler: React.FC = () => {
     const dispatch = useAppDispatch();
     const redirectPath = useRedirectPath();
     const clientContextStatus = useClientContextStatus(); // <--- ¡Ahora lo obtienes de Redux!
+    const username = useAppSelector(state => state.clientContext.username);
+    const redirectUsername = useAppSelector(state => state.router.redirectUsername);
 
     // Efecto para despachar la ruta actual al cambiar
     useEffect(() => {
@@ -27,7 +29,10 @@ const InitialRedirectHandler: React.FC = () => {
     useEffect(() => {
         // Asegúrate de que el clientContext esté cargado/autenticado antes de intentar redirigir
         if (clientContextStatus === 'succeeded') {
-            if (redirectPath && redirectPath !== '/login') { // Evita redirigir a /login
+            if (redirectPath && redirectPath !== '/login' && redirectUsername && redirectUsername !== username) {
+                // la ruta guardada era de la sesión de otra persona (se le venció la cookie): esta empieza por el inicio
+                dispatch(setRedirectPath(null));
+            } else if (redirectPath && redirectPath !== '/login') { // Evita redirigir a /login
                 console.log('Redirigiendo a la ruta guardada:', redirectPath);
                 navegandoRef.current = true;
                 navigate(redirectPath);
@@ -39,7 +44,7 @@ const InitialRedirectHandler: React.FC = () => {
                 navigate('/');
             }
         }
-    }, [clientContextStatus, redirectPath, location.pathname, navigate, dispatch]);
+    }, [clientContextStatus, redirectPath, redirectUsername, username, location.pathname, navigate, dispatch]);
 
     return null; // No renderiza nada
 };

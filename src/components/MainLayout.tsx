@@ -8,6 +8,7 @@ import {
 import { useApp } from '../contexts/AppContext';
 import { useNavigate } from 'react-router-dom'; // No estoy seguro si 'useNavigate' es necesario aquí si solo se usa en SideMenu o para Logout
 import LogoutIcon from '@mui/icons-material/Logout';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import SideMenu from './SideMenu';
@@ -25,6 +26,7 @@ const drawerWidth = 240;
 const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como prop
     const { clientContext } = useApp();
     const logout = useLogout();
+    const navigate = useNavigate();
 
     const isDrawerOpen = useIsDrawerOpen();
     const dispatch = useAppDispatch();
@@ -105,6 +107,9 @@ const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como 
                     <Typography variant="subtitle1" component="div" sx={{ mr: 2 }}>
                         {clientContext.username}
                     </Typography>
+                    <IconButton color="inherit" title="Cambiar contraseña" aria-label="cambiar contraseña" onClick={() => navigate('/chpass')} sx={{ mr: 1 }}>
+                        <VpnKeyIcon />
+                    </IconButton>
                     <Button
                         color="inherit"
                         onClick={logout}
@@ -124,8 +129,9 @@ const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como 
                     '& .MuiDrawer-paper': {
                         width: drawerWidth,
                         boxSizing: 'border-box',
-                        overflowX: 'hidden',
-                        overflowY: 'auto',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
                     },
                 }}
             >
@@ -135,6 +141,7 @@ const MainLayout: React.FC = () => { // MainLayout ya no recibe 'children' como 
                         alignItems: 'center',
                         justifyContent: 'flex-start',
                         px: 1,
+                        flexShrink: 0, // el logo queda fijo: solo scrollea la lista del menú
                         fontSize: '1.3rem',
                         minHeight: theme.mixins.toolbar.minHeight,
                         gap: 1.5

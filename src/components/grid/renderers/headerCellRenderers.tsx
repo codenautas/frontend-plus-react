@@ -49,9 +49,10 @@ export const defaultColumnHeaderCellRenderer = (props: RenderHeaderCellProps<Fil
             <Typography
                 variant="body2"
                 sx={{
-                    fontWeight: 'bold',
+                    fontWeight: 500,
+                    color: '#37474f',
                     textDecoration: isPrimaryKey ? 'underline' : 'none',
-                    fontSize: '0.930rem',
+                    fontSize: '0.85rem',
                     textAlign: 'left',
                     flexGrow: 1,
                     overflow: 'hidden',
@@ -89,21 +90,19 @@ export const ActionsColumnHeaderCell = ({
         <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0.2 }}>
             {allowInsert && (
                 <IconButton
-                    color="inherit"
                     onClick={() => handleAddRow()}
                     size="small"
                     title="Añadir registro"
-                    sx={{ p: 0.25 }}
+                    sx={{ p: 0.25, color: 'grey.800', '&:hover': { color: 'success.main' } }}
                 >
-                    <AddIcon sx={{ fontSize: 18, color: 'success.main' }} />
+                    <AddIcon sx={{ fontSize: 18 }} />
                 </IconButton>
             )}
             <IconButton
-                color="inherit"
                 onClick={toggleFilterVisibility}
                 size="small"
                 title={isFilterRowVisible ? 'Ocultar filtros' : 'Mostrar filtros'}
-                sx={{ p: 0.25 }}
+                sx={{ p: 0.25, color: 'grey.800' }}
             >
                 {isFilterRowVisible ? <SearchOffIcon sx={{ fontSize: 18 }} /> : <SearchIcon sx={{ fontSize: 18 }} />}
             </IconButton>
@@ -111,7 +110,7 @@ export const ActionsColumnHeaderCell = ({
                 onClick={(event) => handleDataGridOptions(event)}
                 size="small"
                 title="Opciones de esta tabla"
-                sx={{ p: 0.25 }}
+                sx={{ p: 0.25, color: 'grey.800' }}
             >
                 <MoreVertIcon sx={{ fontSize: 20, variant: "filled", size: "small" }} />
             </IconButton>

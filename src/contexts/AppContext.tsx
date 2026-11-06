@@ -8,6 +8,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store'; // Asegúrate de que la ruta sea correcta
 import { fetchClientContext, clearClientContext } from '../store/clientContextSlice'; // Importa el thunk y la acción
 import { AppContextType, AppProviderProps } from '../types';
+import { marcarCierreVoluntario } from '../utils/cierreVoluntario';
+import { setRedirectUsername } from '../store/routerSlice';
 
 // Crea el contexto con un valor por defecto que se sobrescribirá
 const AuthContext = createContext<AppContextType | undefined>(undefined);
@@ -33,13 +35,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, publicPaths=
     // ¿Esta persona tuvo una sesión (en esta carga de la página o guardada de antes)? Solo entonces corresponde
     // avisar que "la sesión expiró"; quien entra por primera vez sin sesión va al login sin ese cartel.
     const huboSesionRef = useRef(false);
+    // Salir o cambiar la contraseña cierran la sesión a propósito: no hay nada que avisar. Dura hasta que se vuelve a iniciar sesión.
+    const cierreVoluntarioRef = useRef(false);
     
     
     
     const dispatch = useDispatch<AppDispatch>();
     const clientContext = useSelector((state: RootState) => state.clientContext);
     // si lo guardado de la visita anterior decía que había sesión, vencerse es un "expiró" y no una primera visita
-    if (clientContext.status === 'succeeded') huboSesionRef.current = true;
+    if (clientContext.status === 'succeeded' && !cierreVoluntarioRef.current) huboSesionRef.current = true;
     
     const navigate = useNavigate();
 
@@ -57,6 +61,21 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, publicPaths=
             isRedirectingRef.current = false;
         }, 2000);
     }, [navigate]);
+
+    const avisarCierreVoluntario = useCallback((activo: boolean) => {
+        cierreVoluntarioRef.current = activo;
+        marcarCierreVoluntario(activo);
+        if (activo) huboSesionRef.current = false;
+    }, []);
+
+    // Si la sesión se pierde sin que la persona la haya cerrado (cookie vencida), se recuerda de quién era: al ingresar de nuevo
+    // solo ese usuario vuelve a la pantalla donde estaba.
+    const limpiarContextoPorSesionPerdida = useCallback(() => {
+        if (clientContext.status === 'succeeded' && clientContext.username !== '' && !cierreVoluntarioRef.current) {
+            dispatch(setRedirectUsername(clientContext.username));
+        }
+        dispatch(clearClientContext());
+    }, [dispatch, clientContext.status, clientContext.username]);
 
     const location = useLocation();
 
@@ -95,9 +114,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, publicPaths=
             } else {
                 // Si la sesión no es válida, limpiamos el estado de autenticación y el clientContext en Redux
                 setIsLoggedIn(false);
-                dispatch(clearClientContext()); // Disparar la acción para limpiar el clientContext en Redux
+                limpiarContextoPorSesionPerdida(); // limpia el clientContext en Redux
 
-                if (!showSessionExpiredMessage && !isCurrentPathPublic() && huboSesionRef.current) {
+                if (!showSessionExpiredMessage && !isCurrentPathPublic() && huboSesionRef.current && !cierreVoluntarioRef.current) {
                     console.warn("Sesión inválida en ruta protegida. Mostrando modal.");
                     setShowSessionExpiredMessage(true);
                 } else {
@@ -107,13 +126,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, publicPaths=
         } catch (error) {
             console.error("Error checking session:", error);
             setIsLoggedIn(false);
-            dispatch(clearClientContext()); // Limpiar clientContext en Redux
+            limpiarContextoPorSesionPerdida(); // limpia el clientContext en Redux
             const isPublic = publicPaths.some(p => location.pathname === p || location.pathname.startsWith(p + '/'));
-            if (!showSessionExpiredMessage && !isCurrentPathPublic() && huboSesionRef.current) {
+            if (!showSessionExpiredMessage && !isCurrentPathPublic() && huboSesionRef.current && !cierreVoluntarioRef.current) {
                 setShowSessionExpiredMessage(true);
             }
         }
-    }, [dispatch, clientContext.status, showSessionExpiredMessage, isCurrentPathPublic]); // Dependencias: dispatch (estable), y el estado de carga del clientContext
+    }, [dispatch, clientContext.status, showSessionExpiredMessage, isCurrentPathPublic, limpiarContextoPorSesionPerdida]); // Dependencias: dispatch (estable), y el estado de carga del clientContext
 
     useEffect(() => {
         checkSession();
@@ -133,14 +152,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children, publicPaths=
         checkSession,
         showSessionExpiredMessage,
         setShowSessionExpiredMessage,
-        handleExpiredSessionRedirect
+        handleExpiredSessionRedirect,
+        avisarCierreVoluntario
     }), [
         isLoggedIn,
         setIsLoggedIn,
         checkSession,
         showSessionExpiredMessage,
         setShowSessionExpiredMessage,
-        handleExpiredSessionRedirect
+        handleExpiredSessionRedirect,
+        avisarCierreVoluntario
     ]);
 
     return (

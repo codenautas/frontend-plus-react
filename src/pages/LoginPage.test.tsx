@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import { Provider } from 'react-redux';
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import LoginPage from './LoginPage';
 import InitialRedirectHandler from '../components/InitialRedirectHandler';
@@ -10,9 +10,10 @@ import routerReducer from '../store/routerSlice';
 import menuUiReducer from '../store/menuUiSlice';
 import { RouterState } from '../types';
 import { fetchApi } from '../utils/fetchApi';
+import { configurarRecuperarClave } from './configuracionLogin';
 
 vi.mock('../utils/fetchApi', async (importarOriginal) => ({ ...(await importarOriginal<typeof import('../utils/fetchApi')>()), fetchApi: vi.fn() }));
-vi.mock('../contexts/AppContext', () => ({ useApp: () => ({ setIsLoggedIn: vi.fn(), checkSession: vi.fn() }) }));
+vi.mock('../contexts/AppContext', () => ({ useApp: () => ({ setIsLoggedIn: vi.fn(), checkSession: vi.fn(), avisarCierreVoluntario: vi.fn() }) }));
 
 const fetchApiSimulado = vi.mocked(fetchApi);
 
@@ -27,8 +28,8 @@ function respuesta(cuerpo: unknown, url: string): Response {
     return resultado;
 }
 
-function renderizar(redirectPath: string | null) {
-    const router: RouterState = { currentPath: '/login', previousPath: null, redirectPath };
+function renderizar(redirectPath: string | null, redirectUsername: string | null = null) {
+    const router: RouterState = { currentPath: '/login', previousPath: null, redirectPath, redirectUsername };
     const store = configureStore({
         reducer: { clientContext: clientContextReducer, router: routerReducer, menuUi: menuUiReducer },
         preloadedState: {
@@ -73,6 +74,42 @@ describe('LoginPage', () => {
         // y se queda ahí: nada pisa la ruta cuando termina de cargarse el contexto
         await new Promise(resolver => setTimeout(resolver, 100));
         expect(pantalla.getByTestId('ruta').textContent).toBe('/bp/menu#w=ayuda');
+    });
+
+    it('el enlace «me olvidé la clave» solo está si la aplicación lo pide', () => {
+        configurarRecuperarClave(undefined);
+        expect(renderizar(null).queryByText(/me olvidé la clave/i)).toBeNull();
+        cleanup();
+        configurarRecuperarClave(true);
+        expect(renderizar(null).getByText(/me olvidé la clave/i).getAttribute('href')).toMatch(/\/new-pass$/);
+        cleanup();
+        configurarRecuperarClave('/recuperar');
+        expect(renderizar(null).getByText(/me olvidé la clave/i).getAttribute('href')).toMatch(/\/recuperar$/);
+        configurarRecuperarClave(undefined);
+    });
+
+    it('si se venció la cookie, el mismo usuario vuelve a donde estaba', async () => {
+        const pantalla = renderizar('/table/usuarios', 'bob');
+        await iniciarSesion(pantalla);
+        await waitFor(() => expect(pantalla.getByTestId('ruta').textContent).toBe('/table/usuarios'));
+    });
+
+    it('si se venció la cookie, otro usuario empieza por la pantalla de inicio', async () => {
+        const pantalla = renderizar('/table/usuarios', 'ana');
+        await iniciarSesion(pantalla);
+        await waitFor(() => expect(pantalla.getByTestId('ruta').textContent).toBe('/'));
+        await new Promise(resolver => setTimeout(resolver, 100));
+        expect(pantalla.getByTestId('ruta').textContent).toBe('/');
+    });
+
+    it('Enter en un campo ingresa, sin pasar por el botón', async () => {
+        const pantalla = renderizar(null);
+        fireEvent.change(await pantalla.findByPlaceholderText('Ingresa tu usuario'), { target: { value: 'bob' } });
+        const clave = pantalla.getByPlaceholderText('Ingresa tu contraseña');
+        fireEvent.change(clave, { target: { value: 'clave' } });
+        fireEvent.keyDown(clave, { key: 'Enter' });
+        await waitFor(() => expect(pantalla.getByTestId('ruta').textContent).toBe('/'));
+        expect(fetchApiSimulado).toHaveBeenCalledWith('/login', expect.anything());
     });
 
     it('sin ruta pedida va a la raíz (la pantalla de inicio la resuelve PantallaInicial)', async () => {

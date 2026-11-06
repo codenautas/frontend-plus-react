@@ -166,6 +166,8 @@ export interface MenuListItemProps {
     level: number;
     /** Los grupos de menú que contienen al ítem (para distinguir ítems de igual nombre en grupos distintos). */
     grupos?: string[];
+    /** Las claves (`claveDeMenu`) de los ítems de su mismo nivel: el acordeón los cierra al abrir un grupo. */
+    hermanos?: string[];
     onMenuItemClick?: () => void;
 }
 
@@ -184,6 +186,8 @@ export interface AppContextType {
     showSessionExpiredMessage: boolean;
     setShowSessionExpiredMessage: (show: boolean) => void;
     handleExpiredSessionRedirect: () => void;
+    /** Salir o cambiar la contraseña: la sesión se cierra a propósito y no corresponde avisar que expiró. `false` al volver a iniciar sesión. */
+    avisarCierreVoluntario: (activo: boolean) => void;
 }
 
 export interface AppProviderProps {
@@ -251,6 +255,8 @@ export interface RouterState {
     currentPath: string;
     previousPath: string | null;
     redirectPath: string | null; // <--- ¡Nueva propiedad!
+    /** Si la sesión se perdió (cookie vencida), el usuario que la tenía: solo ese vuelve a la ruta guardada al ingresar de nuevo. */
+    redirectUsername?: string | null;
 }
 
 export interface FetchApiOptions extends RequestInit {

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Button, TextField, Typography, Alert, AlertTitle, Box, CircularProgress } from '@mui/material'; // Importaciones de MUI
+import { Button, TextField, Typography, Alert, AlertTitle, Box, CircularProgress, Link } from '@mui/material';
+import { useLocation } from 'react-router-dom';
+import { rutaParaRecuperarClave } from './configuracionLogin'; // Importaciones de MUI
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -26,9 +28,13 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 const LoginPage = () => {
     const [loginError, setLoginError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // al volver de cambiar la contraseña: el servidor cerró la sesión
+    const estadoDeLaRuta: unknown = useLocation().state;
+    const claveCambiada = typeof estadoDeLaRuta === 'object' && estadoDeLaRuta !== null && 'claveCambiada' in estadoDeLaRuta && estadoDeLaRuta.claveCambiada === true;
+    const rutaDeRecuperarClave = rutaParaRecuperarClave();
 
     // Obtiene setIsLoggedIn y checkSession del contexto de la aplicación
-    const { setIsLoggedIn, checkSession } = useApp();
+    const { setIsLoggedIn, checkSession, avisarCierreVoluntario } = useApp();
 
     // Obtiene el dispatch de Redux
     const dispatch = useDispatch<AppDispatch>();
@@ -71,6 +77,7 @@ const LoginPage = () => {
             }
 
             // Si el login fue exitoso, actualiza el estado de la sesión y carga el contexto del cliente
+            avisarCierreVoluntario(false);
             setIsLoggedIn(true);
 
             // --- ¡CAMBIO CLAVE AQUÍ! ---
@@ -118,7 +125,17 @@ const LoginPage = () => {
                 <Typography variant="h5" align="center" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
                     Iniciar Sesión
                 </Typography>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <form
+                    onSubmit={handleSubmit(onSubmit)}
+                    className="space-y-4"
+                    // Enter en un campo ingresa directamente (no pasa el foco al botón)
+                    onKeyDown={(evento) => {
+                        if (evento.key !== 'Enter' || evento.shiftKey || evento.ctrlKey || evento.altKey || evento.metaKey) return;
+                        if (!(evento.target instanceof HTMLInputElement)) return;
+                        evento.preventDefault();
+                        if (!isSubmitting) void handleSubmit(onSubmit)();
+                    }}
+                >
                     <div>
                         <label htmlFor="username">
                             <Typography variant="subtitle1" component="div" sx={{ fontWeight: 'medium' }}>
@@ -132,6 +149,8 @@ const LoginPage = () => {
                                 <TextField
                                     {...field}
                                     type="text" // Cambiado de "username" a "text" que es más estándar para input type
+                                    id="username"
+                                    autoComplete="username"
                                     placeholder="Ingresa tu usuario"
                                     fullWidth
                                     margin="normal"
@@ -155,6 +174,8 @@ const LoginPage = () => {
                                 <TextField
                                     {...field}
                                     type="password"
+                                    id="password"
+                                    autoComplete="current-password"
                                     placeholder="Ingresa tu contraseña"
                                     fullWidth
                                     margin="normal"
@@ -176,6 +197,16 @@ const LoginPage = () => {
                         )}
                     </Button>
                 </form>
+                {rutaDeRecuperarClave && (
+                    <Box sx={{ mt: 2, textAlign: 'center' }}>
+                        <Link href={`${envConfig.backendUrl}${rutaDeRecuperarClave}`} variant="body2" underline="hover">
+                            Me olvidé la clave / es mi primer ingreso
+                        </Link>
+                    </Box>
+                )}
+                {claveCambiada && !loginError && (
+                    <Alert severity="success" sx={{ mt: 2 }}>La contraseña se cambió. Ingresá con la clave nueva.</Alert>
+                )}
                 {loginError && (
                     <Alert severity="error" sx={{ mt: 2, maxHeight: '200px' }}> {/* Ya no necesitas alertProps */}
                         <AlertTitle>Error</AlertTitle>

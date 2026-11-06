@@ -14,12 +14,13 @@ import { fetchApi } from '../utils/fetchApi';
 
 const respuesta = (ok: boolean, status: number): Response => new Response('{}', { status: ok ? 200 : status });
 
-function Estado() {
-    const { showSessionExpiredMessage, isLoggedIn } = useApp();
+function Estado({ cierreVoluntario = false }: { cierreVoluntario?: boolean }) {
+    const { showSessionExpiredMessage, isLoggedIn, avisarCierreVoluntario } = useApp();
+    if (cierreVoluntario) avisarCierreVoluntario(true);
     return <span data-testid="estado">{`${isLoggedIn ? 'con sesión' : 'sin sesión'} | cartel: ${showSessionExpiredMessage}`}</span>;
 }
 
-function renderizar(ruta: string, estadoGuardado: ClientContextState['status'], publicPaths: string[] = ['/login']) {
+function renderizar(ruta: string, estadoGuardado: ClientContextState['status'], publicPaths: string[] = ['/login'], cierreVoluntario = false) {
     const inicial = clientContextReducer(undefined, { type: 'inicio' });
     const store = configureStore({
         reducer: { clientContext: clientContextReducer, router: routerReducer, menuUi: menuUiReducer },
@@ -28,7 +29,7 @@ function renderizar(ruta: string, estadoGuardado: ClientContextState['status'], 
     return render(
         <Provider store={store}>
             <MemoryRouter initialEntries={[ruta]}>
-                <AppProvider publicPaths={publicPaths}><Estado /></AppProvider>
+                <AppProvider publicPaths={publicPaths}><Estado cierreVoluntario={cierreVoluntario} /></AppProvider>
             </MemoryRouter>
         </Provider>
     );
@@ -63,6 +64,14 @@ describe('AppProvider: cartel de sesión expirada', () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+
+    it('si la sesión se cerró a propósito (Salir, cambiar la contraseña) no dice que expiró', async () => {
+        vi.mocked(fetchApi).mockResolvedValue(respuesta(false, 401));
+        const { getByTestId } = renderizar('/table/usuarios', 'succeeded', ['/login'], true);
+        await waitFor(() => expect(fetchApi).toHaveBeenCalled());
+        await new Promise(resolver => setTimeout(resolver, 50));
+        expect(getByTestId('estado').textContent).toBe('sin sesión | cartel: false');
     });
 
     it('en una ruta pública nunca muestra el cartel', async () => {

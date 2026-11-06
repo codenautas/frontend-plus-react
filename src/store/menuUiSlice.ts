@@ -23,20 +23,23 @@ const menuUiSlice = createSlice({
         toggleSubMenu: (state, action: PayloadAction<string>) => {
             state.subMenuOpenStates[action.payload] = !state.subMenuOpenStates[action.payload];
         },
-        // --- NUEVO REDUCER: Establecer el estado de todos los submenús ---
-        setAllSubMenusOpen: (state, action: PayloadAction<boolean>) => {
-            // Itera sobre todas las claves existentes y las establece al valor dado
-            for (const menuName in state.subMenuOpenStates) {
-                if (Object.prototype.hasOwnProperty.call(state.subMenuOpenStates, menuName)) {
-                    state.subMenuOpenStates[menuName] = action.payload;
+        /** Acordeón: abre un grupo y cierra a sus hermanos (con todo lo que tienen adentro). */
+        abrirGrupo: (state, action: PayloadAction<{ clave: string; hermanos: string[] }>) => {
+            for (const clave of Object.keys(state.subMenuOpenStates)) {
+                if (action.payload.hermanos.some(hermano => clave === hermano || clave.startsWith(hermano + '/'))) {
+                    state.subMenuOpenStates[clave] = false;
                 }
             }
-            // Importante: Si hay nuevos submenús que no están en subMenuOpenStates,
-            // no se verán afectados por este bucle.
-            // Una estrategia más robusta para casos donde el menú puede cambiar dinámicamente
-            // sería obtener todos los nombres de menú recursivamente desde clientContext.menu
-            // y actualizar sus estados. Por ahora, asumimos que los que ya están en el estado
-            // son los que queremos controlar.
+            state.subMenuOpenStates[action.payload.clave] = true;
+        },
+        /** Deja abiertos solo los grupos de este camino (el del ítem que se está mostrando). */
+        abrirCamino: (state, action: PayloadAction<string[]>) => {
+            for (const clave of Object.keys(state.subMenuOpenStates)) {
+                state.subMenuOpenStates[clave] = action.payload.includes(clave);
+            }
+            for (const clave of action.payload) {
+                state.subMenuOpenStates[clave] = true;
+            }
         },
         resetMenuUiState: (state) => {
             Object.assign(state, initialState);
@@ -49,7 +52,8 @@ export const {
     toggleDrawer,
     setSubMenuOpen,
     toggleSubMenu,
-    setAllSubMenusOpen, // ¡Exportamos la nueva acción!
+    abrirGrupo,
+    abrirCamino,
     resetMenuUiState,
 } = menuUiSlice.actions;
 

@@ -4,6 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useClientContextStatus } from '../store'; // Importa useDispatch, useClientContextStatus
 import { setRedirectPath } from '../store/routerSlice'; // Importa la acción para guardar la ruta de redirección
 import { PrivateRouteProps } from '../types';
+import { huboCierreVoluntario } from '../utils/cierreVoluntario';
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
     const location = useLocation();
@@ -21,7 +22,8 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
         // 1. El usuario NO está autenticado.
         // 2. NO estamos en el proceso de carga de autenticación (ya sabemos que no está autenticado).
         // 3. NO estamos ya en la página de login (para evitar guardar /login).
-        if (!isAuthenticated && !isLoadingAuth && location.pathname !== '/login') {
+        // 4. La sesión no se cerró a propósito (Salir, cambiar la contraseña): ahí no se recuerda la pantalla.
+        if (!isAuthenticated && !isLoadingAuth && location.pathname !== '/login' && !huboCierreVoluntario()) {
             const path = location.pathname + location.search + location.hash;
             console.log(`[PrivateRoute] ACTION: Dispatching setRedirectPath(${path})`);
             dispatch(setRedirectPath(path));

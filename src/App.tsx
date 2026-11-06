@@ -30,6 +30,8 @@ import { PantallaDeRespaldo, PaginaBP } from './puente/PantallaBP';
 import { PaginaGrillaBP } from './puente/GrillaBP';
 import { CapturaBP } from './puente/CapturaBP';
 import { habilitarPuenteBP, puenteBPHabilitado } from './puente/habilitacion';
+import CambiarClavePage from './pages/CambiarClavePage';
+import { configurarRecuperarClave } from './pages/configuracionLogin';
 import { extendClientSides } from './components/grid/clientSides';
 import { extendConditions } from './components/grid/condiciones';
 import { extendResultsOk } from './pages/procedure-results/resultsOk';
@@ -89,6 +91,7 @@ export function FrontendPlusReactRoutes({ myRoutes, myUnloggedRoutes, layout: La
                 <Route path="/table/:tableName" element={<GenericDataGridPage />} />
                 <Route path="/menu/*" element={<MenuTablePage />} />
                 <Route path="/procedures/:procedureName" element={<ProcedureForm />} />
+                <Route path="/chpass" element={<CambiarClavePage />} />
                 {Object.keys(wScreens).map((screenName) => (
                     <Route
                         key={screenName}
@@ -141,10 +144,13 @@ const App = ({
     myClientSides,
     myResultsOk,
     myConditions,
-    puenteBP
+    puenteBP,
+    recuperarClave
 }: AppProps & {
     /** Las wScreens que la aplicación no registró se piden al cliente de backend-plus (mismo origen que el backend) */
     puenteBP?: boolean
+    /** Muestra en el login el enlace «me olvidé la clave»: `true` para `/new-pass` (el de backend-plus por omisión) o la ruta que el backend declare en `login.forget.urlPath` */
+    recuperarClave?: boolean | string
 }) => {
     // Lo que aporta la aplicación se registra antes del primer render (y no en un efecto): las rutas de las wScreens
     // se arman a partir del registro al renderizar, y un detalle puede necesitar una condición o una wScreen enseguida.
@@ -164,7 +170,8 @@ const App = ({
         if (puenteBP) {
             habilitarPuenteBP();
         }
-    }, [myClientSides, myResultsOk, myWScreens, myConditions, puenteBP]);
+        configurarRecuperarClave(recuperarClave);
+    }, [myClientSides, myResultsOk, myWScreens, myConditions, puenteBP, recuperarClave]);
 
     useEffect(() => {
         // --- DINAMICO: Configuración de TypeStore en español ---

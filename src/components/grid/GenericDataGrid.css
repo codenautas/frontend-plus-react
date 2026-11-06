@@ -1,5 +1,17 @@
 /* src/components/grid/GenericDataGrid.css */
 
+/* Colores alineados con el skin "modern" de backend-skins (my-tables.styl), para que una grilla de
+   backend-plus que entra por el puente se parezca a esta. Si el CSS del skin está cargado se usa su
+   --primary-rgb; si no, el azul de MUI (el mismo valor). */
+.rdg-light {
+  --rdg-border-color: #e0e0e0;
+  --rdg-header-background-color: #eceff1;
+  --rdg-row-hover-background-color: rgba(var(--primary-rgb, 25, 118, 210), 0.06);
+  --rdg-row-selected-background-color: rgba(var(--primary-rgb, 25, 118, 210), 0.12);
+  --rdg-row-selected-hover-background-color: rgba(var(--primary-rgb, 25, 118, 210), 0.16);
+  --rdg-selection-color: rgb(var(--primary-rgb, 25, 118, 210));
+}
+
 /* Celda de datos (reemplaza al Box + Typography de MUI que se armaba en cada celda) */
 .fpr-celda {
   position: absolute;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { RenderCellProps } from 'react-data-grid';
 import { FilaDeDatos, FilaDeResumen } from '../../../types';
-import { Box, Button, Tooltip, useTheme } from '@mui/material';
+import { Box, IconButton, Tooltip, useTheme } from '@mui/material';
 import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -149,17 +149,16 @@ export const allColumnsCellRenderer = (
             return (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', gap: 0.5 }}>
                     {gridActionButtons.map(actionDef => (
-                        tableDefinition.allow![actionDef.action] ? <Button
+                        tableDefinition.allow![actionDef.action] ? <IconButton
                             key={actionDef.action}
-                            variant="outlined"
-                            color={actionDef.color}
                             size="small"
                             onClick={() => actionDef.handler(row)}
                             title={actionDef.title}
-                            sx={{ width: 22, minWidth: 22, height: 22, '& .MuiButton-startIcon': { m: 0 } }}
+                            // como el skin modern de backend-plus: íconos grises sin borde, que toman su color al pasar el mouse
+                            sx={{ width: 22, height: 22, p: 0, color: 'grey.800', '&:hover': { color: `${actionDef.color}.main` } }}
                         >
                             <actionDef.icon sx={{ fontSize: 18 }} />
-                        </Button> : null
+                        </IconButton> : null
                     ))}
                 </Box>
             );

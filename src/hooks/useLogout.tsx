@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../store'; // Asegúrate de que la ruta sea correcta
 import { clearClientContext } from '../store/clientContextSlice'; // Importa la acción para limpiar el contexto
+import { setRedirectPath } from '../store/routerSlice';
 
 import { useApp } from '../contexts/AppContext'; // Para acceder a setIsLoggedIn
 import { fetchApi } from '../utils/fetchApi'; // Para la llamada a la API
@@ -17,7 +18,7 @@ import { fetchApi } from '../utils/fetchApi'; // Para la llamada a la API
  */
 const useLogout = () => {
     // Obtenemos las funciones del contexto de la aplicación
-    const { setIsLoggedIn } = useApp(); // setClientContext ya no viene de useApp()
+    const { setIsLoggedIn, avisarCierreVoluntario } = useApp(); // setClientContext ya no viene de useApp()
 
     // Obtenemos el dispatch de Redux
     const dispatch = useDispatch<AppDispatch>();
@@ -27,6 +28,7 @@ const useLogout = () => {
 
     // Utilizamos useCallback para memoizar la función 'logout'
     const logout = useCallback(async () => {
+        avisarCierreVoluntario(true);
         try {
             const response = await fetchApi('/logout', { method: 'GET' }); // Asumiendo que tienes un endpoint /logout
             
@@ -51,10 +53,11 @@ const useLogout = () => {
             // --- ¡CAMBIO CLAVE AQUÍ! ---
             // Despacha la acción de Redux para limpiar el clientContext
             dispatch(clearClientContext()); 
+            dispatch(setRedirectPath(null)); // salir a propósito: al volver a ingresar no se vuelve a esta pantalla
 
             navigate('/login', { replace: true }); // Redirige a /login
         }
-    }, [setIsLoggedIn, dispatch, navigate]); // Dependencias: setIsLoggedIn, dispatch (estable), navigate (estable)
+    }, [setIsLoggedIn, avisarCierreVoluntario, dispatch, navigate]); // Dependencias: setIsLoggedIn, dispatch (estable), navigate (estable)
 
     return logout; // Devolvemos la función 'logout'
 };
