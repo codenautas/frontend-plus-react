@@ -10,6 +10,12 @@
   --rdg-row-selected-background-color: rgba(var(--primary-rgb, 25, 118, 210), 0.12);
   --rdg-row-selected-hover-background-color: rgba(var(--primary-rgb, 25, 118, 210), 0.16);
   --rdg-selection-color: rgb(var(--primary-rgb, 25, 118, 210));
+  /* La grilla virtualiza: al scrollear rápido las filas tardan en dibujarse. Detrás se ve el patrón de filas vacías
+     (30 px, el alto de ROW_HEIGHT, con el borde de las celdas) en lugar de blanco liso, y se acompaña el scroll. */
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 29px, var(--rdg-border-color) 29px, var(--rdg-border-color) 30px);
+  background-attachment: local;
+  /* react-data-grid lo pone en auto y el navegador puede demorar el pintado de lo que acaba de entrar en pantalla */
+  content-visibility: visible;
 }
 
 /* Celda de datos (reemplaza al Box + Typography de MUI que se armaba en cada celda) */
