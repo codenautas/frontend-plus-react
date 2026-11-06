@@ -6,9 +6,10 @@
 .rdg-light {
   --rdg-border-color: #e0e0e0;
   --rdg-header-background-color: #eceff1;
-  --rdg-row-hover-background-color: rgba(var(--primary-rgb, 25, 118, 210), 0.06);
-  --rdg-row-selected-background-color: rgba(var(--primary-rgb, 25, 118, 210), 0.12);
-  --rdg-row-selected-hover-background-color: rgba(var(--primary-rgb, 25, 118, 210), 0.16);
+  /* opacos (mezcla con blanco): con un color translúcido el patrón de filas vacías de abajo se vería como una raya en la fila */
+  --rdg-row-hover-background-color: color-mix(in srgb, rgb(var(--primary-rgb, 25, 118, 210)) 6%, white);
+  --rdg-row-selected-background-color: color-mix(in srgb, rgb(var(--primary-rgb, 25, 118, 210)) 12%, white);
+  --rdg-row-selected-hover-background-color: color-mix(in srgb, rgb(var(--primary-rgb, 25, 118, 210)) 16%, white);
   --rdg-selection-color: rgb(var(--primary-rgb, 25, 118, 210));
   /* La grilla virtualiza: al scrollear rápido las filas tardan en dibujarse. Detrás se ve el patrón de filas vacías
      (30 px, el alto de ROW_HEIGHT, con el borde de las celdas) en lugar de blanco liso, y se acompaña el scroll. */
@@ -77,11 +78,14 @@
   max-width: 100%;
 }
 
+/* Sobre toda la celda (no sobre lo que queda dentro de su padding de 8 px a cada lado): la columna mide 30 px y
+   el botón se corría hacia la derecha, fuera del centro de la columna y de su sigla en el encabezado */
 .fpr-boton-detalle {
+  position: absolute;
+  inset: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100%;
 }
 
 /* Estas clases estaban solo en index.css, que la librería no importa */

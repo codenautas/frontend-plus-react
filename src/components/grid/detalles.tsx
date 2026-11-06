@@ -117,8 +117,11 @@ export function BotonDetalle({ row, rowId, detailTable, deshabilitado }: BotonDe
             <span className="fpr-boton-detalle">
                 <IconButton
                     size="small"
+                    sx={{ width: 24, height: 24, p: 0 }}
                     disabled={deshabilitado}
                     onClick={(e) => alternarDetalle(row, rowId, detailTable, e.ctrlKey || e.metaKey)}
+                    // al apretar la ruedita el navegador (Windows) empieza el desplazamiento automático y no manda el auxclick: se cancela
+                    onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}
                     onAuxClick={(e) => { if (e.button === 1) alternarDetalle(row, rowId, detailTable, true); }}
                 >
                     {abierto ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowRightIcon fontSize="small" />}

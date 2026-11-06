@@ -120,7 +120,9 @@ export const ActionsColumnHeaderCell = ({
 
 export const detailColumnCellHeaderRenderer = (props: RenderHeaderCellProps<FilaDeDatos, FilaDeResumen>, detailTable: DetailTable) =>
     <Tooltip title={detailTable.label}>
-        <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-            {detailTable.abr.toUpperCase()}
-        </Typography>
+        <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
+                {detailTable.abr.toUpperCase()}
+            </Typography>
+        </Box>
     </Tooltip>

@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import { useContext } from 'react';
 import { DetailTable } from 'backend-plus';
 import { AltoDisponibleContext, BotonDetalle, DETALLE, DetalleWScreen, DetallesGrillaContext, FilaDetalle } from './detalles';
@@ -79,6 +79,22 @@ describe('BotonDetalle con condition', () => {
     it('si la condición da falso la fila no tiene botón (queda la celda vacía)', () => {
         extendConditions({ soloMayores: fila => Number(fila.edad) >= 18 });
         expect(dibujar({ edad: 10 }).container.querySelector('button')).toBeNull();
+    });
+
+    it('Ctrl+clic y la ruedita abren el detalle en otra pestaña (la ruedita no debe empezar el desplazamiento automático)', () => {
+        extendConditions({ soloMayores: () => true });
+        contexto.alternarDetalle.mockClear();
+        const boton = dibujar({ edad: 30 }).container.querySelector('button')!;
+        fireEvent.click(boton, { ctrlKey: true });
+        expect(contexto.alternarDetalle).toHaveBeenLastCalledWith(expect.anything(), '1', tabla, true);
+        // mousedown devuelve false si alguien llamó a preventDefault
+        expect(fireEvent.mouseDown(boton, { button: 1 })).toBe(false);
+        fireEvent.mouseUp(boton, { button: 1 });
+        fireEvent(boton, new MouseEvent('auxclick', { bubbles: true, button: 1 }));
+        expect(contexto.alternarDetalle).toHaveBeenLastCalledWith(expect.anything(), '1', tabla, true);
+        expect(contexto.alternarDetalle).toHaveBeenCalledTimes(2);
+        // el clic común sigue siendo un despliegue normal
+        expect(fireEvent.mouseDown(boton, { button: 0 })).toBe(true);
     });
 
     it('si la condición da verdadero muestra el botón', () => {
